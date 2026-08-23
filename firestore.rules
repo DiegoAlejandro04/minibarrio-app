@@ -9,20 +9,20 @@ rules_version = '2';
 //
 // Despliega estas reglas con: firebase deploy --only firestore:rules
 
-function estaAutenticado() {
-  return request.auth != null;
-}
-
-function esDueno(uid) {
-  return estaAutenticado() && request.auth.uid == uid;
-}
-
-function rolDe(uid) {
-  return get(/databases/$(database)/documents/usuarios/$(uid)).data.rol;
-}
-
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+
+    function esDueno(uid) {
+      return estaAutenticado() && request.auth.uid == uid;
+    }
+
+    function rolDe(uid) {
+      return get(/databases/$(database)/documents/usuarios/$(uid)).data.rol;
+    }
 
     // Perfiles de usuario: cada quien lee y escribe solo el suyo.
     match /usuarios/{uid} {
