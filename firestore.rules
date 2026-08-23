@@ -1,0 +1,75 @@
+rules_version = '2';
+
+// Reglas de seguridad de Firestore — MiniBarrio (prototipo académico).
+//
+// Modelo de roles: cada usuario autenticado tiene un documento en
+// "usuarios/{uid}" con un campo "rol" ("cliente" | "propietario"). El
+// negocio de un propietario vive en "negocios/{uid}" usando el MISMO uid
+// como id de documento (1 propietario ⇄ 1 negocio en este prototipo).
+//
+// Despliega estas reglas con: firebase deploy --only firestore:rules
+
+function estaAutenticado() {
+  return request.auth != null;
+}
+
+function esDueno(uid) {
+  return estaAutenticado() && request.auth.uid == uid;
+}
+
+function rolDe(uid) {
+  return get(/databases/$(database)/documents/usuarios/$(uid)).data.rol;
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Perfiles de usuario: cada quien lee y escribe solo el suyo.
+    match /usuarios/{uid} {
+      allow read: if esDueno(uid);
+      allow create: if esDueno(uid)
+                    && request.resource.data.rol in ['cliente', 'propietario'];
+      allow update: if esDueno(uid)
+                    && request.resource.data.rol == resource.data.rol; // el rol no se puede auto-cambiar
+      allow delete: if false;
+    }
+
+    // Negocios: lectura pública (portafolio visible sin sesión, RF-12);
+    // escritura solo por su propio propietario.
+    match /negocios/{negocioId} {
+      allow read: if true;
+      allow create: if esDueno(negocioId)
+                    && rolDe(request.auth.uid) == 'propietario'
+                    && request.resource.data.propietarioId == request.auth.uid;
+      allow update, delete: if esDueno(negocioId);
+
+      // Catálogo de servicios del negocio (RF-03/RF-04).
+      match /servicios/{servicioId} {
+        allow read: if true;
+        allow write: if esDueno(negocioId);
+      }
+
+      // Reseñas (RF-10): cualquier cliente autenticado puede crear la suya;
+      // solo puede editar/borrar la propia; el propietario no puede tocarlas.
+      match /resenas/{resenaId} {
+        allow read: if true;
+        allow create: if estaAutenticado()
+                      && rolDe(request.auth.uid) == 'cliente'
+                      && request.resource.data.clienteId == request.auth.uid;
+        allow update, delete: if estaAutenticado() && resource.data.clienteId == request.auth.uid;
+      }
+    }
+
+    // Citas (RF-07/RF-08): el cliente que la creó y el propietario del
+    // negocio involucrado pueden leerla/actualizarla; nadie más.
+    match /citas/{citaId} {
+      allow read, update: if estaAutenticado()
+                          && (resource.data.clienteId == request.auth.uid
+                              || resource.data.negocioId == request.auth.uid);
+      allow create: if estaAutenticado()
+                    && rolDe(request.auth.uid) == 'cliente'
+                    && request.resource.data.clienteId == request.auth.uid;
+      allow delete: if false;
+    }
+  }
+}

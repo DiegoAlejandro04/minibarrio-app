@@ -1,0 +1,105 @@
+/* ==========================================================================
+   MiniBarrio — Design tokens
+   Mismos valores usados en los mockups de alta fidelidad (canvas de diseño).
+   Mantener este archivo como única fuente de verdad para colores/tipografía.
+   ========================================================================== */
+
+:root {
+  /* Fondo y superficies */
+  --bg: oklch(97.3% 0.013 80);
+  --surface: oklch(99% 0.004 80);
+  --surface-2: oklch(95.3% 0.017 75);
+  --border: oklch(91% 0.018 72);
+  --border-strong: oklch(89% 0.02 70);
+
+  /* Texto */
+  --text: oklch(23% 0.02 55);
+  --text-muted: oklch(46% 0.018 60);
+  --text-faint: oklch(63% 0.014 60);
+
+  /* Superficie oscura (sidebar, header dark, banners) */
+  --ink: oklch(23% 0.035 165);
+  --ink-2: oklch(30% 0.04 165);
+  --ink-text: oklch(94% 0.01 165);
+
+  /* Acento primario (terracota / naranja) */
+  --accent: oklch(68% 0.15 48);
+  --accent-hover: oklch(60% 0.155 46);
+  --accent-soft: oklch(93% 0.045 55);
+
+  /* Secundario (verde salvia) */
+  --sage: oklch(63% 0.08 152);
+  --sage-soft: oklch(92% 0.035 150);
+  --sage-text: oklch(30% 0.06 150);
+
+  /* Estado */
+  --warning: oklch(78% 0.13 75);
+  --warning-soft: oklch(94% 0.05 75);
+  --danger: oklch(56% 0.17 25);
+
+  /* Radios y sombras */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px oklch(23% 0.02 55 / 0.06), 0 1px 1px oklch(23% 0.02 55 / 0.04);
+  --shadow-md: 0 8px 24px oklch(23% 0.02 55 / 0.08), 0 2px 6px oklch(23% 0.02 55 / 0.05);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+button { font-family: inherit; cursor: pointer; }
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  width: 100%;
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px oklch(68% 0.15 48 / 0.15);
+}
+
+.btn {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 12px 20px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+.btn-outline { background: var(--surface); border: 1px solid var(--border-strong); color: var(--text); }
+.btn-outline:hover { background: var(--surface-2); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.error-text {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 8px;
+}
