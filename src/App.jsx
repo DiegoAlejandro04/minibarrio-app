@@ -15,15 +15,8 @@ export default function App() {
       <Route path="/registro/cliente" element={<RegisterClient />} />
       <Route path="/registro/negocio" element={<RegisterBusiness />} />
 
-      {/* Vista cliente (RF-05, RF-06, RF-09, RF-12…) */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute allowedRoles={['cliente']}>
-            <ClientHome />
-          </ProtectedRoute>
-        }
-      />
+      {/* Vitrina pública de negocios (RF-05, RF-06, RF-09, RF-12): visible sin sesión */}
+      <Route path="/" element={<ClientHome />} />
 
       {/* Panel del comerciante (RF-02, RF-03, RF-04, RF-07…) */}
       <Route
