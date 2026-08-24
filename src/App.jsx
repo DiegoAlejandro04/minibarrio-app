@@ -7,6 +7,7 @@ import ClientHome from './pages/client/ClientHome.jsx'
 import NegocioDetalle from './pages/client/NegocioDetalle.jsx'
 import OwnerLayout from './pages/owner/OwnerLayout.jsx'
 import OwnerResumen from './pages/owner/OwnerResumen.jsx'
+import OwnerAgenda from './pages/owner/OwnerAgenda.jsx'
 import OwnerServicios from './pages/owner/OwnerServicios.jsx'
 import OwnerPortafolio from './pages/owner/OwnerPortafolio.jsx'
 import OwnerClientes from './pages/owner/OwnerClientes.jsx'
@@ -38,7 +39,7 @@ export default function App() {
         <Route path="servicios" element={<OwnerServicios />} />
         <Route path="portafolio" element={<OwnerPortafolio />} />
         <Route path="clientes" element={<OwnerClientes />} />
-        <Route path="agenda" element={<OwnerProximamente titulo="Agenda" />} />
+        <Route path="agenda" element={<OwnerAgenda />} />
         <Route path="resenas" element={<OwnerProximamente titulo="Reseñas" />} />
         <Route path="configuracion" element={<OwnerProximamente titulo="Configuración" />} />
       </Route>
