@@ -24,9 +24,13 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/usuarios/$(uid)).data.rol;
     }
 
-    // Perfiles de usuario: cada quien lee y escribe solo el suyo.
+    // Perfiles de usuario: cada quien lee y escribe solo el suyo. Excepción:
+    // un propietario puede leer el perfil de un cliente (nombre/teléfono)
+    // para mostrarlo en su panel de "Clientes" — no al revés, y nunca entre
+    // dos propietarios.
     match /usuarios/{uid} {
-      allow read: if esDueno(uid);
+      allow read: if esDueno(uid)
+                  || (estaAutenticado() && rolDe(request.auth.uid) == 'propietario' && resource.data.rol == 'cliente');
       allow create: if esDueno(uid)
                     && request.resource.data.rol in ['cliente', 'propietario'];
       allow update: if esDueno(uid)
@@ -58,14 +62,29 @@ service cloud.firestore {
                       && request.resource.data.clienteId == request.auth.uid;
         allow update, delete: if estaAutenticado() && resource.data.clienteId == request.auth.uid;
       }
+
+      // Visitas al perfil (contador de "Visitas al perfil" del panel): un
+      // marcador por cliente. Solo se permite "create" (nunca "update"), así
+      // que un mismo cliente no puede sumar más de una visita a un negocio
+      // aunque vuelva a entrar varias veces. El propietario puede leer la
+      // subcolección completa para contar sus visitas; cada cliente solo
+      // puede leer su propio marcador.
+      match /visitas/{clienteId} {
+        allow read: if esDueno(clienteId) || esDueno(negocioId);
+        allow create: if esDueno(clienteId) && rolDe(clienteId) == 'cliente';
+        allow update, delete: if false;
+      }
     }
 
-    // Citas (RF-07/RF-08): el cliente que la creó y el propietario del
-    // negocio involucrado pueden leerla/actualizarla; nadie más.
+    // Citas (RF-07/RF-08). Lectura: cualquier usuario autenticado puede leer
+    // (necesario para calcular los turnos ya ocupados de un negocio antes de
+    // reservar, ver NegocioDetalle.jsx); solo el cliente dueño de la cita o
+    // el propietario del negocio pueden actualizarla.
     match /citas/{citaId} {
-      allow read, update: if estaAutenticado()
-                          && (resource.data.clienteId == request.auth.uid
-                              || resource.data.negocioId == request.auth.uid);
+      allow read: if estaAutenticado();
+      allow update: if estaAutenticado()
+                    && (resource.data.clienteId == request.auth.uid
+                        || resource.data.negocioId == request.auth.uid);
       allow create: if estaAutenticado()
                     && rolDe(request.auth.uid) == 'cliente'
                     && request.resource.data.clienteId == request.auth.uid;

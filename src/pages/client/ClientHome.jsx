@@ -352,13 +352,13 @@ export default function ClientHome() {
                     {destacado.direccion}
                   </div>
                 </div>
-                <span
+                <Link
+                  to={`/negocio/${destacado.id}`}
                   className="btn btn-primary"
-                  style={{ fontSize: 12.5, padding: '8px 12px', opacity: 0.55, cursor: 'not-allowed' }}
-                  title="Próximamente: perfil público del negocio"
+                  style={{ fontSize: 12.5, padding: '8px 12px' }}
                 >
                   Ver portafolio
-                </span>
+                </Link>
               </div>
             )}
           </div>
@@ -395,7 +395,7 @@ export default function ClientHome() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}>
             {resultados.map((n) => (
-              <div key={n.id} className="card" style={{ overflow: 'hidden' }}>
+              <Link key={n.id} to={`/negocio/${n.id}`} className="card" style={{ overflow: 'hidden', display: 'block', color: 'inherit' }}>
                 <div style={{ height: 110, background: 'var(--surface-2)' }} />
                 <div style={{ padding: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
@@ -422,7 +422,7 @@ export default function ClientHome() {
                     )}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
