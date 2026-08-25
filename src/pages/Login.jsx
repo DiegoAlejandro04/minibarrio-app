@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import Icon from '../components/Icon.jsx'
 
 export default function Login() {
   const [tab, setTab] = useState('cliente') // solo cambia el copy; el rol real viene de Firestore
   const [correo, setCorreo] = useState('')
   const [contrasena, setContrasena] = useState('')
+  const [mostrarContrasena, setMostrarContrasena] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -86,14 +88,28 @@ export default function Login() {
           />
 
           <label style={{ fontSize: 12.5, fontWeight: 700 }}>Contraseña</label>
-          <input
-            type="password"
-            required
-            value={contrasena}
-            onChange={(e) => setContrasena(e.target.value)}
-            placeholder="••••••••"
-            style={{ marginTop: 6 }}
-          />
+          <div style={{ position: 'relative', marginTop: 6 }}>
+            <input
+              type={mostrarContrasena ? 'text' : 'password'}
+              required
+              value={contrasena}
+              onChange={(e) => setContrasena(e.target.value)}
+              placeholder="••••••••"
+              style={{ paddingRight: 40 }}
+            />
+            <button
+              type="button"
+              onClick={() => setMostrarContrasena((v) => !v)}
+              title={mostrarContrasena ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              style={{
+                position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer',
+                display: 'flex', padding: 4,
+              }}
+            >
+              <Icon name={mostrarContrasena ? 'eyeOff' : 'eye'} size={17} />
+            </button>
+          </div>
 
           {error && <div className="error-text">{error}</div>}
 

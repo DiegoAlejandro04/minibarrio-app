@@ -168,7 +168,9 @@ export default function ClientHome() {
             >
               MB
             </span>
-            <span style={{ color: 'var(--text)' }}>Mini</span><span style={{ color: 'var(--accent)' }}>Barrio</span>
+            <span>
+              <span style={{ color: 'var(--text)' }}>Mini</span><span style={{ color: 'var(--accent)' }}>Barrio</span>
+            </span>
           </Link>
           <nav style={{ display: 'flex', gap: 20, fontSize: 13.5, fontWeight: 700 }}>
             <a href="#resultados" style={{ color: 'var(--text-muted)' }}>Explorar</a>
