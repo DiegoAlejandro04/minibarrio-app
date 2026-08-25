@@ -54,7 +54,16 @@ export default function RegisterBusiness() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '48px 24px' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '48px 24px', position: 'relative' }}>
+      <Link
+        to="/"
+        style={{
+          position: 'absolute', top: 24, left: 24, fontSize: 13.5, fontWeight: 700, color: 'var(--text-muted)',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}
+      >
+        ← Volver al inicio
+      </Link>
       <div className="card" style={{ width: 480, padding: 32, height: 'fit-content' }}>
         <div style={{ fontSize: 22, fontWeight: 800 }}>Registra tu barbería en MiniBarrio</div>
         <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 6 }}>

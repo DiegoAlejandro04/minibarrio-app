@@ -51,7 +51,16 @@ export default function RegisterClient() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative' }}>
+      <Link
+        to="/"
+        style={{
+          position: 'absolute', top: 24, left: 24, fontSize: 13.5, fontWeight: 700, color: 'var(--text-muted)',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}
+      >
+        ← Volver al inicio
+      </Link>
       <div className="card" style={{ width: 400, padding: 32 }}>
         <div style={{ fontSize: 22, fontWeight: 800 }}>Crea tu cuenta de cliente</div>
         <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 6 }}>

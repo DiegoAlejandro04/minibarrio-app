@@ -45,6 +45,9 @@ export default function OwnerResumen() {
   const [resenas, setResenas] = useState([])
   const [visitas, setVisitas] = useState(0)
   const [clientes, setClientes] = useState({}) // uid -> nombre
+  const [modoCitas, setModoCitas] = useState('semanal') // 'semanal' | 'mensual'
+  const [modoIngresos, setModoIngresos] = useState('semanal') // 'semanal' | 'mensual' | 'semestre'
+  const [semestre, setSemestre] = useState('primero') // 'primero' | 'segundo'
 
   useEffect(() => {
     if (!uid) return
@@ -75,6 +78,11 @@ export default function OwnerResumen() {
 
   const ahora = useMemo(() => new Date(), [])
   const inicioSemana = useMemo(() => startOfWeek(ahora), [ahora])
+  const finSemana = useMemo(() => {
+    const d = new Date(inicioSemana)
+    d.setDate(d.getDate() + 7)
+    return d
+  }, [inicioSemana])
 
   const citasConFecha = useMemo(
     () => citas.map((c) => ({ ...c, fecha: c.fechaHora?.toDate ? c.fechaHora.toDate() : null })),
@@ -86,19 +94,59 @@ export default function OwnerResumen() {
     [citasConFecha, ahora]
   )
 
+  // Semana de lunes a domingo (con límite superior, no solo "desde el lunes").
   const citasEstaSemana = useMemo(
-    () => citasConFecha.filter((c) => c.fecha && c.fecha >= inicioSemana).length,
-    [citasConFecha, inicioSemana]
+    () => citasConFecha.filter((c) => c.fecha && c.fecha >= inicioSemana && c.fecha < finSemana).length,
+    [citasConFecha, inicioSemana, finSemana]
   )
+
+  const citasEsteMes = useMemo(
+    () => citasConFecha.filter((c) => c.fecha && isSameMonth(c.fecha, ahora)).length,
+    [citasConFecha, ahora]
+  )
+
+  const citasMostradas = modoCitas === 'semanal' ? citasEstaSemana : citasEsteMes
 
   const serviciosPorId = useMemo(() => Object.fromEntries(servicios.map((s) => [s.id, s])), [servicios])
 
+  // Ingresos: suma citas "pendiente" o "completada" (las canceladas no cuentan).
+  const cuentaParaIngresos = (c) => c.estado === 'pendiente' || c.estado === 'completada'
+
   const ingresosSemana = useMemo(
     () => citasConFecha
-      .filter((c) => c.estado === 'completada' && c.fecha && c.fecha >= inicioSemana)
+      .filter((c) => c.fecha && c.fecha >= inicioSemana && c.fecha < finSemana && cuentaParaIngresos(c))
       .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0),
-    [citasConFecha, inicioSemana, serviciosPorId]
+    [citasConFecha, inicioSemana, finSemana, serviciosPorId]
   )
+
+  const ingresosMes = useMemo(
+    () => citasConFecha
+      .filter((c) => c.fecha && isSameMonth(c.fecha, ahora) && cuentaParaIngresos(c))
+      .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0),
+    [citasConFecha, ahora, serviciosPorId]
+  )
+
+  const ingresosSemestre = useMemo(() => {
+    const anio = ahora.getFullYear()
+    const mesInicio = semestre === 'primero' ? 0 : 6
+    const mesFin = semestre === 'primero' ? 5 : 11
+    return citasConFecha
+      .filter((c) => c.fecha
+        && c.fecha.getFullYear() === anio
+        && c.fecha.getMonth() >= mesInicio && c.fecha.getMonth() <= mesFin
+        && cuentaParaIngresos(c))
+      .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0)
+  }, [citasConFecha, ahora, semestre, serviciosPorId])
+
+  const ingresosMostrados = modoIngresos === 'semanal' ? ingresosSemana : modoIngresos === 'mensual' ? ingresosMes : ingresosSemestre
+
+  const subIngresos = modoIngresos === 'semanal'
+    ? 'Semana en curso'
+    : modoIngresos === 'mensual'
+      ? 'Mes en curso'
+      : semestre === 'primero'
+        ? 'Ingresos desde enero a junio'
+        : 'Ingresos desde julio a diciembre'
 
   const calificacionPromedio = useMemo(() => {
     if (resenas.length === 0) return null
@@ -154,14 +202,65 @@ export default function OwnerResumen() {
           value={visitas.toLocaleString('es-CO')}
           sub={visitas === 0 ? 'Aún sin visitas' : 'Clientes únicos que vieron tu perfil'}
         />
-        <StatTile icon="calendar" label="Citas agendadas" value={citas.length.toLocaleString('es-CO')} sub={`${citasEstaSemana} esta semana`} />
+        <StatTile
+          icon="calendar"
+          label="Citas agendadas"
+          value={citasMostradas.toLocaleString('es-CO')}
+          sub={`${citasMostradas} ${modoCitas === 'semanal' ? 'esta semana' : 'este mes'}`}
+          extra={
+            <ToggleSegmentado
+              opciones={[{ value: 'semanal', label: 'Semanal' }, { value: 'mensual', label: 'Mensual' }]}
+              valor={modoCitas}
+              onChange={setModoCitas}
+              width={124}
+            />
+          }
+        />
         <StatTile
           icon="star"
           label="Calificación"
           value={calificacionPromedio === null ? '—' : calificacionPromedio.toFixed(1)}
           sub={resenas.length === 0 ? 'Sin reseñas aún' : `${resenasNuevas} reseña${resenasNuevas === 1 ? '' : 's'} nueva${resenasNuevas === 1 ? '' : 's'}`}
         />
-        <StatTile icon="trending" label="Ingresos estimados" value={COP.format(ingresosSemana)} sub="Semana en curso" />
+
+        <div className="card" style={{ padding: '16px 18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 700 }}>Ingresos estimados</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ToggleSegmentado
+                opciones={[
+                  { value: 'semanal', label: 'Semanal' },
+                  { value: 'mensual', label: 'Mensual' },
+                  { value: 'semestre', label: 'Semestre' },
+                ]}
+                valor={modoIngresos}
+                onChange={setModoIngresos}
+                width={172}
+              />
+              <div style={{ color: 'var(--text-faint)' }}>
+                <Icon name="trending" size={16} />
+              </div>
+            </div>
+          </div>
+
+          {modoIngresos === 'semestre' && (
+            <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+              <ToggleSegmentado
+                opciones={[
+                  { value: 'primero', label: '1er Semestre' },
+                  { value: 'segundo', label: '2do Semestre' },
+                ]}
+                valor={semestre}
+                onChange={setSemestre}
+                width={196}
+                fontSize={9.5}
+              />
+            </div>
+          )}
+
+          <div style={{ fontSize: 24, fontWeight: 800, marginTop: 10 }}>{COP.format(ingresosMostrados)}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 4 }}>{subIngresos}</div>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, marginTop: 16 }}>
@@ -262,17 +361,58 @@ export default function OwnerResumen() {
   )
 }
 
-function StatTile({ icon, label, value, sub }) {
+function StatTile({ icon, label, value, sub, extra }) {
   return (
     <div className="card" style={{ padding: '16px 18px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 700 }}>{label}</div>
-        <div style={{ color: 'var(--text-faint)' }}>
-          <Icon name={icon} size={16} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {extra}
+          <div style={{ color: 'var(--text-faint)' }}>
+            <Icon name={icon} size={16} />
+          </div>
         </div>
       </div>
       <div style={{ fontSize: 24, fontWeight: 800, marginTop: 8 }}>{value}</div>
       <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 4 }}>{sub}</div>
+    </div>
+  )
+}
+
+// Interruptor estilo iOS (segmented control de N opciones) — usado para
+// alternar Semanal/Mensual (Citas) y Semanal/Mensual/Semestre + 1er/2do
+// semestre (Ingresos estimados).
+function ToggleSegmentado({ opciones, valor, onChange, width = 124, fontSize = 10 }) {
+  const indice = Math.max(0, opciones.findIndex((o) => o.value === valor))
+  const n = opciones.length
+  return (
+    <div
+      style={{
+        position: 'relative', display: 'flex', width, height: 22, borderRadius: 999,
+        background: 'var(--surface-2)', padding: 2, flexShrink: 0,
+      }}
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute', top: 2, bottom: 2, borderRadius: 999, background: 'var(--accent)',
+          transition: 'left 0.18s ease', left: `calc(${indice} * (100% / ${n}) + 2px)`, width: `calc(100% / ${n} - 4px)`,
+        }}
+      />
+      {opciones.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          style={{
+            position: 'relative', flex: 1, border: 'none', background: 'transparent', borderRadius: 999,
+            fontSize, fontWeight: 700, cursor: 'pointer', zIndex: 1, padding: 0,
+            color: valor === o.value ? '#fff' : 'var(--text-faint)',
+          }}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   )
 }
