@@ -8,8 +8,10 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   updateProfile,
 } from 'firebase/auth'
@@ -123,11 +125,46 @@ export function AuthProvider({ children }) {
     return rol
   }
 
+  /**
+   * Inicia sesión con Google (RF-01). Si es la primera vez que esta cuenta
+   * de Google entra a MiniBarrio, crea el perfil en "usuarios" con el rol
+   * elegido en la pestaña de Login (solo "cliente": un propietario nuevo
+   * debe pasar por /registro/negocio porque ese flujo también crea el
+   * documento del negocio, que Google no puede completar por nosotros).
+   */
+  async function loginWithGoogle(rolSeleccionado) {
+    const cred = await signInWithPopup(auth, new GoogleAuthProvider())
+    const ref = doc(db, 'usuarios', cred.user.uid)
+    const snap = await getDoc(ref)
+
+    if (snap.exists()) {
+      const rol = snap.data().rol
+      setRole(rol)
+      return rol
+    }
+
+    if (rolSeleccionado !== 'cliente') {
+      await signOut(auth)
+      throw new Error('google-sin-cuenta-propietario')
+    }
+
+    await setDoc(ref, {
+      rol: 'cliente',
+      nombre: cred.user.displayName || '',
+      correo: cred.user.email || '',
+      telefono: '',
+      consentimientoDatos: true, // Ley 1581 de 2012 — ver aviso junto al botón de Google
+      creadoEn: serverTimestamp(),
+    })
+    setRole('cliente')
+    return 'cliente'
+  }
+
   function logout() {
     return signOut(auth)
   }
 
-  const value = { currentUser, role, loading, registerClient, registerBusinessOwner, login, logout }
+  const value = { currentUser, role, loading, registerClient, registerBusinessOwner, login, loginWithGoogle, logout }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
