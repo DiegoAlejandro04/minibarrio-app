@@ -36,6 +36,12 @@ const ESTADO_APERTURA = {
   cerrado: { label: 'Cerrado', bg: 'var(--surface-2)', text: 'var(--text-faint)' },
 }
 
+function inicialesDe(nombre) {
+  if (!nombre) return '?'
+  const partes = nombre.trim().split(/\s+/)
+  return partes.slice(0, 2).map((p) => p[0]?.toUpperCase()).join('')
+}
+
 function estadoApertura(horarios) {
   if (!horarios) return null
   const ahora = new Date()
@@ -196,9 +202,22 @@ export default function ClientHome() {
                   Ir a mi panel
                 </Link>
               )}
-              <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
-                {currentUser.displayName}
-              </span>
+              {role === 'cliente' ? (
+                <Link
+                  to="/perfil"
+                  title="Mi perfil"
+                  style={{
+                    width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
+                  }}
+                >
+                  {inicialesDe(currentUser.displayName)}
+                </Link>
+              ) : (
+                <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {currentUser.displayName}
+                </span>
+              )}
               <button onClick={handleLogout} className="btn btn-outline" style={{ padding: '8px 14px', fontSize: 13 }}>
                 Cerrar sesión
               </button>

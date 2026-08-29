@@ -1,4 +1,4 @@
-export default function OwnerProximamente({ titulo }) {
+export default function Proximamente({ titulo }) {
   return (
     <div>
       <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>{titulo}</div>
