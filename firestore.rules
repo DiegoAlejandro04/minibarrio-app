@@ -36,6 +36,12 @@ service cloud.firestore {
       allow update: if esDueno(uid)
                     && request.resource.data.rol == resource.data.rol; // el rol no se puede auto-cambiar
       allow delete: if false;
+
+      // Negocios favoritos del cliente (panel de perfil): solo el propio
+      // usuario puede leer y escribir su lista de favoritos.
+      match /favoritos/{negocioId} {
+        allow read, write: if esDueno(uid);
+      }
     }
 
     // Negocios: lectura pública (portafolio visible sin sesión, RF-12);

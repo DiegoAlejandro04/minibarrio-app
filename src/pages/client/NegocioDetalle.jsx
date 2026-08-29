@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  addDoc, collection, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where,
+  addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where,
 } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
@@ -113,6 +113,7 @@ export default function NegocioDetalle() {
   const [galeriaAbierta, setGaleriaAbierta] = useState(false)
   const [turnosExpandidos, setTurnosExpandidos] = useState(false)
   const [tab, setTab] = useState('general')
+  const [esFavorito, setEsFavorito] = useState(false)
 
   useEffect(() => {
     const unsubs = [
@@ -147,6 +148,32 @@ export default function NegocioDetalle() {
         console.error(err)
       })
   }, [currentUser, role, id])
+
+  // Estado de favorito (RF análogo a "guardar barbería"): un marcador por
+  // cliente en usuarios/{uid}/favoritos/{negocioId}, ver firestore.rules.
+  useEffect(() => {
+    if (!currentUser || role !== 'cliente') {
+      setEsFavorito(false)
+      return undefined
+    }
+    const unsub = onSnapshot(doc(db, 'usuarios', currentUser.uid, 'favoritos', id), (snap) => {
+      setEsFavorito(snap.exists())
+    })
+    return unsub
+  }, [currentUser, role, id])
+
+  async function handleToggleFavorito() {
+    if (!currentUser) {
+      navigate('/login', { state: { from: { pathname: `/negocio/${id}` } } })
+      return
+    }
+    const ref = doc(db, 'usuarios', currentUser.uid, 'favoritos', id)
+    if (esFavorito) {
+      await deleteDoc(ref)
+    } else {
+      await setDoc(ref, { creadoEn: serverTimestamp() })
+    }
+  }
 
   // Los turnos ocupados solo se pueden calcular con sesión iniciada: la
   // regla de "citas" exige estar autenticado para leerlas.
@@ -342,6 +369,19 @@ export default function NegocioDetalle() {
               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--sage-text)', background: 'var(--sage-soft)', padding: '3px 9px', borderRadius: 999 }}>
                 Verificado
               </span>
+            )}
+            {role !== 'propietario' && (
+              <button
+                type="button"
+                onClick={handleToggleFavorito}
+                title={esFavorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 2,
+                  color: esFavorito ? 'var(--danger)' : 'var(--text-faint)',
+                }}
+              >
+                <Icon name="heart" size={19} filled={esFavorito} />
+              </button>
             )}
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
