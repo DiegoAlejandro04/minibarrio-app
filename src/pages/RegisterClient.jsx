@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import GoogleIcon from '../components/GoogleIcon.jsx'
 
 export default function RegisterClient() {
   const [form, setForm] = useState({ nombre: '', correo: '', telefono: '', contrasena: '', confirmar: '' })
@@ -8,11 +9,28 @@ export default function RegisterClient() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const { registerClient } = useAuth()
+  const { registerClient, loginWithGoogle } = useAuth()
   const navigate = useNavigate()
 
   function update(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
+  }
+
+  async function handleGoogle() {
+    setError('')
+    setLoading(true)
+    try {
+      await loginWithGoogle('cliente')
+      navigate('/', { replace: true })
+    } catch (err) {
+      if (err.code !== 'auth/popup-closed-by-user') {
+        setError('No se pudo crear la cuenta con Google. Intenta de nuevo.')
+      }
+      // eslint-disable-next-line no-console
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleSubmit(e) {
@@ -102,6 +120,26 @@ export default function RegisterClient() {
             {loading ? 'Creando cuenta…' : 'Crear cuenta'}
           </button>
         </form>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0', color: 'var(--text-faint)', fontSize: 12 }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border, #e5e5e5)' }} />
+          o
+          <div style={{ flex: 1, height: 1, background: 'var(--border, #e5e5e5)' }} />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogle}
+          disabled={loading}
+          className="btn"
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            border: '1px solid var(--border, #e5e5e5)', background: '#fff', color: 'var(--ink)',
+          }}
+        >
+          <GoogleIcon size={17} />
+          Continuar con Google
+        </button>
 
         <div style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--text-muted)', marginTop: 18 }}>
           ¿Ya tienes cuenta? <Link to="/login" style={{ fontWeight: 700 }}>Inicia sesión</Link>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import Icon from '../components/Icon.jsx'
+import GoogleIcon from '../components/GoogleIcon.jsx'
 
 export default function Login() {
   const [tab, setTab] = useState('cliente') // solo cambia el copy; el rol real viene de Firestore
@@ -11,7 +12,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const { login } = useAuth()
+  const { login, loginWithGoogle } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -27,6 +28,26 @@ export default function Login() {
       navigate(redirectTo, { replace: true })
     } catch (err) {
       setError('Correo o contraseña incorrectos. Verifica tus datos e intenta de nuevo.')
+      // eslint-disable-next-line no-console
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleGoogle() {
+    setError('')
+    setLoading(true)
+    try {
+      const rol = await loginWithGoogle(tab)
+      const redirectTo = location.state?.from?.pathname || (rol === 'propietario' ? '/panel' : '/')
+      navigate(redirectTo, { replace: true })
+    } catch (err) {
+      if (err.message === 'google-sin-cuenta-propietario') {
+        setError('No encontramos un negocio registrado con esta cuenta de Google. Regístralo primero.')
+      } else if (err.code !== 'auth/popup-closed-by-user') {
+        setError('No se pudo iniciar sesión con Google. Intenta de nuevo.')
+      }
       // eslint-disable-next-line no-console
       console.error(err)
     } finally {
@@ -117,6 +138,29 @@ export default function Login() {
             {loading ? 'Ingresando…' : 'Iniciar sesión'}
           </button>
         </form>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0', color: 'var(--text-faint)', fontSize: 12 }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border, #e5e5e5)' }} />
+          o
+          <div style={{ flex: 1, height: 1, background: 'var(--border, #e5e5e5)' }} />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogle}
+          disabled={loading}
+          className="btn"
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            border: '1px solid var(--border, #e5e5e5)', background: '#fff', color: 'var(--ink)',
+          }}
+        >
+          <GoogleIcon size={17} />
+          Continuar con Google
+        </button>
+        <div style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', marginTop: 8 }}>
+          Al continuar con Google autorizas el tratamiento de tus datos conforme a la Ley 1581 de 2012.
+        </div>
 
         <div style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--text-muted)', marginTop: 20 }}>
           {isClient ? (
