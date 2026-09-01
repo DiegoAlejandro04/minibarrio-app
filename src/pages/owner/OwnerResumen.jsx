@@ -43,11 +43,12 @@ export default function OwnerResumen() {
 
   const [citas, setCitas] = useState([])
   const [resenas, setResenas] = useState([])
-  const [visitas, setVisitas] = useState(0)
+  const [visitas, setVisitas] = useState([]) // fechas (Date) de cada visita registrada
   const [clientes, setClientes] = useState({}) // uid -> nombre
   const [modoCitas, setModoCitas] = useState('semanal') // 'semanal' | 'mensual'
   const [modoIngresos, setModoIngresos] = useState('semanal') // 'semanal' | 'mensual' | 'semestre'
   const [semestre, setSemestre] = useState('primero') // 'primero' | 'segundo'
+  const [modoVisitas, setModoVisitas] = useState('semanal') // 'semanal' | 'mensual'
 
   useEffect(() => {
     if (!uid) return
@@ -56,7 +57,7 @@ export default function OwnerResumen() {
         setResenas(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       }),
       onSnapshot(collection(db, 'negocios', uid, 'visitas'), (snap) => {
-        setVisitas(snap.size)
+        setVisitas(snap.docs.map((d) => d.data().visitadoEn?.toDate?.()).filter(Boolean))
       }),
       onSnapshot(query(collection(db, 'citas'), where('negocioId', '==', uid)), (snap) => {
         setCitas(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
@@ -168,6 +169,24 @@ export default function OwnerResumen() {
     return conteo
   }, [citasConFecha, ahora])
 
+  const serieVisitasSemana = useMemo(() => {
+    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    return dias.map((label, i) => {
+      const dia = new Date(inicioSemana)
+      dia.setDate(dia.getDate() + i)
+      return { label, value: visitas.filter((v) => isSameDay(v, dia)).length }
+    })
+  }, [visitas, inicioSemana])
+
+  const serieVisitasAnio = useMemo(() => {
+    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+    const anio = ahora.getFullYear()
+    return meses.map((label, i) => ({
+      label,
+      value: visitas.filter((v) => v.getFullYear() === anio && v.getMonth() === i).length,
+    }))
+  }, [visitas, ahora])
+
   const fechaLarga = capitalize(FECHA_LARGA.format(ahora))
 
   return (
@@ -199,8 +218,8 @@ export default function OwnerResumen() {
         <StatTile
           icon="eye"
           label="Visitas al perfil"
-          value={visitas.toLocaleString('es-CO')}
-          sub={visitas === 0 ? 'Aún sin visitas' : 'Clientes únicos que vieron tu perfil'}
+          value={visitas.length.toLocaleString('es-CO')}
+          sub={visitas.length === 0 ? 'Aún sin visitas' : 'Clientes únicos que vieron tu perfil'}
         />
         <StatTile
           icon="calendar"
@@ -265,18 +284,39 @@ export default function OwnerResumen() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, marginTop: 16 }}>
         <div className="card" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 800, fontSize: 15 }}>Visitas al portafolio</div>
-          <div style={{ color: 'var(--text-faint)', fontSize: 12.5, marginTop: 2 }}>
-            Aún no hay datos de tráfico para mostrar.
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>Visitas al portafolio</div>
+              <div style={{ color: 'var(--text-faint)', fontSize: 12.5, marginTop: 2 }}>
+                {visitas.length === 0
+                  ? 'Aún no hay datos de tráfico para mostrar.'
+                  : modoVisitas === 'semanal'
+                    ? 'Esta semana, por día'
+                    : `Este año (${ahora.getFullYear()}), por mes`}
+              </div>
+            </div>
+            <ToggleSegmentado
+              opciones={[{ value: 'semanal', label: 'Semanal' }, { value: 'mensual', label: 'Mensual' }]}
+              valor={modoVisitas}
+              onChange={setModoVisitas}
+              width={124}
+            />
           </div>
-          <div
-            style={{
-              marginTop: 20, height: 140, borderRadius: 'var(--radius-md)', background: 'var(--surface-2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '0 20px',
-            }}
-          >
-            Comparte tu perfil para empezar a recibir visitas
-          </div>
+
+          {visitas.length === 0 ? (
+            <div
+              style={{
+                marginTop: 20, height: 140, borderRadius: 'var(--radius-md)', background: 'var(--surface-2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '0 20px',
+              }}
+            >
+              Comparte tu perfil para empezar a recibir visitas
+            </div>
+          ) : (
+            <div style={{ marginTop: 12 }}>
+              <GraficaLineas datos={modoVisitas === 'semanal' ? serieVisitasSemana : serieVisitasAnio} />
+            </div>
+          )}
         </div>
 
         <div className="card" style={{ padding: 20 }}>
@@ -379,9 +419,114 @@ function StatTile({ icon, label, value, sub, extra }) {
   )
 }
 
+// Redondea el techo del eje Y a un número "limpio" (4, luego 1/2/5 × 10^n).
+function niceMax(valor) {
+  if (valor <= 4) return 4
+  const magnitud = 10 ** Math.floor(Math.log10(valor))
+  const normalizado = valor / magnitud
+  const niceNorm = normalizado <= 1 ? 1 : normalizado <= 2 ? 2 : normalizado <= 5 ? 5 : 10
+  return niceNorm * magnitud
+}
+
+// Gráfica de líneas de una sola serie (sin leyenda: el título de la tarjeta
+// ya dice qué se grafica) con crosshair + tooltip al pasar el mouse, ejes
+// con valores redondos y la etiqueta del último punto.
+function GraficaLineas({ datos }) {
+  const [hoverIndex, setHoverIndex] = useState(null)
+  const width = 600
+  const height = 180
+  const padL = 28
+  const padR = 12
+  const padT = 18
+  const padB = 22
+  const innerW = width - padL - padR
+  const innerH = height - padT - padB
+
+  const maxEje = niceMax(Math.max(1, ...datos.map((d) => d.value)))
+  const pasos = 4
+  const ticks = Array.from({ length: pasos + 1 }, (_, i) => Math.round((maxEje / pasos) * i))
+
+  const x = (i) => padL + (datos.length === 1 ? innerW / 2 : (innerW * i) / (datos.length - 1))
+  const y = (v) => padT + innerH - (v / maxEje) * innerH
+  const puntos = datos.map((d, i) => [x(i), y(d.value)])
+  const pathD = puntos.map(([px, py], i) => `${i === 0 ? 'M' : 'L'} ${px} ${py}`).join(' ')
+
+  function handleMove(e) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const relX = ((e.clientX - rect.left) / rect.width) * width
+    let nearest = 0
+    let distMin = Infinity
+    puntos.forEach(([px], i) => {
+      const dist = Math.abs(px - relX)
+      if (dist < distMin) { distMin = dist; nearest = i }
+    })
+    setHoverIndex(nearest)
+  }
+
+  const activo = hoverIndex != null ? datos[hoverIndex] : null
+  const ultimo = datos[datos.length - 1]
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        style={{ width: '100%', height, display: 'block', touchAction: 'none' }}
+        onPointerMove={handleMove}
+        onPointerLeave={() => setHoverIndex(null)}
+      >
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={padL} x2={width - padR} y1={y(t)} y2={y(t)} stroke="var(--border)" strokeWidth={1} />
+            <text x={padL - 6} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={9.5} fill="var(--text-faint)">
+              {t}
+            </text>
+          </g>
+        ))}
+
+        {hoverIndex != null && (
+          <line x1={x(hoverIndex)} x2={x(hoverIndex)} y1={padT} y2={padT + innerH} stroke="var(--border-strong)" strokeWidth={1} />
+        )}
+
+        <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+
+        {puntos.map(([px, py], i) => (
+          (i === datos.length - 1 || hoverIndex === i) && (
+            <circle key={i} cx={px} cy={py} r={4} fill="var(--accent)" stroke="var(--surface)" strokeWidth={2} />
+          )
+        ))}
+
+        {datos.map((d, i) => (
+          <text key={d.label} x={x(i)} y={height - 4} textAnchor="middle" fontSize={9.5} fill="var(--text-faint)">
+            {d.label}
+          </text>
+        ))}
+
+        <text x={x(datos.length - 1)} y={y(ultimo.value) - 10} textAnchor="end" fontSize={11} fontWeight={800} fill="var(--text)">
+          {ultimo.value}
+        </text>
+      </svg>
+
+      {activo && (
+        <div
+          style={{
+            position: 'absolute', top: 2,
+            left: `${(x(hoverIndex) / width) * 100}%`,
+            transform: hoverIndex > (datos.length - 1) / 2 ? 'translateX(-100%)' : 'none',
+            background: 'var(--ink)', color: 'var(--ink-text)', fontSize: 11.5, padding: '6px 10px',
+            borderRadius: 8, pointerEvents: 'none', whiteSpace: 'nowrap', boxShadow: 'var(--shadow-md)',
+          }}
+        >
+          <div style={{ fontWeight: 800 }}>{activo.value} visita{activo.value === 1 ? '' : 's'}</div>
+          <div style={{ opacity: 0.75, fontSize: 10.5 }}>{activo.label}</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Interruptor estilo iOS (segmented control de N opciones) — usado para
-// alternar Semanal/Mensual (Citas) y Semanal/Mensual/Semestre + 1er/2do
-// semestre (Ingresos estimados).
+// alternar Semanal/Mensual (Citas y Visitas al portafolio) y
+// Semanal/Mensual/Semestre + 1er/2do semestre (Ingresos estimados).
 function ToggleSegmentado({ opciones, valor, onChange, width = 124, fontSize = 10 }) {
   const indice = Math.max(0, opciones.findIndex((o) => o.value === valor))
   const n = opciones.length
