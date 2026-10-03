@@ -28,6 +28,18 @@ export { L }
 // ubicación cuando un negocio todavía no tiene coordenadas guardadas.
 export const CENTRO_BRITALIA = { lat: 4.628, lng: -74.172 }
 
+// Tiles estándar de OpenStreetMap — no hay una fuente de tiles oscuros
+// realmente gratis y sin API key (CARTO, que sí la ofrecía, ahora la exige).
+// El modo oscuro del mapa se logra aparte con un filtro CSS sobre estos
+// mismos tiles (ver ".leaflet-tile-pane" en index.css), no cambiando de
+// servidor.
+export function crearCapaTiles() {
+  return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  })
+}
+
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search'
 const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
 

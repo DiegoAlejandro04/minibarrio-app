@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { L, CENTRO_BRITALIA, reverseGeocodeDireccion } from '../maps/osm.js'
+import { L, CENTRO_BRITALIA, reverseGeocodeDireccion, crearCapaTiles } from '../maps/osm.js'
 import Icon from './Icon.jsx'
 
 const EPS = 1e-7
@@ -24,10 +24,7 @@ export default function MapaUbicacion({ ubicacion, onCambiar, altura = 200 }) {
   useEffect(() => {
     const centro = ubicacion || CENTRO_BRITALIA
     const mapa = L.map(divRef.current, { zoomControl: true }).setView([centro.lat, centro.lng], ubicacion ? 17 : 15)
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(mapa)
+    crearCapaTiles().addTo(mapa)
     mapRef.current = mapa
 
     function colocar(lat, lng, { reportar }) {

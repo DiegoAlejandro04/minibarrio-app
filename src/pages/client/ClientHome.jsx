@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { collection, collectionGroup, onSnapshot, query, where } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
-import { L, geocodeDireccion, acortarDireccion, CENTRO_BRITALIA } from '../../maps/osm.js'
+import { L, geocodeDireccion, acortarDireccion, CENTRO_BRITALIA, crearCapaTiles } from '../../maps/osm.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { recomendar } from '../../recomendador.js'
 import { ESPECIALIDADES } from '../../especialidades.js'
@@ -229,10 +229,7 @@ export default function ClientHome() {
       if (!mapRef.current) {
         mapRef.current = L.map(mapDivRef.current, { zoomControl: true })
           .setView([4.711, -74.0721], 12) // Bogotá — se ajusta con fitBounds al ubicar los negocios
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          maxZoom: 19,
-        }).addTo(mapRef.current)
+        crearCapaTiles().addTo(mapRef.current)
       }
 
       markersRef.current.forEach((m) => m.remove())

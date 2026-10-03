@@ -209,6 +209,15 @@ input:focus, select:focus, textarea:focus {
 }
 .leaflet-control-attribution a { color: var(--text-muted) !important; }
 
+/* Mapa en modo oscuro: no hay una fuente de tiles oscuros gratis y sin API
+   key (CARTO, que antes la ofrecía, ahora la exige — ver git log de
+   src/maps/osm.js), así que se invierten los mismos tiles claros de
+   OpenStreetMap con un filtro. El pin (.leaflet-marker-pane) queda fuera a
+   propósito para no invertir también su color. */
+[data-theme="dark"] .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.85);
+}
+
 .error-text {
   color: var(--danger);
   font-size: 13px;
