@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
+import { ESPECIALIDADES } from '../especialidades.js'
 import Icon from './Icon.jsx'
 import ToggleIOS from './ToggleIOS.jsx'
 import useIsMobile from '../hooks/useIsMobile.js'
@@ -34,6 +35,7 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
     correo: negocio.correo || '',
     telefono: negocio.canalesContacto?.telefono || '',
     whatsapp: negocio.canalesContacto?.whatsapp || '',
+    especialidades: negocio.especialidades || [],
     horarios: DIAS_FIJOS.reduce((acc, d) => {
       acc[d.key] = {
         apertura: negocio.horarios?.[d.key]?.apertura || '',
@@ -71,6 +73,15 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
     }))
   }
 
+  function toggleEspecialidad(especialidad) {
+    setForm((f) => ({
+      ...f,
+      especialidades: f.especialidades.includes(especialidad)
+        ? f.especialidades.filter((e) => e !== especialidad)
+        : [...f.especialidades, especialidad],
+    }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.nombre.trim() || !form.direccion.trim()) {
@@ -90,6 +101,7 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
           telefono: form.telefono.trim(),
           whatsapp: form.whatsapp.trim(),
         },
+        especialidades: form.especialidades,
         horarios: form.horarios,
       })
       onClose()
@@ -137,6 +149,32 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
 
         <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block', marginTop: 14 }}>Dirección</label>
         <input value={form.direccion} onChange={update('direccion')} style={{ marginTop: 6 }} />
+
+        <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block', marginTop: 14 }}>Especialidades</label>
+        <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 2, marginBottom: 8 }}>
+          Ayudan a que tu negocio aparezca en las búsquedas y recomendaciones correctas.
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {ESPECIALIDADES.map((especialidad) => {
+            const activa = form.especialidades.includes(especialidad)
+            return (
+              <button
+                key={especialidad}
+                type="button"
+                onClick={() => toggleEspecialidad(especialidad)}
+                style={{
+                  fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 999,
+                  border: `1px solid ${activa ? 'var(--accent)' : 'var(--border-strong)'}`,
+                  background: activa ? 'var(--accent-soft)' : 'var(--surface)',
+                  color: activa ? 'var(--accent-hover)' : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'border-color .15s, background .15s, color .15s',
+                }}
+              >
+                {activa ? '✓ ' : ''}{especialidad}
+              </button>
+            )
+          })}
+        </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 14 }}>
           <div style={{ flex: '1 1 160px' }}>

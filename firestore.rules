@@ -82,6 +82,19 @@ service cloud.firestore {
       }
     }
 
+    // Collection group: las reglas anidadas de arriba (negocios/{id}/servicios,
+    // negocios/{id}/resenas) solo cubren la lectura de UN negocio a la vez.
+    // ClientHome.jsx usa collectionGroup('servicios') y collectionGroup('resenas')
+    // para traer calificaciones y precios de TODOS los negocios de una sola vez
+    // (RF-05/RF-09) — Firestore exige una regla aparte con la sintaxis
+    // recursiva {path=**} para autorizar ese tipo de consulta entre negocios.
+    match /{path=**}/servicios/{servicioId} {
+      allow read: if true;
+    }
+    match /{path=**}/resenas/{resenaId} {
+      allow read: if true;
+    }
+
     // Citas (RF-07/RF-08). Lectura: cualquier usuario autenticado puede leer
     // (necesario para calcular los turnos ya ocupados de un negocio antes de
     // reservar, ver NegocioDetalle.jsx); solo el cliente dueño de la cita o

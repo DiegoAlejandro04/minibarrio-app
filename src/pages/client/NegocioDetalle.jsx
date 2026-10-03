@@ -417,6 +417,21 @@ export default function NegocioDetalle() {
             )}
           </div>
           {negocio.descripcion && <p style={{ color: 'var(--text-muted)', fontSize: 13.5, marginTop: 8, maxWidth: 560 }}>{negocio.descripcion}</p>}
+          {negocio.especialidades?.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {negocio.especialidades.map((especialidad) => (
+                <span
+                  key={especialidad}
+                  style={{
+                    fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
+                    background: 'var(--accent-soft)', color: 'var(--accent-hover)',
+                  }}
+                >
+                  {especialidad}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

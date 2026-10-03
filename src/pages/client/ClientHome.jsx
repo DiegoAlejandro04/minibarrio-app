@@ -1,19 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { collection, collectionGroup, onSnapshot } from 'firebase/firestore'
+import { collection, collectionGroup, onSnapshot, query, where } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import { geocodeDireccion, loadGoogleMaps } from '../../maps/googleMaps.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
+import { recomendar } from '../../recomendador.js'
+import { ESPECIALIDADES } from '../../especialidades.js'
 
 // Vitrina pública de negocios (RF-05 búsqueda, RF-06 mapa, RF-09
 // recomendaciones, RF-12 portafolio visible sin sesión). Muestra datos
 // reales de Firestore; el mapa es una representación esquemática (no hay
-// geocodificación en el modelo de datos todavía, ver docs/MODELO_DATOS.md),
-// y el filtrado por servicio/precio es una búsqueda simple por nombre y
-// descripción hasta que exista un motor de recomendación real (Sprint 2).
+// geocodificación en el modelo de datos todavía para negocios antiguos, ver
+// docs/MODELO_DATOS.md). El orden y el filtrado de la vitrina los calcula el
+// motor híbrido de src/recomendador.js (precio, cercanía, servicio,
+// calificación e historial del cliente).
 
-const FILTER_CHIPS = ['Corte fade', 'Barba', 'Cejas', 'Color', 'Niños', 'Clásico', 'Domicilio']
+// Mismo vocabulario que el selector de especialidades de EditarNegocioModal
+// (ver src/especialidades.js) — así un chip siempre puede coincidir con la
+// especialidad marcada por algún negocio.
+const FILTER_CHIPS = ESPECIALIDADES
 
 const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 
@@ -70,11 +76,24 @@ export default function ClientHome() {
 
   const [negocios, setNegocios] = useState([])
   const [ratings, setRatings] = useState({}) // negocioId -> { suma, total }
-  const [preciosMin, setPreciosMin] = useState({}) // negocioId -> precio
+  const [serviciosPorNegocio, setServiciosPorNegocio] = useState({}) // negocioId -> [{ nombre, precio, visible }]
   const [loading, setLoading] = useState(true)
 
   const [busqueda, setBusqueda] = useState('')
   const [terminoActivo, setTerminoActivo] = useState('')
+  const [chipsActivos, setChipsActivos] = useState(() => new Set())
+  const [presupuesto, setPresupuesto] = useState('')
+
+  // Ubicación del cliente para el componente de cercanía del recomendador:
+  // nunca se pide sola al cargar la página (RNF de privacidad), solo si el
+  // cliente toca "Usar mi ubicación".
+  const [ubicacionCliente, setUbicacionCliente] = useState(null)
+  const [ubicacionEstado, setUbicacionEstado] = useState('inactiva') // inactiva | cargando | activa | error
+
+  // Señales de historial (RF-09): solo existen si hay un cliente con sesión.
+  const [favoritosCliente, setFavoritosCliente] = useState([])
+  const [resenasCliente, setResenasCliente] = useState([])
+  const [citasCliente, setCitasCliente] = useState([])
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'negocios'), (snap) => {
@@ -103,29 +122,74 @@ export default function ClientHome() {
     const unsub = onSnapshot(collectionGroup(db, 'servicios'), (snap) => {
       const acc = {}
       snap.docs.forEach((d) => {
-        const data = d.data()
-        if (data.visible === false) return
         const negocioId = d.ref.parent.parent.id
-        const precio = data.precio || 0
-        if (acc[negocioId] == null || precio < acc[negocioId]) acc[negocioId] = precio
+        if (!acc[negocioId]) acc[negocioId] = []
+        acc[negocioId].push({ id: d.id, ...d.data() })
       })
-      setPreciosMin(acc)
+      setServiciosPorNegocio(acc)
     })
     return unsub
   }, [])
 
+  // Favoritos y reseñas propias del cliente (si hay sesión de cliente): la
+  // única fuente de "historial" que usa el recomendador, ver src/recomendador.js.
+  useEffect(() => {
+    if (!currentUser?.uid || role !== 'cliente') {
+      setFavoritosCliente([])
+      setResenasCliente([])
+      setCitasCliente([])
+      return
+    }
+    const unsubs = [
+      onSnapshot(collection(db, 'usuarios', currentUser.uid, 'favoritos'), (snap) => {
+        setFavoritosCliente(snap.docs.map((d) => ({ negocioId: d.id, ...d.data() })))
+      }),
+      onSnapshot(
+        query(collectionGroup(db, 'resenas'), where('clienteId', '==', currentUser.uid)),
+        (snap) => {
+          setResenasCliente(snap.docs.map((d) => ({ negocioId: d.ref.parent.parent.id, ...d.data() })))
+        }
+      ),
+      // Haber completado una cita es una señal de historial más (RF-09):
+      // volver donde ya te atendieron antes vale casi tanto como marcar ♥.
+      onSnapshot(query(collection(db, 'citas'), where('clienteId', '==', currentUser.uid)), (snap) => {
+        setCitasCliente(snap.docs.map((d) => d.data()))
+      }),
+    ]
+    return () => unsubs.forEach((unsub) => unsub())
+  }, [currentUser?.uid, role])
+
+  function solicitarUbicacion() {
+    if (!navigator.geolocation) {
+      setUbicacionEstado('error')
+      return
+    }
+    setUbicacionEstado('cargando')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUbicacionCliente({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setUbicacionEstado('activa')
+      },
+      () => setUbicacionEstado('error'),
+      { timeout: 8000 }
+    )
+  }
+
   const negociosConDatos = useMemo(
     () => negocios.map((n) => {
       const r = ratings[n.id]
+      const servicios = serviciosPorNegocio[n.id] || []
+      const preciosVisibles = servicios.filter((s) => s.visible !== false).map((s) => s.precio || 0)
       return {
         ...n,
+        servicios,
         ratingProm: r && r.total > 0 ? r.suma / r.total : null,
         ratingCount: r?.total || 0,
-        precioDesde: preciosMin[n.id] ?? null,
+        precioDesde: preciosVisibles.length ? Math.min(...preciosVisibles) : null,
         estado: estadoApertura(n.horarios),
       }
     }),
-    [negocios, ratings, preciosMin]
+    [negocios, ratings, serviciosPorNegocio]
   )
 
   // Mapa real de Google (RF-06). Usa negocio.ubicacion (lat/lng) cuando ya
@@ -193,18 +257,31 @@ export default function ClientHome() {
     return () => { cancelado = true }
   }, [negociosConDatos, navigate])
 
-  const resultados = useMemo(() => {
-    if (!terminoActivo) return negociosConDatos
-    const q = terminoActivo.toLowerCase()
-    return negociosConDatos.filter(
-      (n) => n.nombre?.toLowerCase().includes(q) || n.descripcion?.toLowerCase().includes(q)
-    )
-  }, [negociosConDatos, terminoActivo])
+  const consulta = useMemo(() => {
+    const servicios = [...chipsActivos]
+    if (terminoActivo) servicios.push(terminoActivo)
+    const presupuestoNum = Number(presupuesto)
+    return {
+      servicios: servicios.length ? servicios : undefined,
+      presupuesto: presupuestoNum > 0 ? presupuestoNum : undefined,
+      ubicacion: ubicacionCliente || undefined,
+    }
+  }, [chipsActivos, terminoActivo, presupuesto, ubicacionCliente])
 
-  const destacado = useMemo(() => {
-    if (negociosConDatos.length === 0) return null
-    return [...negociosConDatos].sort((a, b) => (b.ratingProm || 0) - (a.ratingProm || 0))[0]
-  }, [negociosConDatos])
+  const hayFiltrosActivos = Boolean(consulta.servicios || consulta.presupuesto || consulta.ubicacion)
+
+  // RF-09: orden y filtrado reales (no solo texto) vía src/recomendador.js.
+  // Sin filtros, igual personaliza con historial + calificación bayesiana.
+  const recomendaciones = useMemo(
+    () => recomendar(negociosConDatos, consulta, {
+      favoritos: favoritosCliente,
+      resenas: resenasCliente,
+      citas: citasCliente,
+    }),
+    [negociosConDatos, consulta, favoritosCliente, resenasCliente, citasCliente]
+  )
+
+  const destacado = recomendaciones[0] || null
 
   const calificacionGeneral = useMemo(() => {
     const vals = Object.values(ratings).filter((r) => r.total > 0)
@@ -218,8 +295,21 @@ export default function ClientHome() {
   }
 
   function handleChip(chip) {
-    setBusqueda(chip)
-    setTerminoActivo(chip)
+    setChipsActivos((prev) => {
+      const next = new Set(prev)
+      if (next.has(chip)) next.delete(chip)
+      else next.add(chip)
+      return next
+    })
+  }
+
+  function limpiarFiltros() {
+    setBusqueda('')
+    setTerminoActivo('')
+    setChipsActivos(new Set())
+    setPresupuesto('')
+    setUbicacionCliente(null)
+    setUbicacionEstado('inactiva')
   }
 
   async function handleLogout() {
@@ -341,13 +431,37 @@ export default function ClientHome() {
                   style={{ marginTop: 4, border: 'none', padding: '6px 0', fontSize: 14 }}
                 />
               </div>
-              <div style={{ flex: '1 1 140px', opacity: 0.55 }} title="Por ahora el prototipo cubre solo Britalia, Kennedy">
+              <div style={{ flex: '1 1 140px' }}>
                 <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Ubicación</label>
-                <input disabled value="A menos de 1 km" style={{ marginTop: 4, border: 'none', padding: '6px 0', fontSize: 14, background: 'transparent' }} />
+                <button
+                  type="button"
+                  onClick={solicitarUbicacion}
+                  disabled={ubicacionEstado === 'cargando'}
+                  title={ubicacionEstado === 'error' ? 'No pudimos acceder a tu ubicación' : undefined}
+                  style={{
+                    marginTop: 4, border: 'none', background: 'transparent', padding: '6px 0', fontSize: 14,
+                    fontWeight: ubicacionCliente ? 700 : 400,
+                    color: ubicacionEstado === 'error' ? 'var(--danger)' : ubicacionCliente ? 'var(--sage-text)' : 'var(--text-muted)',
+                    textAlign: 'left', cursor: 'pointer',
+                  }}
+                >
+                  {ubicacionEstado === 'cargando' && 'Ubicando…'}
+                  {ubicacionEstado === 'error' && 'Ubicación no disponible'}
+                  {ubicacionEstado === 'activa' && 'Cerca de ti ✓'}
+                  {ubicacionEstado === 'inactiva' && 'Usar mi ubicación'}
+                </button>
               </div>
-              <div style={{ flex: '1 1 140px', opacity: 0.55 }} title="Filtro de precio: próximamente">
-                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Precio</label>
-                <input disabled value="Cualquier precio" style={{ marginTop: 4, border: 'none', padding: '6px 0', fontSize: 14, background: 'transparent' }} />
+              <div style={{ flex: '1 1 140px' }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Presupuesto</label>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={presupuesto}
+                  onChange={(e) => setPresupuesto(e.target.value)}
+                  placeholder="Cualquier precio"
+                  style={{ marginTop: 4, border: 'none', padding: '6px 0', fontSize: 14, width: '100%' }}
+                />
               </div>
               <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Icon name="search" size={15} /> Buscar
@@ -362,14 +476,23 @@ export default function ClientHome() {
                   onClick={() => handleChip(chip)}
                   style={{
                     fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 999,
-                    border: `1px solid ${terminoActivo === chip ? 'var(--accent)' : 'var(--border-strong)'}`,
-                    background: terminoActivo === chip ? 'var(--accent-soft)' : 'var(--surface)',
-                    color: terminoActivo === chip ? 'var(--accent-hover)' : 'var(--text-muted)',
+                    border: `1px solid ${chipsActivos.has(chip) ? 'var(--accent)' : 'var(--border-strong)'}`,
+                    background: chipsActivos.has(chip) ? 'var(--accent-soft)' : 'var(--surface)',
+                    color: chipsActivos.has(chip) ? 'var(--accent-hover)' : 'var(--text-muted)',
                   }}
                 >
                   {chip}
                 </button>
               ))}
+              {hayFiltrosActivos && (
+                <button
+                  type="button"
+                  onClick={limpiarFiltros}
+                  style={{ fontSize: 12.5, fontWeight: 700, padding: '7px 10px', color: 'var(--text-faint)', background: 'none', border: 'none' }}
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: 36, marginTop: 30, flexWrap: 'wrap' }}>
@@ -441,6 +564,11 @@ export default function ClientHome() {
                     )}
                     {destacado.direccion}
                   </div>
+                  {destacado.razones[0] && (
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginTop: 3 }}>
+                      {destacado.razones[0]}
+                    </div>
+                  )}
                 </div>
                 <Link
                   to={`/negocio/${destacado.id}`}
@@ -459,16 +587,18 @@ export default function ClientHome() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 800 }}>
-              {terminoActivo ? `Resultados para "${terminoActivo}"` : 'Recomendado para ti'}
+              {hayFiltrosActivos ? 'Resultados de tu búsqueda' : 'Recomendado para ti'}
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              {terminoActivo ? `${resultados.length} negocio${resultados.length === 1 ? '' : 's'} encontrado${resultados.length === 1 ? '' : 's'}` : 'Barberías registradas en Britalia, Kennedy.'}
+              {hayFiltrosActivos
+                ? `${recomendaciones.length} negocio${recomendaciones.length === 1 ? '' : 's'} encontrado${recomendaciones.length === 1 ? '' : 's'}`
+                : 'Barberías registradas en Britalia, Kennedy.'}
             </div>
           </div>
-          {terminoActivo && (
+          {hayFiltrosActivos && (
             <button
               type="button"
-              onClick={() => { setBusqueda(''); setTerminoActivo('') }}
+              onClick={limpiarFiltros}
               style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', background: 'none', border: 'none' }}
             >
               Limpiar búsqueda
@@ -478,13 +608,13 @@ export default function ClientHome() {
 
         {loading ? (
           <p style={{ color: 'var(--text-muted)', marginTop: 24 }}>Cargando negocios…</p>
-        ) : resultados.length === 0 ? (
+        ) : recomendaciones.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', marginTop: 24 }}>
-            {terminoActivo ? 'No encontramos negocios que coincidan con tu búsqueda.' : 'Aún no hay negocios registrados en MiniBarrio.'}
+            {hayFiltrosActivos ? 'No encontramos negocios que coincidan con tu búsqueda.' : 'Aún no hay negocios registrados en MiniBarrio.'}
           </p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}>
-            {resultados.map((n) => (
+            {recomendaciones.map((n) => (
               <Link key={n.id} to={`/negocio/${n.id}`} className="card" style={{ overflow: 'hidden', display: 'block', color: 'inherit' }}>
                 <div style={{ height: 110, background: 'var(--surface-2)' }} />
                 <div style={{ padding: 14 }}>
@@ -511,6 +641,21 @@ export default function ClientHome() {
                       </span>
                     )}
                   </div>
+                  {n.razones.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 9 }}>
+                      {n.razones.slice(0, 2).map((razon) => (
+                        <span
+                          key={razon}
+                          style={{
+                            fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999,
+                            background: 'var(--accent-soft)', color: 'var(--accent-hover)',
+                          }}
+                        >
+                          {razon}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Link>
             ))}
