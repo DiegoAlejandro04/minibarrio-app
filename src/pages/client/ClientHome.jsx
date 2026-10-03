@@ -21,6 +21,16 @@ import { ESPECIALIDADES } from '../../especialidades.js'
 // especialidad marcada por algún negocio.
 const FILTER_CHIPS = ESPECIALIDADES
 
+// Propuestas de valor de la portada: en vez de contadores (negocios
+// registrados, etc.) que con pocos datos de prueba comunican lo contrario de
+// lo que buscan — "1 barbería registrada" no inspira confianza — estas
+// frases son ciertas sin importar cuántos negocios haya en la plataforma.
+const PROPUESTAS_VALOR = [
+  { icono: 'tag', titulo: 'Precios reales', detalle: 'Sin sorpresas al llegar' },
+  { icono: 'calendar', titulo: 'Reserva en minutos', detalle: 'Desde el portafolio' },
+  { icono: 'star', titulo: 'Reseñas verificadas', detalle: 'De clientes que ya fueron' },
+]
+
 const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 
 function formatCompacto(precio) {
@@ -283,12 +293,6 @@ export default function ClientHome() {
 
   const destacado = recomendaciones[0] || null
 
-  const calificacionGeneral = useMemo(() => {
-    const vals = Object.values(ratings).filter((r) => r.total > 0)
-    if (vals.length === 0) return null
-    return vals.reduce((s, r) => s + r.suma / r.total, 0) / vals.length
-  }, [ratings])
-
   function handleBuscar(e) {
     e.preventDefault()
     setTerminoActivo(busqueda.trim())
@@ -460,6 +464,7 @@ export default function ClientHome() {
                 <input
                   type="number"
                   min="0"
+                  step="1000"
                   inputMode="numeric"
                   value={presupuesto}
                   onChange={(e) => setPresupuesto(e.target.value)}
@@ -497,21 +502,6 @@ export default function ClientHome() {
                   Limpiar filtros
                 </button>
               )}
-            </div>
-
-            <div style={{ display: 'flex', gap: 36, marginTop: 30, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: 26, fontWeight: 800 }}>{negocios.length}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>barberías registradas</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 26, fontWeight: 800 }}>{calificacionGeneral === null ? '—' : calificacionGeneral.toFixed(1)}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>calificación promedio</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 26, fontWeight: 800 }}>{'< 3 s'}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>carga del portafolio</div>
-              </div>
             </div>
           </div>
 
@@ -584,6 +574,32 @@ export default function ClientHome() {
               </div>
             )}
           </div>
+        </div>
+
+        <div
+          style={{
+            maxWidth: 1160, margin: `${isMobile ? 24 : 36}px auto 0`, paddingTop: isMobile ? 20 : 26,
+            borderTop: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap',
+            gap: isMobile ? 20 : 28, justifyContent: isMobile ? 'flex-start' : 'space-between',
+          }}
+        >
+          {PROPUESTAS_VALOR.map((v) => (
+            <div key={v.titulo} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flex: '1 1 180px', maxWidth: 280 }}>
+              <span
+                style={{
+                  width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                  background: 'var(--accent-soft)', color: 'var(--accent-hover)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Icon name={v.icono} size={17} />
+              </span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.25 }}>{v.titulo}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 1 }}>{v.detalle}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -672,6 +688,9 @@ export default function ClientHome() {
 
 const ICON_PATHS = {
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+  tag: 'M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3ZM6 6h.008v.008H6V6Z',
+  calendar: 'M5 8h14v12H5zM5 8V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M7 3v4M17 3v4M5 12h14',
+  star: 'M12 2.5l2.9 6.3 6.6.7-5 4.6 1.4 6.6L12 17.6 6.1 20.7l1.4-6.6-5-4.6 6.6-.7z',
 }
 
 function Icon({ name, size = 18 }) {
