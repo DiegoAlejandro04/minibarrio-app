@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
+import Splash from '../../components/Splash.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 
 // Shell del panel del cliente: sidebar de navegación + los datos del perfil,
@@ -57,9 +58,17 @@ export default function ClientLayout() {
       onSnapshot(collection(db, 'usuarios', uid, 'favoritos'), (snap) => {
         setFavoritos(snap.docs.map((d) => ({ negocioId: d.id, ...d.data() })))
       }),
-      onSnapshot(query(collectionGroup(db, 'resenas'), where('clienteId', '==', uid)), (snap) => {
-        setResenas(snap.docs.map((d) => ({ id: d.id, negocioId: d.ref.parent.parent.id, ...d.data() })))
-      }),
+      onSnapshot(
+        query(collectionGroup(db, 'resenas'), where('clienteId', '==', uid)),
+        (snap) => {
+          setResenas(snap.docs.map((d) => ({ id: d.id, negocioId: d.ref.parent.parent.id, ...d.data() })))
+        },
+        // Ver el mismo comentario en ClientHome.jsx: sin este callback, un
+        // índice de Firestore faltante para esta consulta queda "sin
+        // capturar" en vez de solo dejar vacía la sección de reseñas propias.
+        // eslint-disable-next-line no-console
+        (err) => console.error('No se pudieron cargar las reseñas del cliente:', err)
+      ),
       onSnapshot(collectionGroup(db, 'resenas'), (snap) => {
         const acc = {}
         snap.docs.forEach((d) => {
@@ -128,11 +137,7 @@ export default function ClientLayout() {
   }
 
   if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-        Cargando perfil…
-      </div>
-    )
+    return <Splash />
   }
 
   const desde = perfil?.creadoEn?.toDate

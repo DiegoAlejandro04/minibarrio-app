@@ -4,6 +4,7 @@ import { collection, doc, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
+import Splash from '../../components/Splash.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 
 // Shell del panel del comerciante: sidebar con navegación real + los datos
@@ -63,13 +64,7 @@ export default function OwnerLayout() {
     navigate('/login')
   }
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-        Cargando panel…
-      </div>
-    )
-  }
+  if (loading) return <Splash />
 
   if (!negocio) {
     return (

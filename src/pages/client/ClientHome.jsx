@@ -166,7 +166,14 @@ export default function ClientHome() {
         query(collectionGroup(db, 'resenas'), where('clienteId', '==', currentUser.uid)),
         (snap) => {
           setResenasCliente(snap.docs.map((d) => ({ negocioId: d.ref.parent.parent.id, ...d.data() })))
-        }
+        },
+        // Sin este segundo callback, un error del listener (p. ej. un índice de
+        // Firestore faltante para esta consulta, ver firestore.indexes.json)
+        // queda "sin capturar" en vez de solo degradar el historial del
+        // recomendador — las reseñas propias del cliente son un extra, no
+        // deberían poder tumbar el resto de la página.
+        // eslint-disable-next-line no-console
+        (err) => console.error('No se pudieron cargar las reseñas del cliente:', err)
       ),
       // Haber completado una cita es una señal de historial más (RF-09):
       // volver donde ya te atendieron antes vale casi tanto como marcar ♥.

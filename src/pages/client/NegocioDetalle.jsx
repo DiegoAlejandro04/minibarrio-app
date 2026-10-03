@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
 import CalificarModal from '../../components/CalificarModal.jsx'
+import Splash from '../../components/Splash.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 
 // Perfil público del negocio + reserva de citas (RF-05, RF-06, RF-07, RF-08,
@@ -276,9 +277,7 @@ export default function NegocioDetalle() {
     }
   }
 
-  if (loading) {
-    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Cargando…</div>
-  }
+  if (loading) return <Splash />
 
   if (!negocio) {
     return (

@@ -27,6 +27,32 @@ export function useAuth() {
   return ctx
 }
 
+// El modo oscuro vive en Firestore (para seguir a la cuenta entre
+// dispositivos), pero leerlo de ahí tarda un round-trip de red — en ese
+// instante la página ya se pintó en claro, y se ve un parpadeo al recargar.
+// Se cachea también aquí, en este navegador, como respaldo síncrono: el
+// primer render ya arranca con el valor correcto, sin esperar a Firestore
+// (que igual se sigue consultando después, por si cambió desde otro
+// dispositivo). Es solo un atajo visual — nunca la fuente de verdad.
+const CLAVE_MODO_OSCURO = 'minibarrio:modoOscuro'
+const CLAVE_MODO_OSCURO_PANEL = 'minibarrio:modoOscuroPanel'
+
+function leerCache(clave) {
+  try {
+    return localStorage.getItem(clave) === '1'
+  } catch {
+    return false // localStorage puede no estar disponible (modo privado, etc.)
+  }
+}
+
+function guardarCache(clave, valor) {
+  try {
+    localStorage.setItem(clave, valor ? '1' : '0')
+  } catch {
+    // sin esto no hay atajo síncrono la próxima vez, pero no es crítico
+  }
+}
+
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null)
   const [role, setRole] = useState(null) // 'cliente' | 'propietario' | null
@@ -35,24 +61,30 @@ export function AuthProvider({ children }) {
   // Firestore para que se mantenga si inicia sesión de nuevo). Aplica a toda
   // la vitrina y su panel, pero nunca al panel del negocio. Al cerrar sesión
   // vuelve a false: el modo oscuro es de la cuenta, no del navegador.
-  const [modoOscuro, setModoOscuro] = useState(false)
+  const [modoOscuro, setModoOscuro] = useState(() => leerCache(CLAVE_MODO_OSCURO))
   // Preferencia de modo oscuro del PANEL DEL PROPIETARIO — independiente de
   // la anterior: solo afecta a /panel y nunca se filtra al resto del sitio
   // (ver el efecto de tema en App.jsx).
-  const [modoOscuroPanel, setModoOscuroPanel] = useState(false)
+  const [modoOscuroPanel, setModoOscuroPanel] = useState(() => leerCache(CLAVE_MODO_OSCURO_PANEL))
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user)
       if (user) {
         const snap = await getDoc(doc(db, 'usuarios', user.uid))
+        const oscuro = snap.exists() ? !!snap.data().modoOscuro : false
+        const oscuroPanel = snap.exists() ? !!snap.data().modoOscuroPanel : false
         setRole(snap.exists() ? snap.data().rol : null)
-        setModoOscuro(snap.exists() ? !!snap.data().modoOscuro : false)
-        setModoOscuroPanel(snap.exists() ? !!snap.data().modoOscuroPanel : false)
+        setModoOscuro(oscuro)
+        setModoOscuroPanel(oscuroPanel)
+        guardarCache(CLAVE_MODO_OSCURO, oscuro)
+        guardarCache(CLAVE_MODO_OSCURO_PANEL, oscuroPanel)
       } else {
         setRole(null)
         setModoOscuro(false)
         setModoOscuroPanel(false)
+        guardarCache(CLAVE_MODO_OSCURO, false)
+        guardarCache(CLAVE_MODO_OSCURO_PANEL, false)
       }
       setLoading(false)
     })
@@ -65,6 +97,7 @@ export function AuthProvider({ children }) {
    */
   async function actualizarModoOscuro(valor) {
     setModoOscuro(valor)
+    guardarCache(CLAVE_MODO_OSCURO, valor)
     if (currentUser) {
       await updateDoc(doc(db, 'usuarios', currentUser.uid), { modoOscuro: valor })
     }
@@ -73,6 +106,7 @@ export function AuthProvider({ children }) {
   /** Igual que actualizarModoOscuro, pero para la preferencia del panel del propietario. */
   async function actualizarModoOscuroPanel(valor) {
     setModoOscuroPanel(valor)
+    guardarCache(CLAVE_MODO_OSCURO_PANEL, valor)
     if (currentUser) {
       await updateDoc(doc(db, 'usuarios', currentUser.uid), { modoOscuroPanel: valor })
     }
@@ -156,9 +190,13 @@ export function AuthProvider({ children }) {
     const cred = await signInWithEmailAndPassword(auth, correo, contrasena)
     const snap = await getDoc(doc(db, 'usuarios', cred.user.uid))
     const rol = snap.exists() ? snap.data().rol : null
+    const oscuro = snap.exists() ? !!snap.data().modoOscuro : false
+    const oscuroPanel = snap.exists() ? !!snap.data().modoOscuroPanel : false
     setRole(rol)
-    setModoOscuro(snap.exists() ? !!snap.data().modoOscuro : false)
-    setModoOscuroPanel(snap.exists() ? !!snap.data().modoOscuroPanel : false)
+    setModoOscuro(oscuro)
+    setModoOscuroPanel(oscuroPanel)
+    guardarCache(CLAVE_MODO_OSCURO, oscuro)
+    guardarCache(CLAVE_MODO_OSCURO_PANEL, oscuroPanel)
     return rol
   }
 
@@ -176,9 +214,13 @@ export function AuthProvider({ children }) {
 
     if (snap.exists()) {
       const rol = snap.data().rol
+      const oscuro = !!snap.data().modoOscuro
+      const oscuroPanel = !!snap.data().modoOscuroPanel
       setRole(rol)
-      setModoOscuro(!!snap.data().modoOscuro)
-      setModoOscuroPanel(!!snap.data().modoOscuroPanel)
+      setModoOscuro(oscuro)
+      setModoOscuroPanel(oscuroPanel)
+      guardarCache(CLAVE_MODO_OSCURO, oscuro)
+      guardarCache(CLAVE_MODO_OSCURO_PANEL, oscuroPanel)
       return rol
     }
 

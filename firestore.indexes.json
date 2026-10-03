@@ -1,4 +1,12 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "resenas",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "clienteId", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

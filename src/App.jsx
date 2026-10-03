@@ -2,6 +2,7 @@ import { useLayoutEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
+import Splash from './components/Splash.jsx'
 import Login from './pages/Login.jsx'
 import RegisterClient from './pages/RegisterClient.jsx'
 import RegisterBusiness from './pages/RegisterBusiness.jsx'
@@ -26,7 +27,7 @@ import Proximamente from './components/Proximamente.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 export default function App() {
-  const { modoOscuro, modoOscuroPanel } = useAuth()
+  const { modoOscuro, modoOscuroPanel, loading } = useAuth()
   const location = useLocation()
 
   // Dos preferencias de modo oscuro independientes, cada una con su propio
@@ -38,6 +39,15 @@ export default function App() {
     const oscuro = enPanelDelNegocio ? modoOscuroPanel : modoOscuro
     document.documentElement.dataset.theme = oscuro ? 'dark' : 'light'
   }, [modoOscuro, modoOscuroPanel, location.pathname])
+
+  // Mientras Firebase confirma si hay sesión (y, si la hay, trae el rol y el
+  // modo oscuro desde Firestore), más vale no pintar nada todavía: antes de
+  // este guard, la página se renderizaba de una vez en su estado "sin
+  // sesión", y un instante después saltaba a la real — un parpadeo visible
+  // cada vez que se recargaba con sesión iniciada. Para quien no tiene
+  // sesión esto se resuelve casi al instante (no hay nada que traer de
+  // Firestore), así que no se nota.
+  if (loading) return <Splash />
 
   return (
     <Routes>
