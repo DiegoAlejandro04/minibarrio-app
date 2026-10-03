@@ -154,6 +154,19 @@ input:focus, select:focus, textarea:focus {
   animation: splash-fade-in .12s ease-out;
 }
 
+/* Cada pieza del lockup (el badge "MB", "Mini", "Barrio") salta por
+   separado, una detrás de otra (ver animation-delay en Splash.jsx), en vez
+   de aparecer las tres juntas. */
+@keyframes splash-salto {
+  0% { transform: translateY(0); opacity: 0; }
+  45% { transform: translateY(-9px); opacity: 1; }
+  70% { transform: translateY(2px); }
+  100% { transform: translateY(0); }
+}
+.splash-pieza {
+  animation: splash-salto .5s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+
 /* Indicador de "cargando" de tres puntos: cada uno se desplaza lateralmente
    con un pequeño retraso respecto al anterior (ver botón "Usar mi ubicación"
    en ClientHome.jsx), dando el efecto de una ola en vez de un parpadeo. */

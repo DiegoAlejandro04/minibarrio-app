@@ -14,15 +14,18 @@ export default function Splash() {
       }}
     >
       <span
+        className="splash-pieza"
         style={{
           width: 30, height: 30, borderRadius: 9, background: 'var(--accent)', color: '#fff',
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0,
+          animationDelay: '0ms',
         }}
       >
         MB
       </span>
       <span>
-        <span style={{ color: 'var(--text)' }}>Mini</span><span style={{ color: 'var(--accent)' }}>Barrio</span>
+        <span className="splash-pieza" style={{ display: 'inline-block', color: 'var(--text)', animationDelay: '110ms' }}>Mini</span>
+        <span className="splash-pieza" style={{ display: 'inline-block', color: 'var(--accent)', animationDelay: '220ms' }}>Barrio</span>
       </span>
     </div>
   )
