@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import useIsMobile from '../hooks/useIsMobile.js'
+import ContactoModal from './ContactoModal.jsx'
+import PqrsModal from './PqrsModal.jsx'
 
 // Pie de página de las vistas públicas (vitrina, perfil de negocio). Reusa el
 // mismo logo e identidad del encabezado (ver ClientHome.jsx/ClientLayout.jsx)
@@ -23,14 +26,17 @@ const ENLACES_CUENTA = [
   { to: '/login', label: 'Iniciar sesión' },
 ]
 
-// Correo de contacto para soporte y PQRS (peticiones, quejas, reclamos y
-// sugerencias — Ley 1581 de 2012). Es un buzón de ejemplo para el prototipo;
-// cuando haya un correo real del proyecto, reemplazar aquí.
-const CORREO_AYUDA = 'lionelmaradona809@gmail.com'
+// "Atención al cliente" y "PQRS" abren formularios que llegan por correo (ver
+// emailjs.js) — el correo del proyecto no se muestra en ninguna parte.
+const ESTILO_BOTON_AYUDA = {
+  fontSize: 13.5, color: 'var(--text-muted)', fontWeight: 600, textAlign: 'left',
+  background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+}
 
 export default function Footer() {
   const isMobile = useIsMobile()
   const anio = new Date().getFullYear()
+  const [formularioAbierto, setFormularioAbierto] = useState(null) // null | 'contacto' | 'pqrs'
 
   return (
     <footer>
@@ -122,15 +128,12 @@ export default function Footer() {
               Ayuda
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12, maxWidth: 200 }}>
-              <a href={`mailto:${CORREO_AYUDA}`} style={{ fontSize: 13.5, color: 'var(--text-muted)', fontWeight: 600 }}>
+              <button type="button" onClick={() => setFormularioAbierto('contacto')} style={ESTILO_BOTON_AYUDA}>
                 Atención al cliente
-              </a>
-              <a href={`mailto:${CORREO_AYUDA}`} style={{ fontSize: 13.5, color: 'var(--text-muted)', fontWeight: 600 }}>
+              </button>
+              <button type="button" onClick={() => setFormularioAbierto('pqrs')} style={ESTILO_BOTON_AYUDA}>
                 PQRS
-              </a>
-              <span style={{ fontSize: 11.5, color: 'var(--text-faint)', lineHeight: 1.5 }}>
-                Peticiones, quejas, reclamos y sugerencias — escríbenos a {CORREO_AYUDA}
-              </span>
+              </button>
             </div>
           </div>
         </div>
@@ -146,6 +149,9 @@ export default function Footer() {
           </div>
         </div>
       </div>
+
+      {formularioAbierto === 'contacto' && <ContactoModal onClose={() => setFormularioAbierto(null)} />}
+      {formularioAbierto === 'pqrs' && <PqrsModal onClose={() => setFormularioAbierto(null)} />}
     </footer>
   )
 }
