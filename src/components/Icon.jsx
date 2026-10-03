@@ -26,6 +26,7 @@ const ICON_PATHS = {
   moon: 'M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z',
   mail: 'M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM3 6l9 7 9-7',
   menu: 'M3 6h18M3 12h18M3 18h18',
+  target: 'M12 2a10 10 0 1 0 .01 0zM12 9a3 3 0 1 0 .01 0zM12 2v3M12 19v3M2 12h3M19 12h3',
 }
 
 export default function Icon({ name, size = 18, filled = false }) {

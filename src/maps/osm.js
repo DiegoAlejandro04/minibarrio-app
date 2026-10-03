@@ -44,7 +44,14 @@ async function buscarNominatim(texto, limite) {
 // componentes útiles, descartando las etiquetas genéricas de relleno.
 const SEGMENTOS_GENERICOS = /^(upzs? de .+|bogot[áa] ciudad|distrito capital|rap \(especial\) central|colombia)$/i
 
-function acortarDireccion(displayName) {
+/**
+ * Recorta una dirección a sus primeros componentes útiles (calle + barrio),
+ * descartando jerarquía administrativa de relleno. Se usa tanto al guardar
+ * (autocompletado y pin, ver abajo) como al mostrar en espacios compactos —
+ * ahí sirve además de respaldo para direcciones largas guardadas antes de
+ * este recorte, o escritas a mano con ese mismo estilo verboso.
+ */
+export function acortarDireccion(displayName) {
   const partes = displayName
     .split(',')
     .map((p) => p.trim())

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { collection, collectionGroup, onSnapshot, query, where } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
-import { L, geocodeDireccion } from '../../maps/osm.js'
+import { L, geocodeDireccion, acortarDireccion, CENTRO_BRITALIA } from '../../maps/osm.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { recomendar } from '../../recomendador.js'
 import { ESPECIALIDADES } from '../../especialidades.js'
@@ -218,6 +218,7 @@ export default function ClientHome() {
   const mapDivRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
+  const puntosRef = useRef([])
   const [mapError, setMapError] = useState(false)
 
   useEffect(() => {
@@ -263,6 +264,7 @@ export default function ClientHome() {
           markersRef.current.push(marker)
         })
 
+        puntosRef.current = puntos
         if (puntos.length) {
           const bounds = L.latLngBounds(puntos.map((p) => [p.posicion.lat, p.posicion.lng]))
           mapRef.current.fitBounds(bounds, { padding: [60, 60] })
@@ -276,6 +278,30 @@ export default function ClientHome() {
 
     return () => { cancelado = true }
   }, [negociosConDatos, navigate])
+
+  // Leaflet mide su contenedor una sola vez, al crearse. Si el layout
+  // (grid de dos columnas, fuentes que todavía cargan) termina de acomodarse
+  // después de ese instante, el mapa queda calculado para un ancho angosto y
+  // deja una franja gris sin tiles al lado — un ResizeObserver lo mantiene
+  // sincronizado con el tamaño real cada vez que cambia.
+  useEffect(() => {
+    if (!mapDivRef.current) return undefined
+    const observer = new ResizeObserver(() => mapRef.current?.invalidateSize())
+    observer.observe(mapDivRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  // Vuelve a encuadrar los negocios visibles tal como al cargar — para
+  // cuando el cliente se pierde navegando el mapa a mano.
+  function recentrarMapa() {
+    if (!mapRef.current) return
+    if (puntosRef.current.length) {
+      const bounds = L.latLngBounds(puntosRef.current.map((p) => [p.posicion.lat, p.posicion.lng]))
+      mapRef.current.fitBounds(bounds, { padding: [60, 60] })
+    } else {
+      mapRef.current.setView([CENTRO_BRITALIA.lat, CENTRO_BRITALIA.lng], 15)
+    }
+  }
 
   const consulta = useMemo(() => {
     const servicios = [...chipsActivos]
@@ -553,6 +579,22 @@ export default function ClientHome() {
             >
               <div ref={mapDivRef} style={{ position: 'absolute', inset: 0 }} />
 
+              {!mapError && (
+                <button
+                  type="button"
+                  onClick={recentrarMapa}
+                  title="Volver a ver los negocios en el mapa"
+                  style={{
+                    position: 'absolute', top: 8, right: 8, zIndex: 1001, // por encima de los controles internos de Leaflet (z-index hasta 1000)
+                    width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--surface)', color: 'var(--text)', border: 'none', borderRadius: 'var(--radius-sm)',
+                    boxShadow: 'var(--shadow-sm)', cursor: 'pointer',
+                  }}
+                >
+                  <Icon name="target" size={16} />
+                </button>
+              )}
+
               {mapError && (
                 <div
                   style={{
@@ -578,23 +620,35 @@ export default function ClientHome() {
 
             {destacado && (
               <div className="card" style={{ marginTop: isMobile ? -28 : -40, marginLeft: isMobile ? 8 : 16, marginRight: isMobile ? 8 : 16, position: 'relative', padding: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ width: 46, height: 46, borderRadius: 10, background: 'var(--surface-2)', flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
+                {destacado.fotos?.[0] && (
+                  <img
+                    src={destacado.fotos[0]}
+                    alt=""
+                    style={{ width: 46, height: 46, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
+                  />
+                )}
+                <div style={{ flex: '1 1 160px', minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontWeight: 800, fontSize: 13.5 }}>{destacado.nombre}</span>
                     {destacado.estado && (
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: ESTADO_APERTURA[destacado.estado].text }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: ESTADO_APERTURA[destacado.estado].text, flexShrink: 0 }}>
                         ● {ESTADO_APERTURA[destacado.estado].label}
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                  <div
+                    style={{
+                      fontSize: 12, color: 'var(--text-muted)', marginTop: 2,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}
+                    title={destacado.direccion}
+                  >
                     {destacado.ratingProm ? (
                       <>★ {destacado.ratingProm.toFixed(1)} ({destacado.ratingCount}) · </>
                     ) : (
                       'Sin reseñas aún · '
                     )}
-                    {destacado.direccion}
+                    {destacado.direccion ? acortarDireccion(destacado.direccion) : ''}
                   </div>
                   {destacado.razones[0] && (
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginTop: 3 }}>
@@ -683,7 +737,15 @@ export default function ClientHome() {
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{n.descripcion || n.categoria}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 6 }}>{n.direccion}</div>
+                  <div
+                    style={{
+                      fontSize: 11.5, color: 'var(--text-faint)', marginTop: 6,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}
+                    title={n.direccion}
+                  >
+                    {n.direccion ? acortarDireccion(n.direccion) : ''}
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                     <span style={{ fontSize: 12.5, fontWeight: 700 }}>
                       {n.precioDesde != null ? `Desde ${COP.format(n.precioDesde)}` : 'Consulta precios'}
@@ -731,6 +793,7 @@ const ICON_PATHS = {
   tag: 'M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3ZM6 6h.008v.008H6V6Z',
   calendar: 'M5 8h14v12H5zM5 8V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M7 3v4M17 3v4M5 12h14',
   star: 'M12 2.5l2.9 6.3 6.6.7-5 4.6 1.4 6.6L12 17.6 6.1 20.7l1.4-6.6-5-4.6 6.6-.7z',
+  target: 'M12 2a10 10 0 1 0 .01 0zM12 9a3 3 0 1 0 .01 0zM12 2v3M12 19v3M2 12h3M19 12h3',
 }
 
 function Icon({ name, size = 18 }) {

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { L, CENTRO_BRITALIA, reverseGeocodeDireccion } from '../maps/osm.js'
+import Icon from './Icon.jsx'
 
 const EPS = 1e-7
 const mismaUbicacion = (a, b) => a && b && Math.abs(a.lat - b.lat) < EPS && Math.abs(a.lng - b.lng) < EPS
@@ -69,12 +70,35 @@ export default function MapaUbicacion({ ubicacion, onCambiar, altura = 200 }) {
     mapRef.current?.panTo([ubicacion.lat, ubicacion.lng])
   }, [ubicacion])
 
+  // Recentra sobre el pin actual (no sobre `ubicacion`: si el pin ya se
+  // movió pero todavía no se guardó, debe volver ahí, no a la última
+  // posición confirmada).
+  function recentrar() {
+    const posicion = markerRef.current?.getLatLng() || ubicacion || CENTRO_BRITALIA
+    mapRef.current?.setView([posicion.lat, posicion.lng], 17)
+  }
+
   return (
     <div>
-      <div
-        ref={divRef}
-        style={{ height: altura, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-strong)' }}
-      />
+      <div style={{ position: 'relative' }}>
+        <div
+          ref={divRef}
+          style={{ height: altura, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-strong)' }}
+        />
+        <button
+          type="button"
+          onClick={recentrar}
+          title="Volver a la ubicación del negocio"
+          style={{
+            position: 'absolute', top: 8, right: 8, zIndex: 1001, // por encima de los controles internos de Leaflet (z-index hasta 1000)
+            width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--surface)', color: 'var(--text)', border: 'none', borderRadius: 'var(--radius-sm)',
+            boxShadow: 'var(--shadow-sm)', cursor: 'pointer',
+          }}
+        >
+          <Icon name="target" size={16} />
+        </button>
+      </div>
       <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 6 }}>
         Arrastra el pin o haz clic en el mapa para ajustar la ubicación exacta.
       </div>
