@@ -41,6 +41,11 @@ const MILES = new Intl.NumberFormat('es-CO') // solo separador de miles, sin sí
 // rompe la alineación del campo con las flechas.
 const PRESUPUESTO_MAXIMO = 200000
 
+// Zoom máximo al encuadrar los negocios en el mapa. Sin este tope, con un
+// solo negocio fitBounds se va al zoom máximo de los tiles (19) y solo se ven
+// un par de cuadras sin contexto; 17 deja ver los nombres de calles alrededor.
+const ZOOM_MAX_ENCUADRE = 17
+
 function formatCompacto(precio) {
   if (precio == null) return null
   if (precio >= 1000) return `$${Math.round(precio / 1000)}k`
@@ -271,7 +276,7 @@ export default function ClientHome() {
         puntosRef.current = puntos
         if (puntos.length) {
           const bounds = L.latLngBounds(puntos.map((p) => [p.posicion.lat, p.posicion.lng]))
-          mapRef.current.fitBounds(bounds, { padding: [60, 60] })
+          mapRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: ZOOM_MAX_ENCUADRE })
         }
       })
     } catch (err) {
@@ -301,7 +306,7 @@ export default function ClientHome() {
     if (!mapRef.current) return
     if (puntosRef.current.length) {
       const bounds = L.latLngBounds(puntosRef.current.map((p) => [p.posicion.lat, p.posicion.lng]))
-      mapRef.current.fitBounds(bounds, { padding: [60, 60] })
+      mapRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: ZOOM_MAX_ENCUADRE })
     } else {
       mapRef.current.setView([CENTRO_BRITALIA.lat, CENTRO_BRITALIA.lng], 15)
     }
