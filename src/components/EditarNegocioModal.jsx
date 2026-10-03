@@ -4,7 +4,10 @@ import { db } from '../firebase/config'
 import { ESPECIALIDADES } from '../especialidades.js'
 import Icon from './Icon.jsx'
 import ToggleIOS from './ToggleIOS.jsx'
+import CampoDireccion from './CampoDireccion.jsx'
+import MapaUbicacion from './MapaUbicacion.jsx'
 import useIsMobile from '../hooks/useIsMobile.js'
+import { geocodeDireccion } from '../maps/osm.js'
 
 // Modal de edición de la información pública del negocio (RF-06/RF-11):
 // nombre, descripción, dirección, contacto y horarios. Escribe directamente
@@ -54,6 +57,13 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
   })
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
+  // ubicacion viaja aparte de `form` porque solo cambia cuando se elige una
+  // sugerencia del autocompletado, no con cada tecla del input de texto.
+  const [ubicacion, setUbicacion] = useState(negocio.ubicacion || null)
+  // Dirección a la que corresponden las coordenadas guardadas en `ubicacion`.
+  // Si el dueño edita el texto a mano (sin elegir una sugerencia), deja de
+  // coincidir y al guardar se re-geocodifica.
+  const [direccionDeUbicacion, setDireccionDeUbicacion] = useState(negocio.direccion || '')
 
   function update(campo) {
     return (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
@@ -91,10 +101,26 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
     setError('')
     setGuardando(true)
     try {
+      // Si el texto ya no coincide con la dirección que arrojó la última
+      // coordenada conocida (p. ej. el dueño la editó a mano sin elegir una
+      // sugerencia del autocompletado), se re-geocodifica como respaldo. Si
+      // falla, se guarda igual: la ubicación en el mapa es un extra (RF-06).
+      let ubicacionFinal = ubicacion
+      if (form.direccion.trim() !== direccionDeUbicacion) {
+        try {
+          ubicacionFinal = await geocodeDireccion(form.direccion)
+        } catch (geoErr) {
+          ubicacionFinal = null
+          // eslint-disable-next-line no-console
+          console.error(geoErr)
+        }
+      }
+
       await updateDoc(doc(db, 'negocios', uid), {
         nombre: form.nombre.trim(),
         descripcion: form.descripcion.trim(),
         direccion: form.direccion.trim(),
+        ubicacion: ubicacionFinal || null,
         correo: form.correo.trim(),
         canalesContacto: {
           ...negocio.canalesContacto,
@@ -148,7 +174,33 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
         <textarea rows={2} value={form.descripcion} onChange={update('descripcion')} style={{ marginTop: 6, resize: 'vertical' }} />
 
         <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block', marginTop: 14 }}>Dirección</label>
-        <input value={form.direccion} onChange={update('direccion')} style={{ marginTop: 6 }} />
+        <CampoDireccion
+          value={form.direccion}
+          onChange={(direccion) => setForm((f) => ({ ...f, direccion }))}
+          onSeleccion={({ direccion, ubicacion: nuevaUbicacion }) => {
+            setForm((f) => ({ ...f, direccion }))
+            setUbicacion(nuevaUbicacion)
+            setDireccionDeUbicacion(direccion)
+          }}
+          style={{ marginTop: 6 }}
+        />
+
+        <div style={{ marginTop: 10 }}>
+          <MapaUbicacion
+            ubicacion={ubicacion}
+            onCambiar={({ direccion, ubicacion: nuevaUbicacion }) => {
+              setUbicacion(nuevaUbicacion)
+              if (direccion) {
+                setForm((f) => ({ ...f, direccion }))
+                setDireccionDeUbicacion(direccion)
+              } else {
+                // La geocodificación inversa falló: igual se guardan las
+                // coordenadas del pin, pero el texto se deja como está.
+                setDireccionDeUbicacion(form.direccion)
+              }
+            }}
+          />
+        </div>
 
         <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block', marginTop: 14 }}>Especialidades</label>
         <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 2, marginBottom: 8 }}>

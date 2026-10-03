@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { geocodeDireccion } from '../maps/googleMaps.js'
+import { geocodeDireccion } from '../maps/osm.js'
+import CampoDireccion from '../components/CampoDireccion.jsx'
+import MapaUbicacion from '../components/MapaUbicacion.jsx'
 
 const initialForm = {
   nombrePropietario: '',
@@ -20,6 +22,11 @@ export default function RegisterBusiness() {
   const [acepta, setAcepta] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // Coordenadas elegidas directamente de una sugerencia del autocompletado o
+  // moviendo el pin del mapa, si las hay; si el usuario termina escribiendo
+  // una dirección distinta a mano, se ignoran y se re-geocodifica al enviar.
+  const [ubicacion, setUbicacion] = useState(null)
+  const [direccionDeUbicacion, setDireccionDeUbicacion] = useState('')
 
   const { registerBusinessOwner } = useAuth()
   const navigate = useNavigate()
@@ -46,14 +53,17 @@ export default function RegisterBusiness() {
       // La ubicación en el mapa es un extra visual (RF-06): si la
       // geocodificación falla (dirección no reconocida, key sin cuota, etc.)
       // el registro del negocio no debe bloquearse por eso.
-      let ubicacion = null
-      try {
-        ubicacion = await geocodeDireccion(form.direccion)
-      } catch (geoErr) {
-        // eslint-disable-next-line no-console
-        console.error(geoErr)
+      let ubicacionFinal = ubicacion
+      if (form.direccion.trim() !== direccionDeUbicacion) {
+        try {
+          ubicacionFinal = await geocodeDireccion(form.direccion)
+        } catch (geoErr) {
+          ubicacionFinal = null
+          // eslint-disable-next-line no-console
+          console.error(geoErr)
+        }
       }
-      await registerBusinessOwner({ ...form, ubicacion })
+      await registerBusinessOwner({ ...form, ubicacion: ubicacionFinal })
       navigate('/panel', { replace: true })
     } catch (err) {
       setError(mapAuthError(err))
@@ -116,7 +126,32 @@ export default function RegisterBusiness() {
           </div>
           <div>
             <label style={{ fontSize: 12.5, fontWeight: 700 }}>Dirección</label>
-            <input required value={form.direccion} onChange={update('direccion')} placeholder="Cra. 104 #146-22, Britalia" style={{ marginTop: 6 }} />
+            <CampoDireccion
+              required
+              value={form.direccion}
+              onChange={(direccion) => setForm((f) => ({ ...f, direccion }))}
+              onSeleccion={({ direccion, ubicacion: nuevaUbicacion }) => {
+                setForm((f) => ({ ...f, direccion }))
+                setUbicacion(nuevaUbicacion)
+                setDireccionDeUbicacion(direccion)
+              }}
+              placeholder="Cra. 104 #146-22, Britalia"
+              style={{ marginTop: 6 }}
+            />
+          </div>
+          <div>
+            <MapaUbicacion
+              ubicacion={ubicacion}
+              onCambiar={({ direccion, ubicacion: nuevaUbicacion }) => {
+                setUbicacion(nuevaUbicacion)
+                if (direccion) {
+                  setForm((f) => ({ ...f, direccion }))
+                  setDireccionDeUbicacion(direccion)
+                } else {
+                  setDireccionDeUbicacion(form.direccion)
+                }
+              }}
+            />
           </div>
           <div>
             <label style={{ fontSize: 12.5, fontWeight: 700 }}>Descripción breve</label>

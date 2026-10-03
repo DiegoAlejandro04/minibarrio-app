@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { collection, collectionGroup, onSnapshot, query, where } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
-import { geocodeDireccion, loadGoogleMaps } from '../../maps/googleMaps.js'
+import { L, geocodeDireccion } from '../../maps/osm.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { recomendar } from '../../recomendador.js'
 import { ESPECIALIDADES } from '../../especialidades.js'
@@ -210,11 +210,11 @@ export default function ClientHome() {
     [negocios, ratings, serviciosPorNegocio]
   )
 
-  // Mapa real de Google (RF-06). Usa negocio.ubicacion (lat/lng) cuando ya
-  // fue geocodificada al registrar el negocio (ver RegisterBusiness.jsx); si
-  // un negocio antiguo no la tiene, geocodifica su dirección al vuelo aquí
-  // mismo (sin persistirla — solo el propio dueño puede escribir su
-  // documento, ver firestore.rules).
+  // Mapa real con OpenStreetMap vía Leaflet (RF-06), gratis y sin API key.
+  // Usa negocio.ubicacion (lat/lng) cuando ya fue geocodificada al registrar
+  // el negocio (ver RegisterBusiness.jsx); si un negocio antiguo no la
+  // tiene, geocodifica su dirección al vuelo aquí mismo (sin persistirla —
+  // solo el propio dueño puede escribir su documento, ver firestore.rules).
   const mapDivRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
@@ -222,55 +222,57 @@ export default function ClientHome() {
 
   useEffect(() => {
     let cancelado = false
+    if (!mapDivRef.current) return undefined
 
-    loadGoogleMaps()
-      .then((maps) => {
-        if (cancelado || !mapDivRef.current) return
+    try {
+      if (!mapRef.current) {
+        mapRef.current = L.map(mapDivRef.current, { zoomControl: true })
+          .setView([4.711, -74.0721], 12) // Bogotá — se ajusta con fitBounds al ubicar los negocios
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+          maxZoom: 19,
+        }).addTo(mapRef.current)
+      }
 
-        if (!mapRef.current) {
-          mapRef.current = new maps.Map(mapDivRef.current, {
-            center: { lat: 4.711, lng: -74.0721 }, // Bogotá — se ajusta con fitBounds al ubicar los negocios
-            zoom: 12,
-            disableDefaultUI: true,
-            zoomControl: true,
-          })
-        }
+      markersRef.current.forEach((m) => m.remove())
+      markersRef.current = []
 
-        markersRef.current.forEach((m) => m.setMap(null))
-        markersRef.current = []
-
-        const bounds = new maps.LatLngBounds()
-
-        negociosConDatos.forEach(async (n) => {
+      Promise.all(
+        negociosConDatos.map(async (n) => {
           let posicion = n.ubicacion
           if (!posicion) {
-            if (!n.direccion) return
+            if (!n.direccion) return null
             try {
               posicion = await geocodeDireccion(n.direccion)
             } catch {
-              return
+              return null
             }
           }
-          if (cancelado || !mapRef.current) return
-
-          const precio = formatCompacto(n.precioDesde)
-          const marker = new maps.Marker({
-            map: mapRef.current,
-            position: posicion,
-            title: precio ? `${n.nombre} · ${precio}` : n.nombre,
-          })
-          marker.addListener('click', () => navigate(`/negocio/${n.id}`))
-          markersRef.current.push(marker)
-
-          bounds.extend(posicion)
-          mapRef.current.fitBounds(bounds, 60)
+          return { n, posicion }
         })
+      ).then((resultados) => {
+        if (cancelado || !mapRef.current) return
+        const puntos = resultados.filter(Boolean)
+
+        puntos.forEach(({ n, posicion }) => {
+          const precio = formatCompacto(n.precioDesde)
+          const marker = L.marker([posicion.lat, posicion.lng])
+            .addTo(mapRef.current)
+            .bindTooltip(precio ? `${n.nombre} · ${precio}` : n.nombre)
+          marker.on('click', () => navigate(`/negocio/${n.id}`))
+          markersRef.current.push(marker)
+        })
+
+        if (puntos.length) {
+          const bounds = L.latLngBounds(puntos.map((p) => [p.posicion.lat, p.posicion.lng]))
+          mapRef.current.fitBounds(bounds, { padding: [60, 60] })
+        }
       })
-      .catch((err) => {
-        setMapError(true)
-        // eslint-disable-next-line no-console
-        console.error(err)
-      })
+    } catch (err) {
+      setMapError(true)
+      // eslint-disable-next-line no-console
+      console.error(err)
+    }
 
     return () => { cancelado = true }
   }, [negociosConDatos, navigate])
@@ -546,6 +548,7 @@ export default function ClientHome() {
                 position: 'relative', height: isMobile ? 220 : 300, borderRadius: 'var(--radius-lg)', overflow: 'hidden',
                 background: 'var(--map-gradient)',
                 border: '1px solid var(--border)',
+                isolation: 'isolate', // atrapa el z-index alto de los controles de Leaflet para que no floten por encima de la tarjeta "destacado" de abajo
               }}
             >
               <div ref={mapDivRef} style={{ position: 'absolute', inset: 0 }} />
