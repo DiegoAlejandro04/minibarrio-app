@@ -439,15 +439,19 @@ export default function ClientHome() {
                   disabled={ubicacionEstado === 'cargando'}
                   title={ubicacionEstado === 'error' ? 'No pudimos acceder a tu ubicación' : undefined}
                   style={{
-                    marginTop: 4, border: 'none', background: 'transparent', padding: '6px 0', fontSize: 14,
-                    fontWeight: ubicacionCliente ? 700 : 400,
+                    display: 'block', width: '100%', marginTop: 4, border: 'none', background: 'transparent',
+                    padding: '6px 0', fontSize: 14, fontWeight: ubicacionCliente ? 700 : 400,
                     color: ubicacionEstado === 'error' ? 'var(--danger)' : ubicacionCliente ? 'var(--sage-text)' : 'var(--text-muted)',
-                    textAlign: 'left', cursor: 'pointer',
+                    textAlign: 'left', cursor: ubicacionEstado === 'cargando' ? 'default' : 'pointer',
                   }}
                 >
-                  {ubicacionEstado === 'cargando' && 'Ubicando…'}
+                  {ubicacionEstado === 'cargando' && (
+                    <span className="dots-cargando" aria-label="Ubicando…">
+                      <span /><span /><span />
+                    </span>
+                  )}
                   {ubicacionEstado === 'error' && 'Ubicación no disponible'}
-                  {ubicacionEstado === 'activa' && 'Cerca de ti ✓'}
+                  {ubicacionEstado === 'activa' && '● Cerca de ti'}
                   {ubicacionEstado === 'inactiva' && 'Usar mi ubicación'}
                 </button>
               </div>
