@@ -7,6 +7,7 @@ import { geocodeDireccion, loadGoogleMaps } from '../../maps/googleMaps.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { recomendar } from '../../recomendador.js'
 import { ESPECIALIDADES } from '../../especialidades.js'
+import Footer from '../../components/Footer.jsx'
 
 // Vitrina pública de negocios (RF-05 búsqueda, RF-06 mapa, RF-09
 // recomendaciones, RF-12 portafolio visible sin sesión). Muestra datos
@@ -682,6 +683,8 @@ export default function ClientHome() {
           </div>
         )}
       </section>
+
+      <Footer />
     </div>
   )
 }
