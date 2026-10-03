@@ -167,6 +167,21 @@ input:focus, select:focus, textarea:focus {
 .dots-cargando span:nth-child(2) { animation-delay: .12s; }
 .dots-cargando span:nth-child(3) { animation-delay: .24s; }
 
+/* Campo de presupuesto (ClientHome.jsx): el "$", el número y las flechas son
+   tres elementos separados dentro de un mismo input visual — el resplandor
+   de foco debe envolver los tres, no solo el <input> interno (que por
+   defecto se quedaría afuera el símbolo y las flechas). */
+.campo-monto {
+  border-radius: var(--radius-sm);
+  transition: box-shadow .15s;
+}
+.campo-monto:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 15%, transparent);
+}
+.campo-monto input:focus {
+  box-shadow: none;
+}
+
 .error-text {
   color: var(--danger);
   font-size: 13px;

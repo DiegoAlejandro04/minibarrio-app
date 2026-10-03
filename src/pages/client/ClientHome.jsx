@@ -33,6 +33,13 @@ const PROPUESTAS_VALOR = [
 ]
 
 const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
+const MILES = new Intl.NumberFormat('es-CO') // solo separador de miles, sin símbolo — campo de presupuesto
+
+// Tope del campo de presupuesto: estas son tiendas de barrio (ver Tabla 14 de
+// la encuesta, precios reales entre $10.000 y $40.000), así que no tiene
+// sentido dejar escribir cifras de varios millones — además de absurdo,
+// rompe la alineación del campo con las flechas.
+const PRESUPUESTO_MAXIMO = 200000
 
 function formatCompacto(precio) {
   if (precio == null) return null
@@ -462,16 +469,43 @@ export default function ClientHome() {
               </div>
               <div style={{ flex: '1 1 140px' }}>
                 <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Presupuesto</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  inputMode="numeric"
-                  value={presupuesto}
-                  onChange={(e) => setPresupuesto(e.target.value)}
-                  placeholder="Cualquier precio"
-                  style={{ marginTop: 4, border: 'none', padding: '6px 0', fontSize: 14, width: '100%' }}
-                />
+                <div className="campo-monto" style={{ marginTop: 4, display: 'flex', alignItems: 'center' }}>
+                  {presupuesto && (
+                    <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>$</span>
+                  )}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={presupuesto ? MILES.format(Number(presupuesto)) : ''}
+                    onChange={(e) => {
+                      const digitos = e.target.value.replace(/\D/g, '')
+                      setPresupuesto(digitos === '' ? '' : String(Math.min(Number(digitos), PRESUPUESTO_MAXIMO)))
+                    }}
+                    placeholder="Cualquier precio"
+                    style={{
+                      border: 'none', padding: '6px 0', fontSize: 14, width: '100%', background: 'transparent',
+                      textAlign: presupuesto ? 'right' : 'left',
+                    }}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, marginLeft: 4 }}>
+                    <button
+                      type="button"
+                      aria-label="Subir presupuesto en $1.000"
+                      onClick={() => setPresupuesto((prev) => String(Math.min(PRESUPUESTO_MAXIMO, (Number(prev) || 0) + 1000)))}
+                      style={{ border: 'none', background: 'none', padding: 0, lineHeight: 1, fontSize: 8, color: 'var(--text-faint)', cursor: 'pointer' }}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Bajar presupuesto en $1.000"
+                      onClick={() => setPresupuesto((prev) => String(Math.max(0, (Number(prev) || 0) - 1000)))}
+                      style={{ border: 'none', background: 'none', padding: 0, lineHeight: 1, fontSize: 8, color: 'var(--text-faint)', cursor: 'pointer' }}
+                    >
+                      ▼
+                    </button>
+                  </div>
+                </div>
               </div>
               <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Icon name="search" size={15} /> Buscar
