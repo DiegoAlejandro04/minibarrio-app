@@ -148,7 +148,7 @@ export default function ClientResumen() {
         <div className="card" style={{ padding: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
             <div style={{ fontWeight: 800, fontSize: 15 }}>Negocios favoritos</div>
-            <Link to="/perfil/favoritos" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent)' }}>Ver todos</Link>
+            <Link to="/perfil/favoritos" replace style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent)' }}>Ver todos</Link>
           </div>
           {favoritos.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
@@ -186,7 +186,7 @@ export default function ClientResumen() {
         <div className="card" style={{ padding: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
             <div style={{ fontWeight: 800, fontSize: 15 }}>Mis reseñas recientes</div>
-            <Link to="/perfil/resenas" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent)' }}>Ver todas</Link>
+            <Link to="/perfil/resenas" replace style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent)' }}>Ver todas</Link>
           </div>
           {resenasOrdenadas.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Todavía no has escrito reseñas.</p>

@@ -12,6 +12,10 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 // Shell del panel del cliente: sidebar de navegación + los datos del perfil,
 // citas, favoritos y reseñas del cliente, compartidos entre las sub-páginas
 // vía Outlet context (mismo patrón que src/pages/owner/OwnerLayout.jsx).
+//
+// Los enlaces entre secciones del panel usan "replace": moverse entre menús
+// no deja historial, así que "atrás" sale del panel a la página desde donde
+// se entró (normalmente la principal) en vez de recorrer cada menú visitado.
 
 const NAV_ITEMS = [
   { to: '/perfil', label: 'Principal', icon: 'grid', end: true },
@@ -171,6 +175,7 @@ export default function ClientLayout() {
         </div>
         <Link
           to="/perfil/datos"
+          replace
           onClick={() => setDrawerAbierto(false)}
           className="btn btn-outline"
           style={{ width: '100%', padding: '8px 0', fontSize: 12.5 }}
@@ -185,6 +190,7 @@ export default function ClientLayout() {
             key={item.to}
             to={item.to}
             end={item.end}
+            replace
             onClick={() => setDrawerAbierto(false)}
             style={({ isActive }) => ({
               display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 9,
