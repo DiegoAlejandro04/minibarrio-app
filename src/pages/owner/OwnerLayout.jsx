@@ -64,7 +64,7 @@ export default function OwnerLayout() {
     navigate('/login')
   }
 
-  if (loading) return <Splash />
+  if (loading) return <Splash animar={false} />
 
   if (!negocio) {
     return (

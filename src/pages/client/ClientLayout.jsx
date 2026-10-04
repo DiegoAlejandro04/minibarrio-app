@@ -139,7 +139,7 @@ export default function ClientLayout() {
   }
 
   if (loading) {
-    return <Splash />
+    return <Splash animar={false} />
   }
 
   const desde = perfil?.creadoEn?.toDate

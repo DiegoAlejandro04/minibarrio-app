@@ -93,6 +93,14 @@
 
 * { box-sizing: border-box; }
 
+/* Reserva siempre el espacio de la barra de scroll vertical, aparezca o no:
+   sin esto, una página que arranca corta (p. ej. mientras el splash de
+   App.jsx todavía tapa el contenido real cargando) y después crece lo
+   suficiente para tener scroll (fotos de un negocio, etc.) empuja todo el
+   contenido unos pixeles hacia la izquierda justo en ese momento — se ve
+   como un salto al terminar de cargar. */
+html { scrollbar-gutter: stable; }
+
 body {
   margin: 0;
   font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;

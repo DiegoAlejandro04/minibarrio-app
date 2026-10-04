@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
@@ -26,22 +26,30 @@ import OwnerConfiguracion from './pages/owner/OwnerConfiguracion.jsx'
 import Proximamente from './components/Proximamente.jsx'
 import NotFound from './pages/NotFound.jsx'
 
-// Cuánto se muestra el splash al navegar a la vitrina o al panel del cliente:
-// lo justo para que termine la animación de entrada del logo (la última pieza
-// arranca a los 220 ms y dura 500 ms, ver Splash.jsx) más una breve pausa.
-const SPLASH_NAVEGACION_MS = 900
+// Cuánto se muestra el splash (al arrancar con sesión iniciada, o al navegar
+// a la vitrina o al panel del cliente): lo justo para que termine la
+// animación de entrada del logo (la última pieza arranca a los 220 ms y dura
+// 500 ms, ver Splash.jsx) más una breve pausa — nunca se corta a la mitad.
+const DURACION_SPLASH_MS = 900
 
 // Navegaciones que muestran el splash: llegar a la vitrina ("/") desde otra
-// página, o entrar al panel del cliente desde fuera de él. Moverse entre las
-// secciones del propio panel (Principal, Mis citas…) no lo muestra.
+// página, entrar al panel del cliente desde fuera de él, entrar al
+// portafolio público de un negocio, o entrar/salir de los datos personales
+// del cliente (a diferencia de las demás pestañas de su panel, esa sí se
+// siente como una pantalla aparte, no como cambiar de pestaña — por eso
+// también se anima al volver, no solo al entrar). Moverse entre el resto de
+// las secciones del propio panel (Principal, Mis citas…) no lo muestra.
 function muestraSplash(desde, hacia) {
   if (desde === hacia) return false
   if (hacia === '/') return true
-  return hacia.startsWith('/perfil') && !desde.startsWith('/perfil')
+  if (hacia.startsWith('/perfil') && !desde.startsWith('/perfil')) return true
+  if (hacia === '/perfil/datos' || desde === '/perfil/datos') return true
+  if (hacia.startsWith('/negocio/') && !desde.startsWith('/negocio/')) return true
+  return false
 }
 
 export default function App() {
-  const { modoOscuro, modoOscuroPanel, authReady } = useAuth()
+  const { currentUser, modoOscuro, modoOscuroPanel, authReady } = useAuth()
   const location = useLocation()
 
   // Dos preferencias de modo oscuro independientes, cada una con su propio
@@ -64,22 +72,38 @@ export default function App() {
     rutaAnterior.current = location.pathname
     if (!muestraSplash(desde, location.pathname)) return undefined
     setSplashNavegacion(true)
-    const t = setTimeout(() => setSplashNavegacion(false), SPLASH_NAVEGACION_MS)
+    const t = setTimeout(() => setSplashNavegacion(false), DURACION_SPLASH_MS)
     return () => {
       clearTimeout(t)
       setSplashNavegacion(false)
     }
   }, [location.pathname])
 
-  // Mientras Firebase ni siquiera ha dicho si hay sesión o no, más vale no
-  // pintar nada todavía: antes de este guard, la página se renderizaba de
-  // una vez en su estado "sin sesión", y un instante después saltaba a la
-  // real — un parpadeo visible cada vez que se recargaba con sesión
-  // iniciada. Esto se resuelve casi al instante (es local, sin red) — lo que
-  // SÍ tarda más (traer el perfil completo: rol, modo oscuro) ya no bloquea
-  // aquí, ver ProtectedRoute.jsx y el comentario de `authReady` en
-  // AuthContext.jsx.
-  if (!authReady) return <Splash />
+  // Splash del primer arranque. Antes esto reemplazaba todo el árbol
+  // mientras `authReady` era false — evitaba el parpadeo de "sin sesión",
+  // pero con sesión iniciada bloqueaba también el panel/perfil de abajo, que
+  // ya no podían ni montarse para empezar a pedir sus propios datos (ver
+  // ProtectedRoute.jsx). Ahora es un overlay: las rutas de abajo se montan y
+  // cargan sus datos en paralelo con lo que falta de sesión, sin esperar —
+  // el splash solo se queda encima el tiempo justo para que su animación
+  // termine, en vez de cortarse apenas los datos ya estén listos.
+  //
+  // Para quien NO tiene sesión no hay nada que ocultar ni que esperar (no
+  // hay perfil que traer de Firestore), así que ahí se quita apenas se sepa
+  // — solo se compromete al mínimo de la animación cuando sí hay alguien
+  // detrás.
+  const [splashInicial, setSplashInicial] = useState(true)
+  useEffect(() => {
+    if (!authReady) return undefined
+    if (!currentUser) {
+      setSplashInicial(false)
+      return undefined
+    }
+    const t = setTimeout(() => setSplashInicial(false), DURACION_SPLASH_MS)
+    return () => clearTimeout(t)
+  }, [authReady, currentUser])
+
+  const mostrarSplash = splashInicial || splashNavegacion
 
   return (
     <>
@@ -134,8 +158,9 @@ export default function App() {
 
       {/* Fondo opaco propio: el Splash entra con un fade desde transparente
           (".splash-arranque" en index.css) y, sin este fondo, durante ese
-          instante se alcanzaba a ver la página nueva por debajo. */}
-      {splashNavegacion && (
+          instante se alcanzaba a ver la página de abajo (ya sea la nueva al
+          navegar, o la real mientras se confirma la sesión al arrancar). */}
+      {mostrarSplash && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--bg)' }}>
           <Splash />
         </div>

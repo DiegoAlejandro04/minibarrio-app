@@ -15,7 +15,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   // Lo único que hace falta para esto es saber SI hay sesión — se resuelve
   // casi al instante (local). Confirmar además el rol tarda un poco más
   // (perfil de Firestore, ver authReady/loading en AuthContext.jsx).
-  if (!authReady) return <Splash />
+  if (!authReady) return <Splash animar={false} />
 
   if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />

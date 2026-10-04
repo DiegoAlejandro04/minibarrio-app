@@ -294,7 +294,7 @@ export default function NegocioDetalle() {
     }
   }
 
-  if (loading) return <Splash />
+  if (loading) return <Splash animar={false} />
 
   if (!negocio) {
     return (
