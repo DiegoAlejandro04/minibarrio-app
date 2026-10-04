@@ -75,8 +75,13 @@ export default function OwnerAgenda() {
 
   const serviciosPorId = useMemo(() => Object.fromEntries(servicios.map((s) => [s.id, s])), [servicios])
 
+  // Las citas que canceló el propio cliente no se muestran: son asunto suyo,
+  // no del negocio. Solo quedan las canceladas por el negocio desde aquí
+  // (canceladaPor: 'negocio'). Las canceladas antes de existir este campo no
+  // lo tienen y se ocultan también — en la práctica las cancelaba el cliente.
   const citasConFecha = useMemo(
     () => citas
+      .filter((c) => c.estado !== 'cancelada' || c.canceladaPor === 'negocio')
       .map((c) => ({ ...c, fecha: c.fechaHora?.toDate ? c.fechaHora.toDate() : null }))
       .filter((c) => c.fecha),
     [citas]
@@ -128,7 +133,10 @@ export default function OwnerAgenda() {
     if (!citaAbierta) return
     setGuardando(true)
     try {
-      await updateDoc(doc(db, 'citas', citaAbierta.id), { estado: estadoSeleccionado })
+      await updateDoc(doc(db, 'citas', citaAbierta.id), {
+        estado: estadoSeleccionado,
+        ...(estadoSeleccionado === 'cancelada' && { canceladaPor: 'negocio' }),
+      })
       setCitaAbierta(null)
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -175,6 +183,8 @@ export default function OwnerAgenda() {
               const fechaCelda = new Date(mesVisto.getFullYear(), mesVisto.getMonth(), dia)
               const esHoy = isSameDay(fechaCelda, hoy)
               const citasDia = citasPorDia[dia] || []
+              // El número del botón cuenta solo las citas por atender.
+              const pendientes = citasDia.filter((c) => c.estado === 'pendiente').length
               const seleccionado = diaSeleccionado && isSameDay(diaSeleccionado, fechaCelda)
               return (
                 <div
@@ -204,7 +214,7 @@ export default function OwnerAgenda() {
                         background: 'var(--accent)', color: '#fff', cursor: 'pointer', lineHeight: 1.2,
                       }}
                     >
-                      {isMobile ? (citasDia.length > 1 ? `Ver (${citasDia.length})` : 'Ver') : `Ver reservas${citasDia.length > 1 ? ` (${citasDia.length})` : ''}`}
+                      {isMobile ? (pendientes ? `Ver (${pendientes})` : 'Ver') : `Ver reservas${pendientes ? ` (${pendientes})` : ''}`}
                     </button>
                   )}
                 </div>

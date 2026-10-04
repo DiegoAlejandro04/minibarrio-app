@@ -122,7 +122,9 @@ export default function ClientLayout() {
   }
 
   async function cancelarCita(citaId) {
-    await updateDoc(doc(db, 'citas', citaId), { estado: 'cancelada' })
+    // "canceladaPor" le permite a la agenda del negocio ocultar las citas que
+    // canceló el propio cliente (ver OwnerAgenda.jsx).
+    await updateDoc(doc(db, 'citas', citaId), { estado: 'cancelada', canceladaPor: 'cliente' })
   }
 
   const context = useMemo(
