@@ -14,7 +14,7 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 // vía Outlet context (mismo patrón que src/pages/owner/OwnerLayout.jsx).
 
 const NAV_ITEMS = [
-  { to: '/perfil', label: 'Resumen', icon: 'grid', end: true },
+  { to: '/perfil', label: 'Principal', icon: 'grid', end: true },
   { to: '/perfil/citas', label: 'Mis citas', icon: 'calendar' },
   { to: '/perfil/favoritos', label: 'Favoritos', icon: 'heart' },
   { to: '/perfil/resenas', label: 'Mis reseñas', icon: 'star' },

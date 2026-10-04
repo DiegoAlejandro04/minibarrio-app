@@ -4,7 +4,7 @@ import Icon from '../../components/Icon.jsx'
 import CalificarModal from '../../components/CalificarModal.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 
-// Panel del cliente — vista "Resumen". Conectado a datos reales de
+// Panel del cliente — vista "Principal". Conectado a datos reales de
 // Firestore (citas, favoritos, reseñas) vía el contexto de ClientLayout.
 
 const FECHA_CORTA = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -33,19 +33,21 @@ export default function ClientResumen() {
 
   const citasCompletadas = useMemo(() => citasConFecha.filter((c) => c.estado === 'completada').length, [citasConFecha])
 
-  const proximaCita = useMemo(
+  // Todas las citas por venir (no solo la más cercana): un cliente puede
+  // tener varias reservas pendientes a la vez.
+  const proximasCitas = useMemo(
     () => citasConFecha
       .filter((c) => c.fecha >= ahora && c.estado !== 'cancelada' && c.estado !== 'completada')
-      .sort((a, b) => a.fecha - b.fecha)[0] || null,
+      .sort((a, b) => a.fecha - b.fecha),
     [citasConFecha, ahora]
   )
 
   const historial = useMemo(
     () => citasConFecha
-      .filter((c) => c.id !== proximaCita?.id && (c.fecha < ahora || c.estado === 'completada' || c.estado === 'cancelada'))
+      .filter((c) => c.fecha < ahora || c.estado === 'completada' || c.estado === 'cancelada')
       .sort((a, b) => b.fecha - a.fecha)
       .slice(0, 5),
-    [citasConFecha, ahora, proximaCita]
+    [citasConFecha, ahora]
   )
 
   const resenasOrdenadas = useMemo(
@@ -84,8 +86,9 @@ export default function ClientResumen() {
         <StatTile icon="star" value={resenas.length} label="Reseñas escritas" />
       </div>
 
-      {proximaCita && (
+      {proximasCitas.map((proximaCita) => (
         <div
+          key={proximaCita.id}
           className="card"
           style={{
             marginTop: 16, padding: 16, display: 'flex', flexDirection: isMobile ? 'column' : 'row',
@@ -135,7 +138,7 @@ export default function ClientResumen() {
             </button>
           </div>
         </div>
-      )}
+      ))}
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginTop: 16, alignItems: 'start' }}>
         <div className="card" style={{ padding: 18 }}>
@@ -230,25 +233,16 @@ export default function ClientResumen() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {historial.map((c) => (
-              <div key={c.id} style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 8 : 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--surface-2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)' }}>
-                    <Icon name="calendar" size={15} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13.5 }}>{negociosPorId[c.negocioId]?.nombre || 'Negocio'}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-                      {serviciosPorId[`${c.negocioId}:${c.servicioId}`]?.nombre || 'Servicio'} · {FECHA_LARGA.format(c.fecha)}
-                    </div>
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--surface-2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)' }}>
+                  <Icon name="calendar" size={15} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>{negociosPorId[c.negocioId]?.nombre || 'Negocio'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+                    {serviciosPorId[`${c.negocioId}:${c.servicioId}`]?.nombre || 'Servicio'} · {FECHA_LARGA.format(c.fecha)}
                   </div>
                 </div>
-                <Link
-                  to={`/negocio/${c.negocioId}`}
-                  className="btn btn-outline"
-                  style={{ padding: '7px 12px', fontSize: 12, flexShrink: 0, textAlign: 'center', alignSelf: isMobile ? 'flex-end' : 'center' }}
-                >
-                  Reservar de nuevo
-                </Link>
               </div>
             ))}
           </div>
