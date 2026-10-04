@@ -41,7 +41,7 @@ function muestraSplash(desde, hacia) {
 }
 
 export default function App() {
-  const { modoOscuro, modoOscuroPanel, loading } = useAuth()
+  const { modoOscuro, modoOscuroPanel, authReady } = useAuth()
   const location = useLocation()
 
   // Dos preferencias de modo oscuro independientes, cada una con su propio
@@ -71,14 +71,15 @@ export default function App() {
     }
   }, [location.pathname])
 
-  // Mientras Firebase confirma si hay sesión (y, si la hay, trae el rol y el
-  // modo oscuro desde Firestore), más vale no pintar nada todavía: antes de
-  // este guard, la página se renderizaba de una vez en su estado "sin
-  // sesión", y un instante después saltaba a la real — un parpadeo visible
-  // cada vez que se recargaba con sesión iniciada. Para quien no tiene
-  // sesión esto se resuelve casi al instante (no hay nada que traer de
-  // Firestore), así que no se nota.
-  if (loading) return <Splash />
+  // Mientras Firebase ni siquiera ha dicho si hay sesión o no, más vale no
+  // pintar nada todavía: antes de este guard, la página se renderizaba de
+  // una vez en su estado "sin sesión", y un instante después saltaba a la
+  // real — un parpadeo visible cada vez que se recargaba con sesión
+  // iniciada. Esto se resuelve casi al instante (es local, sin red) — lo que
+  // SÍ tarda más (traer el perfil completo: rol, modo oscuro) ya no bloquea
+  // aquí, ver ProtectedRoute.jsx y el comentario de `authReady` en
+  // AuthContext.jsx.
+  if (!authReady) return <Splash />
 
   return (
     <>

@@ -56,6 +56,17 @@ function guardarCache(clave, valor) {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null)
   const [role, setRole] = useState(null) // 'cliente' | 'propietario' | null
+  // Dos señales de carga separadas, no una sola: `authReady` se resuelve
+  // casi al instante (local, sin red) en cuanto Firebase confirma si hay
+  // sesión o no — es lo único que hace falta para saber si mostrar la app o
+  // mandar a /login. `loading` tarda más porque además trae el perfil (rol,
+  // modo oscuro) de Firestore. Antes una sola bandera cubría ambas cosas, así
+  // que ProtectedRoute.jsx esperaba el perfil completo (red) antes de dejar
+  // montar la página protegida, y esa página recién ahí arrancaba su propia
+  // consulta — las dos consultas quedaban en serie. Separarlas deja que la
+  // página empiece a pedir sus datos apenas se sabe quién es el usuario, en
+  // paralelo con la confirmación del rol, no después.
+  const [authReady, setAuthReady] = useState(false)
   const [loading, setLoading] = useState(true)
   // Preferencia de modo oscuro del CLIENTE (persistida en su perfil de
   // Firestore para que se mantenga si inicia sesión de nuevo). Aplica a toda
@@ -70,6 +81,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user)
+      setAuthReady(true)
       if (user) {
         const snap = await getDoc(doc(db, 'usuarios', user.uid))
         const oscuro = snap.exists() ? !!snap.data().modoOscuro : false
@@ -246,7 +258,7 @@ export function AuthProvider({ children }) {
   }
 
   const value = {
-    currentUser, role, loading, modoOscuro, actualizarModoOscuro, modoOscuroPanel, actualizarModoOscuroPanel,
+    currentUser, role, authReady, loading, modoOscuro, actualizarModoOscuro, modoOscuroPanel, actualizarModoOscuroPanel,
     registerClient, registerBusinessOwner, login, loginWithGoogle, logout,
   }
 
