@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import Icon from '../../components/Icon.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
+import { codigoReserva } from '../../reservas.js'
 
 const FECHA_LARGA = new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
 const HORA = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', hour12: true })
@@ -91,6 +92,9 @@ export default function ClientCitas() {
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
           {serviciosPorId[`${c.negocioId}:${c.servicioId}`]?.nombre || 'Servicio'} ·{' '}
           {capitalize(FECHA_LARGA.format(c.fecha))}, {HORA.format(c.fecha)}
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 3, fontFamily: 'ui-monospace, Consolas, monospace' }}>
+          Reserva #{codigoReserva(c.id)}
         </div>
       </div>
     )

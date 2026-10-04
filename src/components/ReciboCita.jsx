@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { acortarDireccion } from '../maps/osm.js'
+import { codigoReserva } from '../reservas.js'
 
 // Comprobante de reserva con animación de "impresora de recibos": aparece
 // debajo del panel de reserva (NegocioDetalle.jsx) cuando el cliente confirma
@@ -84,7 +85,7 @@ export default function ReciboCita({ cita, onCerrar }) {
     }
   }, [cita.id])
 
-  const codigo = cita.id.slice(0, 6).toUpperCase()
+  const codigo = codigoReserva(cita.id)
 
   return (
     <section className="recibo" data-etapa={etapa} aria-label="Comprobante de reserva">

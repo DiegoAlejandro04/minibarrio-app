@@ -3,6 +3,7 @@ import { Link, useOutletContext } from 'react-router-dom'
 import Icon from '../../components/Icon.jsx'
 import CalificarModal from '../../components/CalificarModal.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
+import { codigoReserva } from '../../reservas.js'
 
 // Panel del cliente — vista "Principal". Conectado a datos reales de
 // Firestore (citas, favoritos, reseñas) vía el contexto de ClientLayout.
@@ -113,6 +114,9 @@ export default function ClientResumen() {
               <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
                 {serviciosPorId[`${proximaCita.negocioId}:${proximaCita.servicioId}`]?.nombre || 'Servicio'} ·{' '}
                 {FECHA_CORTA.format(proximaCita.fecha)}, {HORA.format(proximaCita.fecha)}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 3, fontFamily: 'ui-monospace, Consolas, monospace' }}>
+                Reserva #{codigoReserva(proximaCita.id)}
               </div>
             </div>
           </div>

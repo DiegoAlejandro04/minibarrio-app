@@ -4,6 +4,7 @@ import { collection, doc, getDoc, onSnapshot, query, updateDoc, where } from 'fi
 import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
+import { codigoReserva, normalizarCodigo } from '../../reservas.js'
 
 // Agenda del negocio (RF-07/RF-08): calendario del mes con las citas
 // agendadas por los clientes, y cambio de estado de cada cita (pendiente /
@@ -55,6 +56,7 @@ export default function OwnerAgenda() {
   const [citaAbierta, setCitaAbierta] = useState(null)
   const [estadoSeleccionado, setEstadoSeleccionado] = useState('pendiente')
   const [guardando, setGuardando] = useState(false)
+  const [busqueda, setBusqueda] = useState('') // número de reserva, ver reservas.js
 
   useEffect(() => {
     if (!uid) return
@@ -110,6 +112,17 @@ export default function OwnerAgenda() {
     return celdas
   }, [mesVisto])
 
+  // Búsqueda por número de reserva (el que el cliente ve en su comprobante),
+  // en todas las citas del negocio y no solo las del mes visible: el cliente
+  // puede llegar o escribir con el número de una cita de cualquier fecha.
+  const codigoBuscado = normalizarCodigo(busqueda)
+  const resultadosBusqueda = useMemo(() => {
+    if (codigoBuscado.length < 3) return null
+    return citasConFecha
+      .filter((c) => codigoReserva(c.id).startsWith(codigoBuscado))
+      .sort((a, b) => a.fecha - b.fecha)
+  }, [citasConFecha, codigoBuscado])
+
   const citasDelDiaSeleccionado = useMemo(() => {
     if (!diaSeleccionado) return []
     return citasPorDia[diaSeleccionado.getDate()] || []
@@ -154,6 +167,44 @@ export default function OwnerAgenda() {
       <p style={{ color: 'var(--text-muted)', fontSize: 13.5, marginBottom: 20 }}>
         Revisa las citas agendadas por tus clientes y actualiza su estado.
       </p>
+
+      <div className="card" style={{ padding: 16, marginBottom: isMobile ? 14 : 20 }}>
+        <label htmlFor="buscar-reserva" style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
+          Buscar por número de reserva
+        </label>
+        <div style={{ position: 'relative', marginTop: 8, maxWidth: 360 }}>
+          <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-faint)', display: 'flex' }}>
+            <Icon name="search" size={15} />
+          </span>
+          <input
+            id="buscar-reserva"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Ej: #6KK3BZ"
+            autoComplete="off"
+            maxLength={12}
+            style={{ paddingLeft: 34, fontFamily: 'ui-monospace, Consolas, monospace', textTransform: 'uppercase' }}
+          />
+        </div>
+        {resultadosBusqueda && (
+          resultadosBusqueda.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 10 }}>No hay ninguna reserva con ese número.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12, maxWidth: 520 }}>
+              {resultadosBusqueda.map((c) => (
+                <FilaCita
+                  key={c.id}
+                  cita={c}
+                  cliente={clientes[c.clienteId]}
+                  servicio={serviciosPorId[c.servicioId]}
+                  conFecha
+                  onAbrir={() => abrirCita(c)}
+                />
+              ))}
+            </div>
+          )
+        )}
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: !isMobile && diaSeleccionado ? '1.3fr 1fr' : '1fr', gap: isMobile ? 14 : 20, alignItems: 'start' }}>
         <div className="card" style={{ padding: 20 }}>
@@ -236,33 +287,15 @@ export default function OwnerAgenda() {
               <p style={{ color: 'var(--text-muted)', fontSize: 13.5, marginTop: 10 }}>No hay reservas para este día.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
-                {citasDelDiaSeleccionado.map((c) => {
-                  const estilo = ESTADO_BADGE[c.estado] || ESTADO_BADGE.pendiente
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => abrirCita(c)}
-                      className="card"
-                      style={{ textAlign: 'left', padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', gap: 10 }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13.5 }}>{clientes[c.clienteId]?.nombre || 'Cliente'}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                          {serviciosPorId[c.servicioId]?.nombre || 'Servicio'} · {HORA.format(c.fecha)}
-                        </div>
-                      </div>
-                      <span
-                        style={{
-                          fontSize: 10.5, fontWeight: 700, padding: '4px 9px', borderRadius: 8,
-                          background: estilo.bg, color: estilo.text, whiteSpace: 'nowrap', flexShrink: 0,
-                        }}
-                      >
-                        {estilo.label}
-                      </span>
-                    </button>
-                  )
-                })}
+                {citasDelDiaSeleccionado.map((c) => (
+                  <FilaCita
+                    key={c.id}
+                    cita={c}
+                    cliente={clientes[c.clienteId]}
+                    servicio={serviciosPorId[c.servicioId]}
+                    onAbrir={() => abrirCita(c)}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -282,6 +315,38 @@ export default function OwnerAgenda() {
         />
       )}
     </div>
+  )
+}
+
+// Fila de una cita: en la lista del día seleccionado y en los resultados de
+// la búsqueda por número (ahí con la fecha, porque puede ser de otro mes).
+function FilaCita({ cita, cliente, servicio, conFecha = false, onAbrir }) {
+  const estilo = ESTADO_BADGE[cita.estado] || ESTADO_BADGE.pendiente
+  return (
+    <button
+      type="button"
+      onClick={onAbrir}
+      className="card"
+      style={{ textAlign: 'left', padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', gap: 10 }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 13.5 }}>{cliente?.nombre || 'Cliente'}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+          {servicio?.nombre || 'Servicio'} · {conFecha && `${capitalize(DIA_LARGO.format(cita.fecha))}, `}{HORA.format(cita.fecha)}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2, fontFamily: 'ui-monospace, Consolas, monospace' }}>
+          #{codigoReserva(cita.id)}
+        </div>
+      </div>
+      <span
+        style={{
+          fontSize: 10.5, fontWeight: 700, padding: '4px 9px', borderRadius: 8,
+          background: estilo.bg, color: estilo.text, whiteSpace: 'nowrap', flexShrink: 0,
+        }}
+      >
+        {estilo.label}
+      </span>
+    </button>
   )
 }
 
@@ -308,7 +373,9 @@ function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstad
           <Campo label="Contacto" valor={[cliente?.telefono, cliente?.correo].filter(Boolean).join(' · ') || '—'} />
           <Campo label="Servicio" valor={servicio?.nombre || '—'} />
           <Campo label="Pago" valor={servicio ? COP.format(servicio.precio || 0) : '—'} />
+          <Campo label="Fecha" valor={cita.fecha ? capitalize(DIA_LARGO.format(cita.fecha)) : '—'} />
           <Campo label="Hora" valor={cita.fecha ? HORA.format(cita.fecha) : '—'} />
+          <Campo label="Reserva" valor={`#${codigoReserva(cita.id)}`} />
         </div>
 
         <div style={{ marginTop: 20 }}>
