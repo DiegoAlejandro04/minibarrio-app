@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where,
@@ -8,6 +8,7 @@ import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
 import CalificarModal from '../../components/CalificarModal.jsx'
 import Splash from '../../components/Splash.jsx'
+import ReciboCita from '../../components/ReciboCita.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 
 // Perfil público del negocio + reserva de citas (RF-05, RF-06, RF-07, RF-08,
@@ -125,7 +126,7 @@ export default function NegocioDetalle() {
   const [hora, setHora] = useState(null)
   const [reservando, setReservando] = useState(false)
   const [error, setError] = useState('')
-  const [exito, setExito] = useState(false)
+  const [citaConfirmada, setCitaConfirmada] = useState(null) // datos del comprobante (ReciboCita)
   const [galeriaAbierta, setGaleriaAbierta] = useState(false)
   const [turnosExpandidos, setTurnosExpandidos] = useState(false)
   const [tab, setTab] = useState('general')
@@ -243,6 +244,13 @@ export default function NegocioDetalle() {
     setTurnosExpandidos(false)
   }
 
+  // Al confirmar, el comprobante aparece debajo del panel — se desplaza la
+  // vista hacia él para que el cliente vea la animación de impresión.
+  const reciboRef = useRef(null)
+  useEffect(() => {
+    if (citaConfirmada) reciboRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [citaConfirmada])
+
   async function handleConfirmar() {
     if (!currentUser) {
       navigate('/login', { state: { from: { pathname: `/negocio/${id}` } } })
@@ -258,7 +266,7 @@ export default function NegocioDetalle() {
     setReservando(true)
     try {
       const fechaHora = new Date(`${fecha}T${hora}:00`)
-      await addDoc(collection(db, 'citas'), {
+      const ref = await addDoc(collection(db, 'citas'), {
         negocioId: id,
         clienteId: currentUser.uid,
         servicioId: servicioSeleccionado.id,
@@ -266,7 +274,16 @@ export default function NegocioDetalle() {
         estado: 'pendiente',
         creadoEn: serverTimestamp(),
       })
-      setExito(true)
+      setCitaConfirmada({
+        id: ref.id,
+        negocio: negocio.nombre,
+        direccion: negocio.direccion,
+        servicio: servicioSeleccionado.nombre,
+        duracionMinutos: servicioSeleccionado.duracionMinutos,
+        precio: servicioSeleccionado.precio,
+        fechaHora,
+        reservadaEn: new Date(),
+      })
       setHora(null)
     } catch (err) {
       setError('No se pudo confirmar la cita. Intenta de nuevo.')
@@ -468,7 +485,7 @@ export default function NegocioDetalle() {
                       <button
                         key={s.id}
                         type="button"
-                        onClick={() => { setServicioId(s.id); setHora(null); setExito(false) }}
+                        onClick={() => { setServicioId(s.id); setHora(null); setCitaConfirmada(null) }}
                         className="card"
                         style={{
                           textAlign: 'left', padding: 14, cursor: 'pointer', display: 'flex', gap: 12,
@@ -572,8 +589,10 @@ export default function NegocioDetalle() {
           )}
         </div>
 
+        {/* Con el comprobante abierto el panel queda más alto que la pantalla:
+            si siguiera "sticky", la parte de abajo del recibo nunca se vería. */}
         {(!isMobile || tab === 'general') && (
-        <div style={isMobile ? {} : { position: 'sticky', top: 20 }}>
+        <div style={isMobile || citaConfirmada ? {} : { position: 'sticky', top: 20 }}>
         <div className="card" style={{ padding: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Servicio seleccionado</div>
           {servicioSeleccionado ? (
@@ -630,7 +649,7 @@ export default function NegocioDetalle() {
                         key={s}
                         type="button"
                         disabled={ocupado}
-                        onClick={() => { setHora(s); setExito(false) }}
+                        onClick={() => { setHora(s); setCitaConfirmada(null) }}
                         style={{
                           fontSize: 12.5, fontWeight: 700, padding: '9px 0', borderRadius: 8,
                           border: `1px solid ${seleccionado ? 'var(--accent)' : 'var(--border-strong)'}`,
@@ -661,11 +680,6 @@ export default function NegocioDetalle() {
           </div>
 
           {error && <div className="error-text" style={{ marginTop: 12 }}>{error}</div>}
-          {exito && (
-            <div style={{ marginTop: 12, fontSize: 12.5, fontWeight: 700, color: 'var(--sage-text)', background: 'var(--sage-soft)', padding: '10px 12px', borderRadius: 8 }}>
-              ¡Listo! Tu cita quedó pendiente de confirmación por el negocio.
-            </div>
-          )}
 
           <button
             type="button"
@@ -697,6 +711,12 @@ export default function NegocioDetalle() {
             No se realizan pagos en la plataforma.
           </p>
         </div>
+
+        {citaConfirmada && (
+          <div ref={reciboRef}>
+            <ReciboCita cita={citaConfirmada} onCerrar={() => setCitaConfirmada(null)} />
+          </div>
+        )}
         </div>
         )}
       </div>
