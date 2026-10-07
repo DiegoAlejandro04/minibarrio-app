@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore'
+import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../../firebase/config'
+import { leerPerfilCliente } from '../../perfilesClientes.js'
 import Icon from '../../components/Icon.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 
@@ -74,10 +75,11 @@ export default function OwnerResumen() {
     const faltantes = [...new Set(citas.map((c) => c.clienteId))].filter((id) => id && !(id in clientes))
     if (faltantes.length === 0) return
     faltantes.forEach(async (clienteId) => {
-      const snap = await getDoc(doc(db, 'usuarios', clienteId))
-      setClientes((prev) => ({ ...prev, [clienteId]: snap.exists() ? snap.data().nombre : 'Cliente' }))
+      const cita = citas.find((c) => c.clienteId === clienteId)
+      const perfil = await leerPerfilCliente(uid, clienteId, { citaId: cita.id })
+      setClientes((prev) => ({ ...prev, [clienteId]: perfil?.nombre || 'Cliente' }))
     })
-  }, [citas, clientes])
+  }, [citas, clientes, uid])
 
   const ahora = useMemo(() => new Date(), [])
   const inicioSemana = useMemo(() => startOfWeek(ahora), [ahora])

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore'
+import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../../firebase/config'
+import { leerPerfilCliente } from '../../perfilesClientes.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
 
 // Clientes que han agendado una cita o dejado una reseña (RF-07, RF-10).
-// Requiere que firestore.rules permita al propietario leer el perfil básico
-// de sus clientes (ver comentario en firestore.rules, regla de "usuarios").
+// El perfil de cada cliente se lee con leerPerfilCliente (perfilesClientes.js):
+// firestore.rules solo lo permite para clientes con relación con el negocio.
 
 const FECHA = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -54,13 +55,19 @@ export default function OwnerClientes() {
     const faltantes = Object.keys(clientesAgregados).filter((id) => !(id in clientesInfo))
     if (faltantes.length === 0) return
     faltantes.forEach(async (clienteId) => {
-      const snap = await getDoc(doc(db, 'usuarios', clienteId))
+      // Prueba de la relación con este negocio (ver perfilesClientes.js): una
+      // cita suya, o si solo dejó reseña, esa reseña.
+      const cita = citas.find((c) => c.clienteId === clienteId)
+      const evidencia = cita
+        ? { citaId: cita.id }
+        : { resenaId: resenas.find((r) => r.clienteId === clienteId).id }
+      const perfil = await leerPerfilCliente(uid, clienteId, evidencia)
       setClientesInfo((prev) => ({
         ...prev,
-        [clienteId]: snap.exists() ? snap.data() : { nombre: 'Cliente', correo: '', telefono: '' },
+        [clienteId]: perfil || { nombre: 'Cliente', correo: '', telefono: '' },
       }))
     })
-  }, [clientesAgregados, clientesInfo])
+  }, [clientesAgregados, clientesInfo, citas, resenas, uid])
 
   const lista = useMemo(
     () => Object.entries(clientesAgregados)

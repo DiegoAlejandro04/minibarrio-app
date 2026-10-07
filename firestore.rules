@@ -24,13 +24,30 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/usuarios/$(uid)).data.rol;
     }
 
+    // Prueba de que un cliente tiene relación con un negocio, para crear la
+    // marca "negocios/{negocioId}/clientes/{clienteId}" (ver más abajo): el
+    // id de una cita de ese cliente en ese negocio, o de una reseña que ese
+    // cliente le dejó. Ninguna de las dos la puede falsificar el negocio:
+    // las citas y las reseñas solo las crea el propio cliente.
+    function citaDelCliente(negocioId, clienteId) {
+      let cita = get(/databases/$(database)/documents/citas/$(request.resource.data.citaId)).data;
+      return cita.negocioId == negocioId && cita.clienteId == clienteId;
+    }
+    function resenaDelCliente(negocioId, clienteId) {
+      return get(/databases/$(database)/documents/negocios/$(negocioId)/resenas/$(request.resource.data.resenaId)).data.clienteId == clienteId;
+    }
+
     // Perfiles de usuario: cada quien lee y escribe solo el suyo. Excepción:
-    // un propietario puede leer el perfil de un cliente (nombre/teléfono)
-    // para mostrarlo en su panel de "Clientes" — no al revés, y nunca entre
-    // dos propietarios.
+    // un propietario puede leer el perfil (nombre/correo/teléfono) de un
+    // cliente SOLO si ese cliente tiene relación con su negocio — existe la
+    // marca negocios/{su uid}/clientes/{uid del cliente}. Antes bastaba con
+    // ser propietario, y como registrarse como negocio es libre, cualquiera
+    // podía sacar los datos de contacto de todos los clientes (Ley 1581).
     match /usuarios/{uid} {
       allow read: if esDueno(uid)
-                  || (estaAutenticado() && rolDe(request.auth.uid) == 'propietario' && resource.data.rol == 'cliente');
+                  || (estaAutenticado()
+                      && resource.data.rol == 'cliente'
+                      && exists(/databases/$(database)/documents/negocios/$(request.auth.uid)/clientes/$(uid)));
       allow create: if esDueno(uid)
                     && request.resource.data.rol in ['cliente', 'propietario'];
       allow update: if esDueno(uid)
@@ -67,6 +84,19 @@ service cloud.firestore {
                       && rolDe(request.auth.uid) == 'cliente'
                       && request.resource.data.clienteId == request.auth.uid;
         allow update, delete: if estaAutenticado() && resource.data.clienteId == request.auth.uid;
+      }
+
+      // Clientes del negocio: marca que autoriza al propietario a leer el
+      // perfil de ese cliente (regla de "usuarios"). La crea el propio
+      // negocio desde su panel (src/perfilesClientes.js), pero solo con una
+      // cita o reseña real de ese cliente como prueba. No se edita ni borra.
+      match /clientes/{clienteId} {
+        allow read: if esDueno(negocioId);
+        allow create: if esDueno(negocioId)
+                      && request.resource.data.keys().hasOnly(['citaId', 'resenaId', 'creadoEn'])
+                      && (('citaId' in request.resource.data && citaDelCliente(negocioId, clienteId))
+                          || ('resenaId' in request.resource.data && resenaDelCliente(negocioId, clienteId)));
+        allow update, delete: if false;
       }
 
       // Visitas al perfil (contador de "Visitas al perfil" del panel): un

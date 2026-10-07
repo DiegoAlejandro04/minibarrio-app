@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../../firebase/config'
+import { leerPerfilCliente } from '../../perfilesClientes.js'
 
 // Reseñas recibidas por el negocio (RF-10, lado propietario): lista en
 // tiempo real de negocios/{uid}/resenas, con el nombre del cliente resuelto
@@ -30,10 +31,11 @@ export default function OwnerResenas() {
     const faltantes = [...new Set(resenas.map((r) => r.clienteId))].filter((id) => id && !(id in clientes))
     if (faltantes.length === 0) return
     faltantes.forEach(async (clienteId) => {
-      const snap = await getDoc(doc(db, 'usuarios', clienteId))
-      setClientes((prev) => ({ ...prev, [clienteId]: snap.exists() ? snap.data().nombre : 'Cliente' }))
+      const resena = resenas.find((r) => r.clienteId === clienteId)
+      const perfil = await leerPerfilCliente(uid, clienteId, { resenaId: resena.id })
+      setClientes((prev) => ({ ...prev, [clienteId]: perfil?.nombre || 'Cliente' }))
     })
-  }, [resenas, clientes])
+  }, [resenas, clientes, uid])
 
   const promedio = useMemo(() => {
     if (resenas.length === 0) return null
