@@ -266,9 +266,15 @@ export default function ClientHome() {
 
         puntos.forEach(({ n, posicion }) => {
           const precio = formatCompacto(n.precioDesde)
+          // Leaflet mete un string de bindTooltip como HTML (innerHTML): con
+          // el nombre del negocio, que escribe cualquiera al registrarse, eso
+          // permitía inyectar código en la vitrina (XSS). Un nodo con
+          // textContent lo muestra siempre como texto plano.
+          const etiqueta = document.createElement('span')
+          etiqueta.textContent = precio ? `${n.nombre} · ${precio}` : n.nombre
           const marker = L.marker([posicion.lat, posicion.lng])
             .addTo(mapRef.current)
-            .bindTooltip(precio ? `${n.nombre} · ${precio}` : n.nombre)
+            .bindTooltip(etiqueta)
           marker.on('click', () => navigate(`/negocio/${n.id}`))
           markersRef.current.push(marker)
         })
