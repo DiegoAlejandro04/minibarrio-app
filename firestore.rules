@@ -48,8 +48,12 @@ service cloud.firestore {
       allow read: if true;
       allow create: if esDueno(negocioId)
                     && rolDe(request.auth.uid) == 'propietario'
-                    && request.resource.data.propietarioId == request.auth.uid;
-      allow update, delete: if esDueno(negocioId);
+                    && request.resource.data.propietarioId == request.auth.uid
+                    && request.resource.data.verificado == false;
+      allow update: if esDueno(negocioId)
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['verificado', 'propietarioId', 'creadoEn']);
+      allow delete: if esDueno(negocioId);
 
       match /servicios/{servicioId} {
         allow read: if true;
