@@ -44,6 +44,15 @@ service cloud.firestore {
         && (cita.clienteId == request.auth.uid || esDueno(negocioId));
     }
 
+    function resenaValida() {
+      let datos = request.resource.data;
+      return datos.calificacion is int
+        && datos.calificacion >= 1
+        && datos.calificacion <= 5
+        && datos.comentario is string
+        && datos.comentario.size() <= 500;
+    }
+
     function cambiosCita() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -82,10 +91,17 @@ service cloud.firestore {
 
       match /resenas/{resenaId} {
         allow read: if true;
-        allow create: if estaAutenticado()
+        allow create: if esDueno(resenaId)
                       && rolDe(request.auth.uid) == 'cliente'
-                      && request.resource.data.clienteId == request.auth.uid;
-        allow update, delete: if estaAutenticado() && resource.data.clienteId == request.auth.uid;
+                      && request.resource.data.keys().hasOnly(['negocioId', 'clienteId', 'calificacion', 'comentario', 'creadoEn'])
+                      && request.resource.data.clienteId == request.auth.uid
+                      && request.resource.data.negocioId == negocioId
+                      && request.resource.data.creadoEn == request.time
+                      && resenaValida();
+        allow update: if esDueno(resource.data.clienteId)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['calificacion', 'comentario'])
+                      && resenaValida();
+        allow delete: if esDueno(resource.data.clienteId);
       }
 
       match /clientes/{clienteId} {

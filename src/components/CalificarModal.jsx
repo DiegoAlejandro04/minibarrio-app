@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext.jsx'
 import Icon from './Icon.jsx'
@@ -7,6 +7,8 @@ import Icon from './Icon.jsx'
 // Formulario de reseña (RF-10). Se asocia al negocio, no a una cita puntual
 // específica: el modelo de datos (ver docs/MODELO_DATOS.md) guarda "resenas"
 // como subcolección de "negocios" sin referencia a la cita de origen.
+
+const MAX_COMENTARIO = 500 // mismo tope que exige firestore.rules
 
 export default function CalificarModal({ negocio, onClose, onCreada }) {
   const { currentUser } = useAuth()
@@ -25,17 +27,21 @@ export default function CalificarModal({ negocio, onClose, onCreada }) {
     setError('')
     setGuardando(true)
     try {
-      await addDoc(collection(db, 'negocios', negocio.id, 'resenas'), {
+      // El id de la reseña es el uid del cliente: una sola reseña por cliente
+      // en cada negocio. firestore.rules rechaza una segunda.
+      await setDoc(doc(db, 'negocios', negocio.id, 'resenas', currentUser.uid), {
         negocioId: negocio.id,
         clienteId: currentUser.uid,
         calificacion,
-        comentario: comentario.trim(),
+        comentario: comentario.trim().slice(0, MAX_COMENTARIO),
         creadoEn: serverTimestamp(),
       })
       onCreada?.()
       onClose()
     } catch (err) {
-      setError('No se pudo publicar tu reseña. Intenta de nuevo.')
+      setError(err.code === 'permission-denied'
+        ? 'Ya calificaste este negocio.'
+        : 'No se pudo publicar tu reseña. Intenta de nuevo.')
       // eslint-disable-next-line no-console
       console.error(err)
     } finally {
@@ -92,6 +98,7 @@ export default function CalificarModal({ negocio, onClose, onCreada }) {
           value={comentario}
           onChange={(e) => setComentario(e.target.value)}
           placeholder="Cuéntanos cómo te fue…"
+          maxLength={MAX_COMENTARIO}
           style={{ marginTop: 6, resize: 'vertical' }}
         />
 
