@@ -37,6 +37,12 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/negocios/$(negocioId)/resenas/$(request.resource.data.resenaId)).data.clienteId == clienteId;
     }
 
+    // La cita tal como quedará después de la escritura en curso (incluye lo
+    // que se escribe en el mismo batch). Ver la regla de "ocupados".
+    function citaTras(citaId) {
+      return getAfter(/databases/$(database)/documents/citas/$(citaId)).data;
+    }
+
     // Perfiles de usuario: cada quien lee y escribe solo el suyo. Excepción:
     // un propietario puede leer el perfil (nombre/correo/teléfono) de un
     // cliente SOLO si ese cliente tiene relación con su negocio — existe la
@@ -99,6 +105,27 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // Turnos ocupados (src/turnosOcupados.js): solo { fechaHora }, con el
+      // id de la cita como id del documento. Lectura pública — es lo que
+      // necesita la página del negocio para no ofrecer turnos tomados. Se
+      // escriben en el mismo batch que la cita, y getAfter() exige que
+      // coincidan con una cita real de este negocio, hecha por quien escribe
+      // (su cliente o el propio negocio): ocupado mientras la cita no esté
+      // cancelada, y solo se libera cuando sí lo está.
+      match /ocupados/{citaId} {
+        allow read: if true;
+        allow create, update: if estaAutenticado()
+                              && request.resource.data.keys().hasOnly(['fechaHora'])
+                              && citaTras(citaId).negocioId == negocioId
+                              && citaTras(citaId).fechaHora == request.resource.data.fechaHora
+                              && citaTras(citaId).estado != 'cancelada'
+                              && (citaTras(citaId).clienteId == request.auth.uid || esDueno(negocioId));
+        allow delete: if estaAutenticado()
+                      && citaTras(citaId).negocioId == negocioId
+                      && citaTras(citaId).estado == 'cancelada'
+                      && (citaTras(citaId).clienteId == request.auth.uid || esDueno(negocioId));
+      }
+
       // Visitas al perfil (contador de "Visitas al perfil" del panel): un
       // marcador por cliente. Solo se permite "create" (nunca "update"), así
       // que un mismo cliente no puede sumar más de una visita a un negocio
@@ -125,12 +152,14 @@ service cloud.firestore {
       allow read: if true;
     }
 
-    // Citas (RF-07/RF-08). Lectura: cualquier usuario autenticado puede leer
-    // (necesario para calcular los turnos ya ocupados de un negocio antes de
-    // reservar, ver NegocioDetalle.jsx); solo el cliente dueño de la cita o
-    // el propietario del negocio pueden actualizarla.
+    // Citas (RF-07/RF-08). Cada cita solo la leen su cliente y el negocio
+    // donde se reservó. Antes cualquier usuario con sesión podía leer todas
+    // las citas de todos los negocios (para calcular turnos ocupados); eso
+    // ahora sale de "negocios/{id}/ocupados", que no tiene datos personales.
     match /citas/{citaId} {
-      allow read: if estaAutenticado();
+      allow read: if estaAutenticado()
+                  && (resource.data.clienteId == request.auth.uid
+                      || resource.data.negocioId == request.auth.uid);
       allow update: if estaAutenticado()
                     && (resource.data.clienteId == request.auth.uid
                         || resource.data.negocioId == request.auth.uid);

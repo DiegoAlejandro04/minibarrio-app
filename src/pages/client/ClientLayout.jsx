@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  collection, collectionGroup, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where,
+  collection, collectionGroup, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where,
 } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
+import { cambiarEstadoCita } from '../../turnosOcupados.js'
 import Icon from '../../components/Icon.jsx'
 import Splash from '../../components/Splash.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
@@ -128,7 +129,9 @@ export default function ClientLayout() {
   async function cancelarCita(citaId) {
     // "canceladaPor" le permite a la agenda del negocio ocultar las citas que
     // canceló el propio cliente (ver OwnerAgenda.jsx).
-    await updateDoc(doc(db, 'citas', citaId), { estado: 'cancelada', canceladaPor: 'cliente' })
+    // cambiarEstadoCita además libera el turno (ver turnosOcupados.js).
+    const cita = citas.find((c) => c.id === citaId)
+    await cambiarEstadoCita(cita, 'cancelada', { canceladaPor: 'cliente' })
   }
 
   const context = useMemo(

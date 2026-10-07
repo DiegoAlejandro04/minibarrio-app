@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where,
+  collection, deleteDoc, doc, getDoc, onSnapshot, serverTimestamp, setDoc,
 } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
 import CalificarModal from '../../components/CalificarModal.jsx'
 import Splash from '../../components/Splash.jsx'
+import { reservarCita } from '../../turnosOcupados.js'
 import ReciboCita from '../../components/ReciboCita.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 
 // Perfil público del negocio + reserva de citas (RF-05, RF-06, RF-07, RF-08,
 // RF-10). La reserva exige al menos un día de anticipación (no el mismo
 // día), turnos cada 20 minutos dentro del horario de atención del negocio,
-// y descarta los turnos que ya tienen una cita activa. El panel del
+// y descarta los turnos ya ocupados (ver turnosOcupados.js). El panel del
 // comerciante (Resumen, Clientes, Servicios) ya escucha "citas" con
 // onSnapshot, así que una reserva nueva se refleja ahí en tiempo real sin
 // cambios adicionales.
@@ -111,7 +112,7 @@ export default function NegocioDetalle() {
   const [negocio, setNegocio] = useState(null)
   const [servicios, setServicios] = useState([])
   const [resenas, setResenas] = useState([])
-  const [citas, setCitas] = useState([])
+  const [ocupadosDocs, setOcupadosDocs] = useState([]) // turnos tomados: [{ fechaHora }]
   const [loading, setLoading] = useState(true)
 
   const manana = useMemo(() => {
@@ -193,15 +194,16 @@ export default function NegocioDetalle() {
     }
   }
 
-  // Los turnos ocupados solo se pueden calcular con sesión iniciada: la
-  // regla de "citas" exige estar autenticado para leerlas.
+  // Turnos ya tomados de este negocio: solo su fecha y hora, sin datos de
+  // quién reservó (ver turnosOcupados.js). Las citas de otros clientes ya no
+  // se pueden leer desde aquí.
   useEffect(() => {
     if (!currentUser) {
-      setCitas([])
+      setOcupadosDocs([])
       return undefined
     }
-    const unsub = onSnapshot(query(collection(db, 'citas'), where('negocioId', '==', id)), (snap) => {
-      setCitas(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    const unsub = onSnapshot(collection(db, 'negocios', id, 'ocupados'), (snap) => {
+      setOcupadosDocs(snap.docs.map((d) => d.data()))
     })
     return unsub
   }, [currentUser, id])
@@ -227,14 +229,13 @@ export default function NegocioDetalle() {
 
   const ocupados = useMemo(() => {
     const set = new Set()
-    citas.forEach((c) => {
-      if (c.estado === 'cancelada') return
+    ocupadosDocs.forEach((c) => {
       const d = c.fechaHora?.toDate ? c.fechaHora.toDate() : null
       if (!d || toDateInputValue(d) !== fecha) return
       set.add(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
     })
     return set
-  }, [citas, fecha])
+  }, [ocupadosDocs, fecha])
 
   const estado = negocio ? estadoApertura(negocio.horarios) : null
 
@@ -266,13 +267,11 @@ export default function NegocioDetalle() {
     setReservando(true)
     try {
       const fechaHora = new Date(`${fecha}T${hora}:00`)
-      const ref = await addDoc(collection(db, 'citas'), {
+      const ref = await reservarCita({
         negocioId: id,
         clienteId: currentUser.uid,
         servicioId: servicioSeleccionado.id,
         fechaHora,
-        estado: 'pendiente',
-        creadoEn: serverTimestamp(),
       })
       setCitaConfirmada({
         id: ref.id,

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore'
+import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { leerPerfilCliente } from '../../perfilesClientes.js'
+import { cambiarEstadoCita, sincronizarOcupados } from '../../turnosOcupados.js'
 import Icon from '../../components/Icon.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva, normalizarCodigo } from '../../reservas.js'
@@ -66,6 +67,19 @@ export default function OwnerAgenda() {
     })
     return unsub
   }, [uid])
+
+  // Una sola vez al abrir la agenda: publica los turnos de citas reservadas
+  // antes de existir "ocupados" y libera los de citas ya canceladas, para que
+  // la página del negocio no ofrezca turnos que en realidad están tomados.
+  const ocupadosSincronizados = useRef(false)
+  useEffect(() => {
+    if (!uid || citas.length === 0 || ocupadosSincronizados.current) return
+    ocupadosSincronizados.current = true
+    sincronizarOcupados(uid, citas).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error(err)
+    })
+  }, [uid, citas])
 
   useEffect(() => {
     const faltantes = [...new Set(citas.map((c) => c.clienteId))].filter((id) => id && !(id in clientes))
@@ -148,10 +162,13 @@ export default function OwnerAgenda() {
     if (!citaAbierta) return
     setGuardando(true)
     try {
-      await updateDoc(doc(db, 'citas', citaAbierta.id), {
-        estado: estadoSeleccionado,
-        ...(estadoSeleccionado === 'cancelada' && { canceladaPor: 'negocio' }),
-      })
+      // cambiarEstadoCita además libera u ocupa el turno según el estado
+      // (ver turnosOcupados.js).
+      await cambiarEstadoCita(
+        citaAbierta,
+        estadoSeleccionado,
+        estadoSeleccionado === 'cancelada' ? { canceladaPor: 'negocio' } : {},
+      )
       setCitaAbierta(null)
     } catch (err) {
       // eslint-disable-next-line no-console
