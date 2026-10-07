@@ -41,4 +41,7 @@ initializeAppCheck(app, {
 })
 
 export const auth = getAuth(app)
+// Correos de Firebase Auth (p. ej. recuperar contraseña) y ventanas de
+// Google en español.
+auth.languageCode = 'es'
 export const db = getFirestore(app)

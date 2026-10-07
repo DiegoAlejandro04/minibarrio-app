@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  collection, collectionGroup, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where,
+  collection, collectionGroup, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where,
 } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
@@ -49,6 +49,18 @@ export default function ClientLayout() {
   const [serviciosPorId, setServiciosPorId] = useState({})
   const [ratings, setRatings] = useState({}) // negocioId -> { suma, total } (de TODOS los clientes, para mostrar el rating de cada negocio)
   const [loading, setLoading] = useState(true)
+
+  // El cambio de correo (Configuración) se confirma desde un enlace que
+  // Firebase envía al correo nuevo, fuera de la app: cuando el correo de la
+  // sesión ya no coincide con el del perfil, se actualiza el perfil.
+  useEffect(() => {
+    const correoSesion = currentUser?.email
+    if (!uid || !perfil || !correoSesion || perfil.correo === correoSesion) return
+    updateDoc(doc(db, 'usuarios', uid), { correo: correoSesion }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error(err)
+    })
+  }, [uid, perfil, currentUser])
 
   useEffect(() => {
     if (!uid) return

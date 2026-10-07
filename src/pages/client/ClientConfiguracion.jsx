@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { doc, updateDoc } from 'firebase/firestore'
 import {
-  EmailAuthProvider, GoogleAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup, updateEmail,
+  EmailAuthProvider, GoogleAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup, verifyBeforeUpdateEmail,
 } from 'firebase/auth'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
 import ToggleIOS from '../../components/ToggleIOS.jsx'
 
@@ -20,6 +18,7 @@ const ERRORES = {
   'auth/email-already-in-use': 'Ese correo ya está en uso por otra cuenta.',
   'auth/requires-recent-login': 'Por seguridad, cierra sesión, vuelve a iniciarla e inténtalo de nuevo.',
   'auth/popup-closed-by-user': 'Cerraste la ventana de Google antes de confirmar.',
+  'auth/too-many-requests': 'Hiciste demasiados intentos. Espera unos minutos e intenta de nuevo.',
 }
 
 function mensajeError(err) {
@@ -27,7 +26,7 @@ function mensajeError(err) {
 }
 
 export default function ClientConfiguracion() {
-  const { uid, perfil } = useOutletContext()
+  const { perfil } = useOutletContext()
   const { currentUser, modoOscuro, actualizarModoOscuro } = useAuth()
 
   const esConGoogle = currentUser?.providerData?.[0]?.providerId === 'google.com'
@@ -37,6 +36,7 @@ export default function ClientConfiguracion() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [exito, setExito] = useState(false)
+  const [correoPendiente, setCorreoPendiente] = useState('') // al que se envió el enlace de confirmación
 
   async function handleCambiarCorreo(e) {
     e.preventDefault()
@@ -55,8 +55,14 @@ export default function ClientConfiguracion() {
       } else {
         await reauthenticateWithCredential(currentUser, EmailAuthProvider.credential(currentUser.email, contrasenaActual))
       }
-      await updateEmail(currentUser, nuevoCorreo.trim())
-      await updateDoc(doc(db, 'usuarios', uid), { correo: nuevoCorreo.trim() })
+      // Firebase ya no permite cambiar el correo de golpe (updateEmail queda
+      // bloqueado por la protección contra enumeración de correos): primero
+      // hay que confirmar el correo nuevo. Esto envía un enlace a ese correo,
+      // y el cambio se aplica cuando el usuario lo abre. El perfil de
+      // Firestore se pone al día solo en el siguiente inicio de sesión (ver
+      // ClientLayout.jsx).
+      await verifyBeforeUpdateEmail(currentUser, nuevoCorreo.trim(), { url: `${window.location.origin}/login` })
+      setCorreoPendiente(nuevoCorreo.trim())
       setExito(true)
       setNuevoCorreo('')
       setContrasenaActual('')
@@ -115,7 +121,10 @@ export default function ClientConfiguracion() {
 
         {error && <div className="error-text">{error}</div>}
         {exito && !error && (
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--sage-text)' }}>Correo actualizado.</div>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--sage-text)', lineHeight: 1.5 }}>
+            Te enviamos un enlace a <strong>{correoPendiente}</strong>. Ábrelo para confirmar el cambio
+            (revisa también spam). Después, inicia sesión con tu correo nuevo.
+          </div>
         )}
 
         <button type="submit" className="btn btn-primary" disabled={guardando} style={{ marginTop: 4 }}>

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import Captcha from '../components/Captcha.jsx'
 import Icon from '../components/Icon.jsx'
 import GoogleIcon from '../components/GoogleIcon.jsx'
+import RecuperarContrasenaModal from '../components/RecuperarContrasenaModal.jsx'
 
 export default function Login() {
   const [tab, setTab] = useState('cliente') // solo cambia el copy; el rol real viene de Firestore
@@ -14,6 +15,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [captcha, setCaptcha] = useState(null) // token de reCAPTCHA v2, ver Captcha.jsx
   const captchaRef = useRef(null)
+  const [recuperando, setRecuperando] = useState(false) // ventana "¿Olvidaste tu contraseña?"
 
   const { login, loginWithGoogle } = useAuth()
   const navigate = useNavigate()
@@ -139,6 +141,15 @@ export default function Login() {
               <Icon name={mostrarContrasena ? 'eyeOff' : 'eye'} size={17} />
             </button>
           </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={() => setRecuperando(true)}
+              style={{ background: 'none', border: 'none', padding: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--accent)', cursor: 'pointer' }}
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
 
           <div style={{ marginTop: 16 }}>
             <Captcha ref={captchaRef} onChange={setCaptcha} />
@@ -182,6 +193,10 @@ export default function Login() {
           )}
         </div>
       </div>
+
+      {recuperando && (
+        <RecuperarContrasenaModal correoInicial={correo} onClose={() => setRecuperando(false)} />
+      )}
     </div>
   )
 }
