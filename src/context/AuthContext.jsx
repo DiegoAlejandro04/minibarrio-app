@@ -17,6 +17,7 @@ import {
 } from 'firebase/auth'
 import { doc, serverTimestamp, setDoc, getDoc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase/config'
+import { HORARIO_INICIAL } from '../horarios.js'
 
 const AuthContext = createContext(null)
 
@@ -183,12 +184,7 @@ export function AuthProvider({ children }) {
       ubicacion: ubicacion || null,
       descripcion,
       canalesContacto: { whatsapp, telefono, catalogo: true }, // RF-11 (≥3 canales)
-      horarios: {
-        lunesAViernes: { apertura: '09:00', cierre: '20:00' },
-        sabado: { apertura: '08:00', cierre: '21:00' },
-        domingo: { activo: false, apertura: '09:00', cierre: '16:00' },
-        festivos: { activo: false, apertura: '09:00', cierre: '16:00' },
-      },
+      horarios: HORARIO_INICIAL, // un bloque por día, ver horarios.js
       fotos: [],
       verificado: false,
       creadoEn: serverTimestamp(),

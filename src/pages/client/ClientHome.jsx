@@ -8,6 +8,7 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 import { recomendar } from '../../recomendador.js'
 import { ESPECIALIDADES } from '../../especialidades.js'
 import Footer from '../../components/Footer.jsx'
+import { estadoApertura } from '../../horarios.js'
 
 // Vitrina pública de negocios (RF-05 búsqueda, RF-06 mapa, RF-09
 // recomendaciones, RF-12 portafolio visible sin sesión). Muestra datos
@@ -62,34 +63,6 @@ function inicialesDe(nombre) {
   if (!nombre) return '?'
   const partes = nombre.trim().split(/\s+/)
   return partes.slice(0, 2).map((p) => p[0]?.toUpperCase()).join('')
-}
-
-// Domingo y festivos se guardan por separado, cada uno con su propio
-// interruptor de "hay servicio" (ver EditarNegocioModal.jsx). Los negocios
-// creados antes de este cambio solo tienen "domingoFestivos": se usa como
-// respaldo.
-function bloqueDomingo(horarios) {
-  const bloque = horarios.domingo || horarios.domingoFestivos
-  if (!bloque || bloque.activo === false) return null
-  return bloque
-}
-
-function estadoApertura(horarios) {
-  if (!horarios) return null
-  const ahora = new Date()
-  const dia = ahora.getDay() // 0 = domingo … 6 = sábado
-  const bloque = dia === 0 ? bloqueDomingo(horarios) : dia === 6 ? horarios.sabado : horarios.lunesAViernes
-  if (!bloque?.apertura || !bloque?.cierre) return null
-
-  const [hA, mA] = bloque.apertura.split(':').map(Number)
-  const [hC, mC] = bloque.cierre.split(':').map(Number)
-  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes()
-  const minutosApertura = hA * 60 + mA
-  const minutosCierre = hC * 60 + mC
-
-  if (minutosAhora < minutosApertura || minutosAhora >= minutosCierre) return 'cerrado'
-  if (minutosCierre - minutosAhora <= 60) return 'cierra-pronto'
-  return 'abierto'
 }
 
 export default function ClientHome() {

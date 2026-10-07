@@ -9,6 +9,7 @@ import Icon from '../../components/Icon.jsx'
 import CalificarModal from '../../components/CalificarModal.jsx'
 import Splash from '../../components/Splash.jsx'
 import { reservarCita } from '../../turnosOcupados.js'
+import { bloqueDelDia, estadoApertura, formatoHora12, resumenHorario } from '../../horarios.js'
 import ReciboCita from '../../components/ReciboCita.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 
@@ -23,36 +24,11 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const FECHA_CORTA = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })
 
-const DIAS_HORARIO = [
-  { key: 'lunesAViernes', label: 'Lunes a viernes' },
-  { key: 'sabado', label: 'Sábado' },
-  { key: 'domingo', label: 'Domingo' },
-  { key: 'festivos', label: 'Festivos' },
-]
-
-// Domingo y festivos ahora se guardan por separado, cada uno con su propio
-// interruptor de "hay servicio" (ver EditarNegocioModal.jsx). Los negocios
-// creados antes de este cambio solo tienen "domingoFestivos": se usa como
-// respaldo para ambos.
-function resolverBloque(horarios, key) {
-  if (key !== 'domingo' && key !== 'festivos') return horarios?.[key]
-  const bloque = horarios?.[key] || horarios?.domingoFestivos
-  if (!bloque || bloque.activo === false) return null
-  return bloque
-}
-
 function toDateInputValue(date) {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
-}
-
-function bloqueDelDia(horarios, fecha) {
-  const dia = fecha.getDay() // 0 = domingo … 6 = sábado
-  if (dia === 0) return resolverBloque(horarios, 'domingo')
-  if (dia === 6) return horarios?.sabado
-  return horarios?.lunesAViernes
 }
 
 function generarSlots(bloque) {
@@ -68,27 +44,6 @@ function generarSlots(bloque) {
     slots.push(`${h}:${min}`)
   }
   return slots
-}
-
-function formatoHora12(hhmm) {
-  const [h, m] = hhmm.split(':').map(Number)
-  const ampm = h < 12 ? 'a. m.' : 'p. m.'
-  const h12 = h % 12 === 0 ? 12 : h % 12
-  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
-}
-
-function estadoApertura(horarios) {
-  const bloque = bloqueDelDia(horarios, new Date())
-  if (!bloque?.apertura || !bloque?.cierre) return null
-  const [hA, mA] = bloque.apertura.split(':').map(Number)
-  const [hC, mC] = bloque.cierre.split(':').map(Number)
-  const ahora = new Date()
-  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes()
-  const minutosApertura = hA * 60 + mA
-  const minutosCierre = hC * 60 + mC
-  if (minutosAhora < minutosApertura || minutosAhora >= minutosCierre) return 'cerrado'
-  if (minutosCierre - minutosAhora <= 60) return 'cierra-pronto'
-  return 'abierto'
 }
 
 const ESTADO_APERTURA_STYLES = {
@@ -567,18 +522,16 @@ export default function NegocioDetalle() {
           {tab === 'horarios' && (
             <div>
               <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 14 }}>Horario de atención</div>
-              {DIAS_HORARIO.some((d) => resolverBloque(negocio.horarios, d.key)?.apertura) ? (
+              {resumenHorario(negocio.horarios).length > 0 ? (
                 <div className="card" style={{ padding: 18, maxWidth: 360 }}>
-                  {DIAS_HORARIO.map((d) => {
-                    const bloque = resolverBloque(negocio.horarios, d.key)
-                    if (!bloque?.apertura) return null
-                    return (
-                      <div key={d.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', color: 'var(--text-muted)' }}>
-                        <span>{d.label}</span>
-                        <span>{formatoHora12(bloque.apertura)} – {formatoHora12(bloque.cierre)}</span>
-                      </div>
-                    )
-                  })}
+                  {resumenHorario(negocio.horarios).map((fila) => (
+                    <div key={fila.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, padding: '5px 0', color: 'var(--text-muted)' }}>
+                      <span>{fila.label}</span>
+                      <span style={{ color: fila.bloque ? undefined : 'var(--text-faint)', textAlign: 'right' }}>
+                        {fila.bloque ? `${formatoHora12(fila.bloque.apertura)} – ${formatoHora12(fila.bloque.cierre)}` : 'Cerrado'}
+                      </span>
+                    </div>
+                  ))}
                   {negocio.canalesContacto?.telefono && (
                     <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
                       {negocio.canalesContacto.telefono}

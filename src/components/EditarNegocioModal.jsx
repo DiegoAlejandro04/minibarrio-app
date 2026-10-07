@@ -8,30 +8,40 @@ import CampoDireccion from './CampoDireccion.jsx'
 import MapaUbicacion from './MapaUbicacion.jsx'
 import useIsMobile from '../hooks/useIsMobile.js'
 import { geocodeDireccion } from '../maps/osm.js'
+import { DIAS_ENTRE_SEMANA, DIAS_ESPECIALES, HORARIO_INICIAL, bloqueGuardado } from '../horarios.js'
 
 // Modal de edición de la información pública del negocio (RF-06/RF-11):
 // nombre, descripción, dirección, contacto y horarios. Escribe directamente
 // sobre negocios/{uid}; OwnerLayout está suscrito con onSnapshot, así que
 // los cambios se reflejan solos en el resto del panel al guardar.
 
-const DIAS_FIJOS = [
-  { key: 'lunesAViernes', label: 'Lunes a viernes' },
-  { key: 'sabado', label: 'Sábado' },
-]
+// Horario inicial del formulario: un bloque por día (ver horarios.js),
+// leyendo también los formatos anteriores ("lunesAViernes",
+// "domingoFestivos") para negocios que aún no lo han vuelto a guardar.
+function horariosIniciales(horarios) {
+  return [...DIAS_ENTRE_SEMANA, ...DIAS_ESPECIALES].reduce((acc, d) => {
+    const previo = bloqueGuardado(horarios, d.key) || HORARIO_INICIAL[d.key]
+    acc[d.key] = {
+      activo: previo.activo !== false && !!previo.apertura,
+      apertura: previo.apertura || HORARIO_INICIAL[d.key].apertura,
+      cierre: previo.cierre || HORARIO_INICIAL[d.key].cierre,
+    }
+    return acc
+  }, {})
+}
 
-// Domingo y festivos se editan por separado: cada uno tiene su propio
-// interruptor de "hay servicio" para permitir cualquier combinación (ambos
-// cerrados, solo uno de los dos, o ambos con su propio horario). Los
-// negocios creados antes de este cambio solo tienen "domingoFestivos": se
-// usa como valor inicial de ambos si no existen los campos nuevos.
-const DIAS_VARIABLES = [
-  { key: 'domingo', label: 'Domingo' },
-  { key: 'festivos', label: 'Festivos' },
-]
+// "Mismo horario" arranca encendido si todos los días abiertos entre semana
+// ya comparten horario — el caso más común.
+function compartenHorario(horarios) {
+  const abiertos = DIAS_ENTRE_SEMANA.map((d) => horarios[d.key]).filter((b) => b.activo)
+  return abiertos.every((b) => b.apertura === abiertos[0].apertura && b.cierre === abiertos[0].cierre)
+}
+
+const TODOS_LOS_DIAS = [...DIAS_ENTRE_SEMANA, ...DIAS_ESPECIALES]
 
 export default function EditarNegocioModal({ negocio, uid, onClose }) {
   const isMobile = useIsMobile()
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     nombre: negocio.nombre || '',
     descripcion: negocio.descripcion || '',
     direccion: negocio.direccion || '',
@@ -39,22 +49,9 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
     telefono: negocio.canalesContacto?.telefono || '',
     whatsapp: negocio.canalesContacto?.whatsapp || '',
     especialidades: negocio.especialidades || [],
-    horarios: DIAS_FIJOS.reduce((acc, d) => {
-      acc[d.key] = {
-        apertura: negocio.horarios?.[d.key]?.apertura || '',
-        cierre: negocio.horarios?.[d.key]?.cierre || '',
-      }
-      return acc
-    }, DIAS_VARIABLES.reduce((acc, d) => {
-      const previo = negocio.horarios?.[d.key] || negocio.horarios?.domingoFestivos
-      acc[d.key] = {
-        activo: previo?.activo !== false,
-        apertura: previo?.apertura || '09:00',
-        cierre: previo?.cierre || '16:00',
-      }
-      return acc
-    }, {})),
-  })
+    horarios: horariosIniciales(negocio.horarios),
+  }))
+  const [mismoHorario, setMismoHorario] = useState(() => compartenHorario(form.horarios))
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
   // ubicacion viaja aparte de `form` porque solo cambia cuando se elige una
@@ -83,6 +80,31 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
     }))
   }
 
+  // Con "mismo horario" encendido, un solo par de horas vale para los cinco
+  // días entre semana (también los cerrados, para que al abrirlos ya tengan
+  // ese horario).
+  function updateHorarioSemana(campo) {
+    return (e) => setForm((f) => {
+      const horarios = { ...f.horarios }
+      DIAS_ENTRE_SEMANA.forEach((d) => { horarios[d.key] = { ...horarios[d.key], [campo]: e.target.value } })
+      return { ...f, horarios }
+    })
+  }
+
+  function cambiarMismoHorario(valor) {
+    setMismoHorario(valor)
+    if (!valor) return
+    // Al volver a "mismo horario", todos toman el del primer día abierto.
+    setForm((f) => {
+      const base = DIAS_ENTRE_SEMANA.map((d) => f.horarios[d.key]).find((b) => b.activo) || f.horarios.lunes
+      const horarios = { ...f.horarios }
+      DIAS_ENTRE_SEMANA.forEach((d) => {
+        horarios[d.key] = { ...horarios[d.key], apertura: base.apertura, cierre: base.cierre }
+      })
+      return { ...f, horarios }
+    })
+  }
+
   function toggleEspecialidad(especialidad) {
     setForm((f) => ({
       ...f,
@@ -96,6 +118,14 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
     e.preventDefault()
     if (!form.nombre.trim() || !form.direccion.trim()) {
       setError('El nombre y la dirección son obligatorios.')
+      return
+    }
+    const horarioInvalido = TODOS_LOS_DIAS.find((d) => {
+      const b = form.horarios[d.key]
+      return b.activo && (!b.apertura || !b.cierre || b.apertura >= b.cierre)
+    })
+    if (horarioInvalido) {
+      setError(`Revisa el horario del ${horarioInvalido.label.toLowerCase()}: la hora de cierre debe ser después de la de apertura.`)
       return
     }
     setError('')
@@ -242,30 +272,80 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
         <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block', marginTop: 14 }}>WhatsApp</label>
         <input maxLength={20} type="tel" value={form.whatsapp} onChange={update('whatsapp')} style={{ marginTop: 6 }} />
 
-        <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 18, marginBottom: 8 }}>Horarios de atención</div>
-        {DIAS_FIJOS.map((d) => (
-          <div
-            key={d.key}
-            style={{
-              display: 'flex', flexDirection: isMobile ? 'column' : 'row',
-              alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 4 : 10, marginTop: 8,
-            }}
-          >
-            <span style={{ fontSize: 12.5, color: 'var(--text-muted)', width: isMobile ? 'auto' : 120, flexShrink: 0 }}>{d.label}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input type="time" value={form.horarios[d.key].apertura} onChange={updateHorario(d.key, 'apertura')} style={{ flex: 1, minWidth: 0 }} />
-              <span style={{ color: 'var(--text-faint)', flexShrink: 0 }}>–</span>
-              <input type="time" value={form.horarios[d.key].cierre} onChange={updateHorario(d.key, 'cierre')} style={{ flex: 1, minWidth: 0 }} />
-            </div>
+        <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 18 }}>Horarios de atención</div>
+
+        {/* Entre semana: un círculo por día (estilo "Repetir" de iOS) para
+            abrirlo o cerrarlo, y debajo el horario — uno compartido o uno
+            por día, según "Mismo horario todos los días". */}
+        <div className="card" style={{ padding: 14, marginTop: 10, background: 'var(--surface-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Entre semana</span>
+            <span style={{ fontSize: 12, color: 'var(--text-faint)', textAlign: 'right' }}>{resumenDiasAbiertos(form.horarios)}</span>
           </div>
-        ))}
 
-        <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 12 }}>
+            {DIAS_ENTRE_SEMANA.map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                className="dia-circulo"
+                aria-pressed={form.horarios[d.key].activo}
+                aria-label={`${d.label}: ${form.horarios[d.key].activo ? 'abierto' : 'cerrado'}`}
+                title={d.label}
+                onClick={() => toggleDia(d.key)(!form.horarios[d.key].activo)}
+              >
+                {d.inicial}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 8, textAlign: 'center' }}>
+            Toca un día para abrirlo o cerrarlo.
+          </div>
 
-        <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginBottom: 4 }}>
-          Activa o desactiva el servicio para cada uno de forma independiente.
+          {DIAS_ENTRE_SEMANA.some((d) => form.horarios[d.key].activo) && (
+            <>
+              <div style={{ height: 1, background: 'var(--border)', margin: '14px 0 12px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600 }}>Mismo horario todos los días</span>
+                <ToggleIOS checked={mismoHorario} onChange={cambiarMismoHorario} label="Mismo horario todos los días" />
+              </div>
+
+              {mismoHorario ? (
+                <RangoHoras
+                  bloque={DIAS_ENTRE_SEMANA.map((d) => form.horarios[d.key]).find((b) => b.activo)}
+                  onApertura={updateHorarioSemana('apertura')}
+                  onCierre={updateHorarioSemana('cierre')}
+                />
+              ) : (
+                DIAS_ENTRE_SEMANA.filter((d) => form.horarios[d.key].activo).map((d) => (
+                  <div
+                    key={d.key}
+                    style={{
+                      display: 'flex', flexDirection: isMobile ? 'column' : 'row',
+                      alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 0 : 10,
+                    }}
+                  >
+                    <span style={{ fontSize: 12.5, color: 'var(--text-muted)', width: isMobile ? 'auto' : 82, flexShrink: 0, marginTop: 10 }}>
+                      {d.label}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <RangoHoras
+                        bloque={form.horarios[d.key]}
+                        onApertura={updateHorario(d.key, 'apertura')}
+                        onCierre={updateHorario(d.key, 'cierre')}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </>
+          )}
         </div>
-        {DIAS_VARIABLES.map((d) => {
+
+        <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 14, marginBottom: 2 }}>
+          Fin de semana y festivos: activa o desactiva el servicio de cada uno.
+        </div>
+        {DIAS_ESPECIALES.map((d) => {
           const bloque = form.horarios[d.key]
           return (
             <div
@@ -278,11 +358,11 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
                 <ToggleIOS checked={bloque.activo} onChange={toggleDia(d.key)} label={`Servicio los ${d.label.toLowerCase()}`} />
               </div>
               {bloque.activo ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                  <input type="time" value={bloque.apertura} onChange={updateHorario(d.key, 'apertura')} style={{ flex: 1, minWidth: 0 }} />
-                  <span style={{ color: 'var(--text-faint)', flexShrink: 0 }}>–</span>
-                  <input type="time" value={bloque.cierre} onChange={updateHorario(d.key, 'cierre')} style={{ flex: 1, minWidth: 0 }} />
-                </div>
+                <RangoHoras
+                  bloque={bloque}
+                  onApertura={updateHorario(d.key, 'apertura')}
+                  onCierre={updateHorario(d.key, 'cierre')}
+                />
               ) : (
                 <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 6 }}>Sin servicio</div>
               )}
@@ -303,4 +383,25 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
       </form>
     </div>
   )
+}
+
+// Par de horas apertura – cierre de un día (o del horario compartido).
+function RangoHoras({ bloque, onApertura, onCierre }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+      <input type="time" value={bloque.apertura} onChange={onApertura} aria-label="Hora de apertura" style={{ flex: 1, minWidth: 0 }} />
+      <span style={{ color: 'var(--text-faint)', flexShrink: 0 }}>–</span>
+      <input type="time" value={bloque.cierre} onChange={onCierre} aria-label="Hora de cierre" style={{ flex: 1, minWidth: 0 }} />
+    </div>
+  )
+}
+
+// Texto corto de qué días abre entre semana: "Lunes a viernes",
+// "Lun, mar y jue", "Cerrado"…
+function resumenDiasAbiertos(horarios) {
+  const abiertos = DIAS_ENTRE_SEMANA.filter((d) => horarios[d.key].activo)
+  if (abiertos.length === 0) return 'Cerrado'
+  if (abiertos.length === DIAS_ENTRE_SEMANA.length) return 'Lunes a viernes'
+  const cortos = abiertos.map((d, i) => (i === 0 ? d.label.slice(0, 3) : d.label.slice(0, 3).toLowerCase()))
+  return cortos.length === 1 ? abiertos[0].label : `${cortos.slice(0, -1).join(', ')} y ${cortos[cortos.length - 1]}`
 }
