@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import Captcha from '../components/Captcha.jsx'
 import GoogleIcon from '../components/GoogleIcon.jsx'
 
 export default function RegisterClient() {
@@ -8,6 +9,8 @@ export default function RegisterClient() {
   const [acepta, setAcepta] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captcha, setCaptcha] = useState(null) // token de reCAPTCHA v2, ver Captcha.jsx
+  const captchaRef = useRef(null)
 
   const { registerClient, loginWithGoogle } = useAuth()
   const navigate = useNavigate()
@@ -49,6 +52,10 @@ export default function RegisterClient() {
       setError('Debes autorizar el tratamiento de tus datos personales para continuar (Ley 1581 de 2012).')
       return
     }
+    if (!captcha) {
+      setError('Marca la casilla "No soy un robot".')
+      return
+    }
 
     setLoading(true)
     try {
@@ -60,6 +67,7 @@ export default function RegisterClient() {
       })
       navigate('/', { replace: true })
     } catch (err) {
+      captchaRef.current?.reiniciar()
       setError(mapAuthError(err))
       // eslint-disable-next-line no-console
       console.error(err)
@@ -113,6 +121,8 @@ export default function RegisterClient() {
             <input type="checkbox" checked={acepta} onChange={(e) => setAcepta(e.target.checked)} style={{ width: 'auto', marginTop: 2 }} />
             Autorizo el tratamiento de mis datos personales conforme a la Ley 1581 de 2012 y el Decreto 1377 de 2013.
           </label>
+
+          <Captcha ref={captchaRef} onChange={setCaptcha} />
 
           {error && <div className="error-text">{error}</div>}
 

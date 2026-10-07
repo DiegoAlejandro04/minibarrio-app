@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Icon from './Icon.jsx'
+import Captcha from './Captcha.jsx'
 import { PLANTILLA_CONTACTO, enviarCorreo, segundosParaReenviar } from '../emailjs.js'
 
 // Formulario de "Atención al cliente" del pie de página. Llega por correo con
@@ -14,6 +15,8 @@ export default function ContactoModal({ onClose }) {
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
+  const [captcha, setCaptcha] = useState(null) // token de reCAPTCHA v2, ver Captcha.jsx
+  const captchaRef = useRef(null)
 
   function cambiar(campo) {
     return (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
@@ -30,6 +33,10 @@ export default function ContactoModal({ onClose }) {
       setError('Escribe una dirección de e-mail válida.')
       return
     }
+    if (!captcha) {
+      setError('Marca la casilla "No soy un robot".')
+      return
+    }
     const espera = segundosParaReenviar(CLAVE_ULTIMO_ENVIO)
     if (espera) {
       setError(`Ya enviaste un mensaje hace poco. Espera ${espera} segundos para enviar otro.`)
@@ -39,7 +46,7 @@ export default function ContactoModal({ onClose }) {
     setError('')
     setEnviando(true)
     try {
-      await enviarCorreo(PLANTILLA_CONTACTO, datos, CLAVE_ULTIMO_ENVIO)
+      await enviarCorreo(PLANTILLA_CONTACTO, { ...datos, 'g-recaptcha-response': captcha }, CLAVE_ULTIMO_ENVIO)
       setEnviado(true)
     } catch (err) {
       setError('No se pudo enviar tu mensaje. Revisa tu conexión e intenta de nuevo.')
@@ -47,6 +54,7 @@ export default function ContactoModal({ onClose }) {
       console.error(err)
     } finally {
       setEnviando(false)
+      captchaRef.current?.reiniciar() // cada token sirve una sola vez
     }
   }
 
@@ -111,6 +119,10 @@ export default function ContactoModal({ onClose }) {
               placeholder="Escribe tu mensaje…"
               style={{ marginTop: 6, resize: 'vertical' }}
             />
+
+            <div style={{ marginTop: 16 }}>
+              <Captcha ref={captchaRef} onChange={setCaptcha} />
+            </div>
 
             {error && <div className="error-text">{error}</div>}
 

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import Captcha from '../components/Captcha.jsx'
 import { geocodeDireccion } from '../maps/osm.js'
 import CampoDireccion from '../components/CampoDireccion.jsx'
 import MapaUbicacion from '../components/MapaUbicacion.jsx'
@@ -22,6 +23,8 @@ export default function RegisterBusiness() {
   const [acepta, setAcepta] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captcha, setCaptcha] = useState(null) // token de reCAPTCHA v2, ver Captcha.jsx
+  const captchaRef = useRef(null)
   // Coordenadas elegidas directamente de una sugerencia del autocompletado o
   // moviendo el pin del mapa, si las hay; si el usuario termina escribiendo
   // una dirección distinta a mano, se ignoran y se re-geocodifica al enviar.
@@ -47,6 +50,10 @@ export default function RegisterBusiness() {
       setError('Debes autorizar el tratamiento de los datos para continuar (Ley 1581 de 2012).')
       return
     }
+    if (!captcha) {
+      setError('Marca la casilla "No soy un robot".')
+      return
+    }
 
     setLoading(true)
     try {
@@ -66,6 +73,7 @@ export default function RegisterBusiness() {
       await registerBusinessOwner({ ...form, ubicacion: ubicacionFinal })
       navigate('/panel', { replace: true })
     } catch (err) {
+      captchaRef.current?.reiniciar()
       setError(mapAuthError(err))
       // eslint-disable-next-line no-console
       console.error(err)
@@ -172,6 +180,8 @@ export default function RegisterBusiness() {
             <input type="checkbox" checked={acepta} onChange={(e) => setAcepta(e.target.checked)} style={{ width: 'auto', marginTop: 2 }} />
             Autorizo el tratamiento de los datos personales y del negocio conforme a la Ley 1581 de 2012.
           </label>
+
+          <Captcha ref={captchaRef} onChange={setCaptcha} />
 
           {error && <div className="error-text">{error}</div>}
 

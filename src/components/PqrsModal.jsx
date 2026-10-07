@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Icon from './Icon.jsx'
+import Captcha from './Captcha.jsx'
 import { PLANTILLA_PQRS, enviarCorreo, segundosParaReenviar } from '../emailjs.js'
 
 // Formulario de PQRS (peticiones, quejas, reclamos y sugerencias — Ley 1581
@@ -15,6 +16,8 @@ export default function PqrsModal({ onClose }) {
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
+  const [captcha, setCaptcha] = useState(null) // token de reCAPTCHA v2, ver Captcha.jsx
+  const captchaRef = useRef(null)
 
   function cambiar(campo) {
     return (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
@@ -35,6 +38,10 @@ export default function PqrsModal({ onClose }) {
       setError('Escribe un número de teléfono válido.')
       return
     }
+    if (!captcha) {
+      setError('Marca la casilla "No soy un robot".')
+      return
+    }
     const espera = segundosParaReenviar(CLAVE_ULTIMO_ENVIO)
     if (espera) {
       setError(`Ya enviaste una PQRS hace poco. Espera ${espera} segundos para enviar otra.`)
@@ -44,7 +51,7 @@ export default function PqrsModal({ onClose }) {
     setError('')
     setEnviando(true)
     try {
-      await enviarCorreo(PLANTILLA_PQRS, datos, CLAVE_ULTIMO_ENVIO)
+      await enviarCorreo(PLANTILLA_PQRS, { ...datos, 'g-recaptcha-response': captcha }, CLAVE_ULTIMO_ENVIO)
       setEnviado(true)
     } catch (err) {
       setError('No se pudo enviar tu PQRS. Revisa tu conexión e intenta de nuevo.')
@@ -52,6 +59,7 @@ export default function PqrsModal({ onClose }) {
       console.error(err)
     } finally {
       setEnviando(false)
+      captchaRef.current?.reiniciar() // cada token sirve una sola vez
     }
   }
 
@@ -125,6 +133,10 @@ export default function PqrsModal({ onClose }) {
               placeholder="Cuéntanos qué pasó…"
               style={{ marginTop: 6, resize: 'vertical' }}
             />
+
+            <div style={{ marginTop: 16 }}>
+              <Captcha ref={captchaRef} onChange={setCaptcha} />
+            </div>
 
             {error && <div className="error-text">{error}</div>}
 

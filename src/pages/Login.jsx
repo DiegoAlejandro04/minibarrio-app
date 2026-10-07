@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import Captcha from '../components/Captcha.jsx'
 import Icon from '../components/Icon.jsx'
 import GoogleIcon from '../components/GoogleIcon.jsx'
 
@@ -11,6 +12,8 @@ export default function Login() {
   const [mostrarContrasena, setMostrarContrasena] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captcha, setCaptcha] = useState(null) // token de reCAPTCHA v2, ver Captcha.jsx
+  const captchaRef = useRef(null)
 
   const { login, loginWithGoogle } = useAuth()
   const navigate = useNavigate()
@@ -21,12 +24,17 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (!captcha) {
+      setError('Marca la casilla "No soy un robot".')
+      return
+    }
     setLoading(true)
     try {
       const rol = await login(correo, contrasena)
       const redirectTo = location.state?.from?.pathname || (rol === 'propietario' ? '/panel' : '/')
       navigate(redirectTo, { replace: true })
     } catch (err) {
+      captchaRef.current?.reiniciar()
       setError('Correo o contraseña incorrectos. Verifica tus datos e intenta de nuevo.')
       // eslint-disable-next-line no-console
       console.error(err)
@@ -130,6 +138,10 @@ export default function Login() {
             >
               <Icon name={mostrarContrasena ? 'eyeOff' : 'eye'} size={17} />
             </button>
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <Captcha ref={captchaRef} onChange={setCaptcha} />
           </div>
 
           {error && <div className="error-text">{error}</div>}

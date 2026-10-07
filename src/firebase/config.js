@@ -6,6 +6,7 @@
 // de Firebase compartido (Firebase Console > Configuración del proyecto).
 
 import { initializeApp } from 'firebase/app'
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
@@ -28,5 +29,16 @@ if (!firebaseConfig.apiKey) {
 }
 
 export const app = initializeApp(firebaseConfig)
+
+// Firebase App Check con reCAPTCHA Enterprise (invisible): cada petición a
+// Firebase lleva una prueba de que viene de esta app en un navegador real.
+// Con "Aplicar" (Enforce) activado en la consola de Firebase, Firestore
+// rechaza lo que llegue de scripts — p. ej. registros masivos de negocios
+// falsos. La clave de sitio es pública por diseño.
+initializeAppCheck(app, {
+  provider: new ReCaptchaEnterpriseProvider('6Let9-ItAAAAACMB0VDImi72Pn7rMCDT1Bz8HSl7'),
+  isTokenAutoRefreshEnabled: true,
+})
+
 export const auth = getAuth(app)
 export const db = getFirestore(app)

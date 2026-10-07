@@ -1,14 +1,5 @@
 rules_version = '2';
 
-// Reglas de seguridad de Firestore — MiniBarrio (prototipo académico).
-//
-// Modelo de roles: cada usuario autenticado tiene un documento en
-// "usuarios/{uid}" con un campo "rol" ("cliente" | "propietario"). El
-// negocio de un propietario vive en "negocios/{uid}" usando el MISMO uid
-// como id de documento (1 propietario ⇄ 1 negocio en este prototipo).
-//
-// Despliega estas reglas con: firebase deploy --only firestore:rules
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -24,31 +15,19 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/usuarios/$(uid)).data.rol;
     }
 
-    // Prueba de que un cliente tiene relación con un negocio, para crear la
-    // marca "negocios/{negocioId}/clientes/{clienteId}" (ver más abajo): el
-    // id de una cita de ese cliente en ese negocio, o de una reseña que ese
-    // cliente le dejó. Ninguna de las dos la puede falsificar el negocio:
-    // las citas y las reseñas solo las crea el propio cliente.
     function citaDelCliente(negocioId, clienteId) {
       let cita = get(/databases/$(database)/documents/citas/$(request.resource.data.citaId)).data;
       return cita.negocioId == negocioId && cita.clienteId == clienteId;
     }
+
     function resenaDelCliente(negocioId, clienteId) {
       return get(/databases/$(database)/documents/negocios/$(negocioId)/resenas/$(request.resource.data.resenaId)).data.clienteId == clienteId;
     }
 
-    // La cita tal como quedará después de la escritura en curso (incluye lo
-    // que se escribe en el mismo batch). Ver la regla de "ocupados".
     function citaTras(citaId) {
       return getAfter(/databases/$(database)/documents/citas/$(citaId)).data;
     }
 
-    // Perfiles de usuario: cada quien lee y escribe solo el suyo. Excepción:
-    // un propietario puede leer el perfil (nombre/correo/teléfono) de un
-    // cliente SOLO si ese cliente tiene relación con su negocio — existe la
-    // marca negocios/{su uid}/clientes/{uid del cliente}. Antes bastaba con
-    // ser propietario, y como registrarse como negocio es libre, cualquiera
-    // podía sacar los datos de contacto de todos los clientes (Ley 1581).
     match /usuarios/{uid} {
       allow read: if esDueno(uid)
                   || (estaAutenticado()
@@ -57,18 +36,14 @@ service cloud.firestore {
       allow create: if esDueno(uid)
                     && request.resource.data.rol in ['cliente', 'propietario'];
       allow update: if esDueno(uid)
-                    && request.resource.data.rol == resource.data.rol; // el rol no se puede auto-cambiar
+                    && request.resource.data.rol == resource.data.rol;
       allow delete: if false;
 
-      // Negocios favoritos del cliente (panel de perfil): solo el propio
-      // usuario puede leer y escribir su lista de favoritos.
       match /favoritos/{negocioId} {
         allow read, write: if esDueno(uid);
       }
     }
 
-    // Negocios: lectura pública (portafolio visible sin sesión, RF-12);
-    // escritura solo por su propio propietario.
     match /negocios/{negocioId} {
       allow read: if true;
       allow create: if esDueno(negocioId)
@@ -76,14 +51,11 @@ service cloud.firestore {
                     && request.resource.data.propietarioId == request.auth.uid;
       allow update, delete: if esDueno(negocioId);
 
-      // Catálogo de servicios del negocio (RF-03/RF-04).
       match /servicios/{servicioId} {
         allow read: if true;
         allow write: if esDueno(negocioId);
       }
 
-      // Reseñas (RF-10): cualquier cliente autenticado puede crear la suya;
-      // solo puede editar/borrar la propia; el propietario no puede tocarlas.
       match /resenas/{resenaId} {
         allow read: if true;
         allow create: if estaAutenticado()
@@ -92,10 +64,6 @@ service cloud.firestore {
         allow update, delete: if estaAutenticado() && resource.data.clienteId == request.auth.uid;
       }
 
-      // Clientes del negocio: marca que autoriza al propietario a leer el
-      // perfil de ese cliente (regla de "usuarios"). La crea el propio
-      // negocio desde su panel (src/perfilesClientes.js), pero solo con una
-      // cita o reseña real de ese cliente como prueba. No se edita ni borra.
       match /clientes/{clienteId} {
         allow read: if esDueno(negocioId);
         allow create: if esDueno(negocioId)
@@ -105,13 +73,6 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
-      // Turnos ocupados (src/turnosOcupados.js): solo { fechaHora }, con el
-      // id de la cita como id del documento. Lectura pública — es lo que
-      // necesita la página del negocio para no ofrecer turnos tomados. Se
-      // escriben en el mismo batch que la cita, y getAfter() exige que
-      // coincidan con una cita real de este negocio, hecha por quien escribe
-      // (su cliente o el propio negocio): ocupado mientras la cita no esté
-      // cancelada, y solo se libera cuando sí lo está.
       match /ocupados/{citaId} {
         allow read: if true;
         allow create, update: if estaAutenticado()
@@ -126,12 +87,6 @@ service cloud.firestore {
                       && (citaTras(citaId).clienteId == request.auth.uid || esDueno(negocioId));
       }
 
-      // Visitas al perfil (contador de "Visitas al perfil" del panel): un
-      // marcador por cliente. Solo se permite "create" (nunca "update"), así
-      // que un mismo cliente no puede sumar más de una visita a un negocio
-      // aunque vuelva a entrar varias veces. El propietario puede leer la
-      // subcolección completa para contar sus visitas; cada cliente solo
-      // puede leer su propio marcador.
       match /visitas/{clienteId} {
         allow read: if esDueno(clienteId) || esDueno(negocioId);
         allow create: if esDueno(clienteId) && rolDe(clienteId) == 'cliente';
@@ -139,23 +94,14 @@ service cloud.firestore {
       }
     }
 
-    // Collection group: las reglas anidadas de arriba (negocios/{id}/servicios,
-    // negocios/{id}/resenas) solo cubren la lectura de UN negocio a la vez.
-    // ClientHome.jsx usa collectionGroup('servicios') y collectionGroup('resenas')
-    // para traer calificaciones y precios de TODOS los negocios de una sola vez
-    // (RF-05/RF-09) — Firestore exige una regla aparte con la sintaxis
-    // recursiva {path=**} para autorizar ese tipo de consulta entre negocios.
     match /{path=**}/servicios/{servicioId} {
       allow read: if true;
     }
+
     match /{path=**}/resenas/{resenaId} {
       allow read: if true;
     }
 
-    // Citas (RF-07/RF-08). Cada cita solo la leen su cliente y el negocio
-    // donde se reservó. Antes cualquier usuario con sesión podía leer todas
-    // las citas de todos los negocios (para calcular turnos ocupados); eso
-    // ahora sale de "negocios/{id}/ocupados", que no tiene datos personales.
     match /citas/{citaId} {
       allow read: if estaAutenticado()
                   && (resource.data.clienteId == request.auth.uid
