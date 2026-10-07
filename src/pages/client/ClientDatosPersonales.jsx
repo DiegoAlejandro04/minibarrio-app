@@ -48,11 +48,11 @@ export default function ClientDatosPersonales() {
       <form onSubmit={handleSubmit} className="card" style={{ padding: 20, maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
           <label style={{ fontSize: 12.5, fontWeight: 700 }}>Nombre completo</label>
-          <input value={nombre} onChange={(e) => setNombre(e.target.value)} required style={{ marginTop: 6 }} />
+          <input maxLength={80} value={nombre} onChange={(e) => setNombre(e.target.value)} required style={{ marginTop: 6 }} />
         </div>
         <div>
           <label style={{ fontSize: 12.5, fontWeight: 700 }}>Teléfono / WhatsApp</label>
-          <input value={telefono} onChange={(e) => setTelefono(e.target.value)} required style={{ marginTop: 6 }} />
+          <input maxLength={20} value={telefono} onChange={(e) => setTelefono(e.target.value)} required style={{ marginTop: 6 }} />
         </div>
         <div>
           <label style={{ fontSize: 12.5, fontWeight: 700 }}>Correo electrónico</label>

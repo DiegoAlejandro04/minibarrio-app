@@ -96,15 +96,15 @@ export default function RegisterClient() {
         <form onSubmit={handleSubmit} style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <label style={{ fontSize: 12.5, fontWeight: 700 }}>Nombre completo</label>
-            <input required value={form.nombre} onChange={update('nombre')} placeholder="Camilo Rodríguez" style={{ marginTop: 6 }} />
+            <input maxLength={80} required value={form.nombre} onChange={update('nombre')} placeholder="Camilo Rodríguez" style={{ marginTop: 6 }} />
           </div>
           <div>
             <label style={{ fontSize: 12.5, fontWeight: 700 }}>Correo electrónico</label>
-            <input type="email" required value={form.correo} onChange={update('correo')} placeholder="tucorreo@ejemplo.com" style={{ marginTop: 6 }} />
+            <input maxLength={120} type="email" required value={form.correo} onChange={update('correo')} placeholder="tucorreo@ejemplo.com" style={{ marginTop: 6 }} />
           </div>
           <div>
             <label style={{ fontSize: 12.5, fontWeight: 700 }}>Teléfono / WhatsApp</label>
-            <input required value={form.telefono} onChange={update('telefono')} placeholder="300 000 0000" style={{ marginTop: 6 }} />
+            <input maxLength={20} required value={form.telefono} onChange={update('telefono')} placeholder="300 000 0000" style={{ marginTop: 6 }} />
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
             <div style={{ flex: '1 1 140px' }}>

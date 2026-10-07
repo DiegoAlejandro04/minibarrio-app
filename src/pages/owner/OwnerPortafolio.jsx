@@ -68,7 +68,7 @@ export default function OwnerPortafolio() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 320px' }}>
             <label style={{ fontSize: 12, fontWeight: 700 }}>URL de la imagen</label>
-            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" style={{ marginTop: 4 }} />
+            <input maxLength={500} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" style={{ marginTop: 4 }} />
           </div>
           <button type="submit" className="btn btn-primary" disabled={guardando} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Icon name="plus" size={15} /> {guardando ? 'Agregando…' : 'Agregar foto'}

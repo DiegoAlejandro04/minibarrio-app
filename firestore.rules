@@ -53,6 +53,48 @@ service cloud.firestore {
         && datos.comentario.size() <= 500;
     }
 
+    function textoMax(datos, campo, max) {
+      return !(campo in datos) || (datos[campo] is string && datos[campo].size() <= max);
+    }
+
+    function listaMax(datos, campo, max) {
+      return !(campo in datos) || (datos[campo] is list && datos[campo].size() <= max);
+    }
+
+    function numeroEntre(datos, campo, min, max) {
+      return datos[campo] is number && datos[campo] >= min && datos[campo] <= max;
+    }
+
+    function perfilValido() {
+      let datos = request.resource.data;
+      return textoMax(datos, 'nombre', 80)
+        && textoMax(datos, 'correo', 120)
+        && textoMax(datos, 'telefono', 20);
+    }
+
+    function negocioValido() {
+      let datos = request.resource.data;
+      return textoMax(datos, 'nombre', 80)
+        && textoMax(datos, 'descripcion', 600)
+        && textoMax(datos, 'direccion', 200)
+        && textoMax(datos, 'correo', 120)
+        && textoMax(datos, 'categoria', 60)
+        && listaMax(datos, 'fotos', 30)
+        && listaMax(datos, 'especialidades', 20)
+        && (!('canalesContacto' in datos)
+            || (textoMax(datos.canalesContacto, 'telefono', 20)
+                && textoMax(datos.canalesContacto, 'whatsapp', 20)));
+    }
+
+    function servicioValido() {
+      let datos = request.resource.data;
+      return textoMax(datos, 'nombre', 80)
+        && textoMax(datos, 'descripcion', 300)
+        && textoMax(datos, 'fotoUrl', 500)
+        && numeroEntre(datos, 'precio', 0, 2000000)
+        && numeroEntre(datos, 'duracionMinutos', 1, 480);
+    }
+
     function cambiosCita() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -63,9 +105,12 @@ service cloud.firestore {
                       && resource.data.rol == 'cliente'
                       && exists(/databases/$(database)/documents/negocios/$(request.auth.uid)/clientes/$(uid)));
       allow create: if esDueno(uid)
-                    && request.resource.data.rol in ['cliente', 'propietario'];
+                    && request.resource.data.rol in ['cliente', 'propietario']
+                    && request.resource.data.keys().hasOnly(['rol', 'nombre', 'correo', 'telefono', 'consentimientoDatos', 'creadoEn', 'modoOscuro', 'modoOscuroPanel'])
+                    && perfilValido();
       allow update: if esDueno(uid)
-                    && request.resource.data.rol == resource.data.rol;
+                    && request.resource.data.rol == resource.data.rol
+                    && perfilValido();
       allow delete: if false;
 
       match /favoritos/{negocioId} {
@@ -78,15 +123,21 @@ service cloud.firestore {
       allow create: if esDueno(negocioId)
                     && rolDe(request.auth.uid) == 'propietario'
                     && request.resource.data.propietarioId == request.auth.uid
-                    && request.resource.data.verificado == false;
+                    && request.resource.data.verificado == false
+                    && negocioValido();
       allow update: if esDueno(negocioId)
                     && !request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAny(['verificado', 'propietarioId', 'creadoEn']);
+                        .hasAny(['verificado', 'propietarioId', 'creadoEn'])
+                    && negocioValido();
       allow delete: if esDueno(negocioId);
 
       match /servicios/{servicioId} {
         allow read: if true;
-        allow write: if esDueno(negocioId);
+        allow create: if esDueno(negocioId)
+                      && request.resource.data.keys().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl'])
+                      && servicioValido();
+        allow update: if esDueno(negocioId) && servicioValido();
+        allow delete: if esDueno(negocioId);
       }
 
       match /resenas/{resenaId} {

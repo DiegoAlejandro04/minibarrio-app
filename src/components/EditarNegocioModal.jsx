@@ -168,10 +168,10 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
         </div>
 
         <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block', marginTop: 18 }}>Nombre del negocio</label>
-        <input value={form.nombre} onChange={update('nombre')} style={{ marginTop: 6 }} />
+        <input maxLength={80} value={form.nombre} onChange={update('nombre')} style={{ marginTop: 6 }} />
 
         <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block', marginTop: 14 }}>Descripción</label>
-        <textarea rows={2} value={form.descripcion} onChange={update('descripcion')} style={{ marginTop: 6, resize: 'vertical' }} />
+        <textarea maxLength={600} rows={2} value={form.descripcion} onChange={update('descripcion')} style={{ marginTop: 6, resize: 'vertical' }} />
 
         <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block', marginTop: 14 }}>Dirección</label>
         <CampoDireccion
@@ -231,16 +231,16 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 14 }}>
           <div style={{ flex: '1 1 160px' }}>
             <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block' }}>Correo de contacto</label>
-            <input type="email" value={form.correo} onChange={update('correo')} placeholder="negocio@ejemplo.com" style={{ marginTop: 6 }} />
+            <input maxLength={120} type="email" value={form.correo} onChange={update('correo')} placeholder="negocio@ejemplo.com" style={{ marginTop: 6 }} />
           </div>
           <div style={{ flex: '1 1 160px' }}>
             <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block' }}>Teléfono</label>
-            <input type="tel" value={form.telefono} onChange={update('telefono')} style={{ marginTop: 6 }} />
+            <input maxLength={20} type="tel" value={form.telefono} onChange={update('telefono')} style={{ marginTop: 6 }} />
           </div>
         </div>
 
         <label style={{ fontSize: 12.5, fontWeight: 700, display: 'block', marginTop: 14 }}>WhatsApp</label>
-        <input type="tel" value={form.whatsapp} onChange={update('whatsapp')} style={{ marginTop: 6 }} />
+        <input maxLength={20} type="tel" value={form.whatsapp} onChange={update('whatsapp')} style={{ marginTop: 6 }} />
 
         <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 18, marginBottom: 8 }}>Horarios de atención</div>
         {DIAS_FIJOS.map((d) => (

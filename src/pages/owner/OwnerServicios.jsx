@@ -94,20 +94,20 @@ export default function OwnerServicios() {
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr 1fr', gap: 12 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700 }}>Nombre</label>
-            <input value={form.nombre} onChange={update('nombre')} placeholder="Corte fade + estilizado" style={{ marginTop: 4 }} />
+            <input maxLength={80} value={form.nombre} onChange={update('nombre')} placeholder="Corte fade + estilizado" style={{ marginTop: 4 }} />
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700 }}>Precio (COP)</label>
-            <input type="number" min="0" value={form.precio} onChange={update('precio')} placeholder="22000" style={{ marginTop: 4 }} />
+            <input type="number" min="0" max="2000000" value={form.precio} onChange={update('precio')} placeholder="22000" style={{ marginTop: 4 }} />
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700 }}>Duración (min)</label>
-            <input type="number" min="1" value={form.duracionMinutos} onChange={update('duracionMinutos')} placeholder="40" style={{ marginTop: 4 }} />
+            <input type="number" min="1" max="480" value={form.duracionMinutos} onChange={update('duracionMinutos')} placeholder="40" style={{ marginTop: 4 }} />
           </div>
         </div>
         <div style={{ marginTop: 12 }}>
           <label style={{ fontSize: 12, fontWeight: 700 }}>Descripción (opcional)</label>
-          <textarea rows={2} value={form.descripcion} onChange={update('descripcion')} placeholder="Fade con diseño y acabado en navaja." style={{ marginTop: 4, resize: 'vertical' }} />
+          <textarea maxLength={300} rows={2} value={form.descripcion} onChange={update('descripcion')} placeholder="Fade con diseño y acabado en navaja." style={{ marginTop: 4, resize: 'vertical' }} />
         </div>
         {error && <div className="error-text">{error}</div>}
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>

@@ -49,6 +49,7 @@ export default function CampoDireccion({ value, onChange, onSeleccion, required,
   return (
     <div ref={contenedorRef} style={{ position: 'relative' }}>
       <input
+        maxLength={200}
         required={required}
         value={value}
         placeholder={placeholder}
