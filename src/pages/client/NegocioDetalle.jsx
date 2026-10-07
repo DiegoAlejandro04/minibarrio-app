@@ -285,7 +285,11 @@ export default function NegocioDetalle() {
       })
       setHora(null)
     } catch (err) {
-      setError('No se pudo confirmar la cita. Intenta de nuevo.')
+      // Las reglas rechazan la reserva si otra persona tomó ese turno justo
+      // antes (ver turnosOcupados.js).
+      setError(err.code === 'permission-denied'
+        ? 'Ese turno acaba de ser reservado por otra persona. Elige otro.'
+        : 'No se pudo confirmar la cita. Intenta de nuevo.')
       // eslint-disable-next-line no-console
       console.error(err)
     } finally {

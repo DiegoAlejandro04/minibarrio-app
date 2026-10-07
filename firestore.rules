@@ -28,6 +28,26 @@ service cloud.firestore {
       return getAfter(/databases/$(database)/documents/citas/$(citaId)).data;
     }
 
+    function idTurno(fechaHora) {
+      return string(fechaHora.toMillis());
+    }
+
+    function turnoValido(negocioId, turno) {
+      let datos = request.resource.data;
+      let cita = citaTras(datos.citaId);
+      return estaAutenticado()
+        && datos.keys().hasOnly(['fechaHora', 'citaId'])
+        && turno == idTurno(datos.fechaHora)
+        && cita.negocioId == negocioId
+        && cita.fechaHora == datos.fechaHora
+        && cita.estado != 'cancelada'
+        && (cita.clienteId == request.auth.uid || esDueno(negocioId));
+    }
+
+    function cambiosCita() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
     match /usuarios/{uid} {
       allow read: if esDueno(uid)
                   || (estaAutenticado()
@@ -77,18 +97,17 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
-      match /ocupados/{citaId} {
+      match /ocupados/{turno} {
         allow read: if true;
-        allow create, update: if estaAutenticado()
-                              && request.resource.data.keys().hasOnly(['fechaHora'])
-                              && citaTras(citaId).negocioId == negocioId
-                              && citaTras(citaId).fechaHora == request.resource.data.fechaHora
-                              && citaTras(citaId).estado != 'cancelada'
-                              && (citaTras(citaId).clienteId == request.auth.uid || esDueno(negocioId));
-        allow delete: if estaAutenticado()
-                      && citaTras(citaId).negocioId == negocioId
-                      && citaTras(citaId).estado == 'cancelada'
-                      && (citaTras(citaId).clienteId == request.auth.uid || esDueno(negocioId));
+        allow create: if turnoValido(negocioId, turno);
+        allow update: if turnoValido(negocioId, turno)
+                      && resource.data.citaId == request.resource.data.citaId;
+        allow delete: if resource == null
+                      || (esDueno(negocioId) && !('citaId' in resource.data))
+                      || (estaAutenticado()
+                          && citaTras(resource.data.citaId).negocioId == negocioId
+                          && citaTras(resource.data.citaId).estado == 'cancelada'
+                          && (citaTras(resource.data.citaId).clienteId == request.auth.uid || esDueno(negocioId)));
       }
 
       match /visitas/{clienteId} {
@@ -110,12 +129,25 @@ service cloud.firestore {
       allow read: if estaAutenticado()
                   && (resource.data.clienteId == request.auth.uid
                       || resource.data.negocioId == request.auth.uid);
-      allow update: if estaAutenticado()
-                    && (resource.data.clienteId == request.auth.uid
-                        || resource.data.negocioId == request.auth.uid);
+      allow update: if (esDueno(resource.data.clienteId)
+                        && cambiosCita().hasOnly(['estado', 'canceladaPor'])
+                        && request.resource.data.estado == 'cancelada'
+                        && request.resource.data.canceladaPor == 'cliente')
+                    || (esDueno(resource.data.negocioId)
+                        && cambiosCita().hasOnly(['estado', 'canceladaPor'])
+                        && request.resource.data.estado in ['pendiente', 'cancelada', 'completada']
+                        && (!cambiosCita().hasAny(['canceladaPor'])
+                            || request.resource.data.canceladaPor == 'negocio'));
       allow create: if estaAutenticado()
                     && rolDe(request.auth.uid) == 'cliente'
-                    && request.resource.data.clienteId == request.auth.uid;
+                    && request.resource.data.keys().hasOnly(['negocioId', 'clienteId', 'servicioId', 'fechaHora', 'estado', 'creadoEn'])
+                    && request.resource.data.clienteId == request.auth.uid
+                    && request.resource.data.estado == 'pendiente'
+                    && request.resource.data.fechaHora is timestamp
+                    && request.resource.data.fechaHora > request.time
+                    && request.resource.data.creadoEn == request.time
+                    && exists(/databases/$(database)/documents/negocios/$(request.resource.data.negocioId)/servicios/$(request.resource.data.servicioId))
+                    && getAfter(/databases/$(database)/documents/negocios/$(request.resource.data.negocioId)/ocupados/$(idTurno(request.resource.data.fechaHora))).data.citaId == citaId;
       allow delete: if false;
     }
   }
