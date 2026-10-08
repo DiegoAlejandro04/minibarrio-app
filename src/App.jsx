@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import Splash from './components/Splash.jsx'
@@ -33,17 +33,13 @@ import NotFound from './pages/NotFound.jsx'
 const DURACION_SPLASH_MS = 900
 
 // Navegaciones que muestran el splash: llegar a la vitrina ("/") desde otra
-// página, entrar al panel del cliente desde fuera de él, entrar al
-// portafolio público de un negocio, o entrar/salir de los datos personales
-// del cliente (a diferencia de las demás pestañas de su panel, esa sí se
-// siente como una pantalla aparte, no como cambiar de pestaña — por eso
-// también se anima al volver, no solo al entrar). Moverse entre el resto de
-// las secciones del propio panel (Principal, Mis citas…) no lo muestra.
+// página, entrar al panel del cliente desde fuera de él, o entrar al
+// portafolio público de un negocio. Moverse entre las secciones del propio
+// panel (Principal, Mis citas, Datos personales…) no lo muestra.
 function muestraSplash(desde, hacia) {
   if (desde === hacia) return false
   if (hacia === '/') return true
   if (hacia.startsWith('/perfil') && !desde.startsWith('/perfil')) return true
-  if (hacia === '/perfil/datos' || desde === '/perfil/datos') return true
   if (hacia.startsWith('/negocio/') && !desde.startsWith('/negocio/')) return true
   return false
 }
@@ -51,6 +47,7 @@ function muestraSplash(desde, hacia) {
 export default function App() {
   const { currentUser, modoOscuro, modoOscuroPanel, authReady } = useAuth()
   const location = useLocation()
+  const tipoNavegacion = useNavigationType() // 'PUSH' (clic/navigate normal) | 'POP' (atrás/adelante del navegador) | 'REPLACE'
 
   // Dos preferencias de modo oscuro independientes, cada una con su propio
   // alcance: la del cliente aplica a todo MENOS /panel, y la del panel del
@@ -70,6 +67,10 @@ export default function App() {
   useLayoutEffect(() => {
     const desde = rutaAnterior.current
     rutaAnterior.current = location.pathname
+    // Atrás/adelante del navegador no muestra el splash, aunque el cambio de
+    // ruta sea uno de los que normalmente sí lo harían (ver muestraSplash) —
+    // solo clics y navegación normal dentro de la página.
+    if (tipoNavegacion === 'POP') return undefined
     if (!muestraSplash(desde, location.pathname)) return undefined
     setSplashNavegacion(true)
     const t = setTimeout(() => setSplashNavegacion(false), DURACION_SPLASH_MS)
@@ -77,7 +78,7 @@ export default function App() {
       clearTimeout(t)
       setSplashNavegacion(false)
     }
-  }, [location.pathname])
+  }, [location.pathname, tipoNavegacion])
 
   // Splash del primer arranque. Antes esto reemplazaba todo el árbol
   // mientras `authReady` era false — evitaba el parpadeo de "sin sesión",

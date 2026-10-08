@@ -83,11 +83,26 @@ const Captcha = forwardRef(function Captcha({ onChange }, ref) {
   // de su iframe): se recortan con un contenedor más pequeño y overflow
   // hidden — 2px arriba/izquierda y 3px abajo/derecha.
   const oscuro = document.documentElement.dataset.theme === 'dark'
+  const base = oscuro ? { w: 299, h: 73 } : { w: 304, h: 78 }
+
+  // El widget no tiene opción de tamaño intermedio (solo "normal" 304×78 o
+  // "compact" 164×144, mucho más alto) — para que se vea más chico sin pedir
+  // el compacto se encoge con CSS y se recorta el espacio sobrante que deja
+  // el encogimiento, centrado en vez de pegado a la izquierda.
+  const ESCALA = 0.82
+  const ancho = Math.round(base.w * ESCALA)
+  const alto = Math.round(base.h * ESCALA)
 
   return (
     <div>
-      <div style={oscuro ? { width: 299, height: 73, overflow: 'hidden', borderRadius: 3 } : undefined}>
-        <div ref={contenedorRef} style={oscuro ? { margin: -2 } : undefined} />
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: ancho, height: alto, overflow: 'hidden' }}>
+          <div style={{ transform: `scale(${ESCALA})`, transformOrigin: 'top left' }}>
+            <div style={oscuro ? { width: base.w, height: base.h, overflow: 'hidden', borderRadius: 3 } : undefined}>
+              <div ref={contenedorRef} style={oscuro ? { margin: -2 } : undefined} />
+            </div>
+          </div>
+        </div>
       </div>
       {error && (
         <div className="error-text">No se pudo cargar la verificación. Revisa tu conexión y recarga la página.</div>
