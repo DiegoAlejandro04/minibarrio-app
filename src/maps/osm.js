@@ -21,7 +21,72 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({ iconRetinaUrl: marker2x, iconUrl: marker, shadowUrl: markerShadow })
 
+// leaflet.markercluster es un plugin UMD que se cuelga del `L` global (Leaflet
+// 1.x lo publica en window.L al importarse), por eso va después del import de
+// arriba y no exporta nada propio.
+import 'leaflet.markercluster'
+
 export { L }
+
+/**
+ * Marcador de negocio para el mapa de la vitrina: la primera foto del
+ * portafolio en un círculo con punta, o las iniciales del negocio si no hay
+ * foto (o si la foto no carga). Se arma con nodos del DOM y textContent, no
+ * con un string HTML — el nombre lo escribe cualquiera al registrarse (XSS).
+ */
+export function crearIconoNegocio({ nombre, foto, iniciales, abierto }) {
+  const raiz = document.createElement('div')
+  raiz.className = 'pin-negocio'
+
+  const burbuja = document.createElement('div')
+  burbuja.className = 'pin-negocio__burbuja'
+
+  const ponerIniciales = () => {
+    burbuja.replaceChildren()
+    const texto = document.createElement('span')
+    texto.className = 'pin-negocio__iniciales'
+    texto.textContent = iniciales
+    burbuja.appendChild(texto)
+  }
+
+  if (foto) {
+    const img = document.createElement('img')
+    img.src = foto
+    img.alt = nombre || ''
+    img.loading = 'lazy'
+    img.addEventListener('error', ponerIniciales, { once: true })
+    burbuja.appendChild(img)
+  } else {
+    ponerIniciales()
+  }
+  raiz.appendChild(burbuja)
+
+  if (abierto) {
+    const punto = document.createElement('span')
+    punto.className = 'pin-negocio__abierto'
+    raiz.appendChild(punto)
+  }
+
+  // El tamaño visual real lo controla el CSS (.pin-negocio); aquí solo se
+  // ancla la punta del pin (abajo al centro) sobre la coordenada.
+  return L.divIcon({ html: raiz, className: '', iconSize: [44, 52], iconAnchor: [22, 52], tooltipAnchor: [0, -46] })
+}
+
+/** Grupo de negocios cercanos: una burbuja con el número de negocios. */
+export function crearIconoGrupo(cluster) {
+  const raiz = document.createElement('div')
+  raiz.className = 'pin-grupo'
+  raiz.textContent = String(cluster.getChildCount())
+  return L.divIcon({ html: raiz, className: '', iconSize: [40, 40] })
+}
+
+/** "Tú estás aquí": punto con pulso, distinto a propósito de los negocios. */
+export function crearIconoUsuario() {
+  const raiz = document.createElement('div')
+  raiz.className = 'pin-usuario'
+  raiz.appendChild(document.createElement('span'))
+  return L.divIcon({ html: raiz, className: '', iconSize: [18, 18], iconAnchor: [9, 9] })
+}
 
 // Centro aproximado de Britalia, Kennedy — único barrio donde opera este
 // prototipo (ver ClientHome.jsx). Se usa como punto de partida del mapa de

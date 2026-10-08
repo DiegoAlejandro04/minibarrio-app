@@ -3,9 +3,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { collection, collectionGroup, onSnapshot, query, where } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
-import { L, geocodeDireccion, acortarDireccion, CENTRO_BRITALIA, crearCapaTiles } from '../../maps/osm.js'
+import {
+  L, geocodeDireccion, acortarDireccion, CENTRO_BRITALIA, crearCapaTiles,
+  crearIconoNegocio, crearIconoGrupo, crearIconoUsuario,
+} from '../../maps/osm.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
-import { recomendar } from '../../recomendador.js'
+import { recomendar, distanciaKm } from '../../recomendador.js'
 import { ESPECIALIDADES } from '../../especialidades.js'
 import Footer from '../../components/Footer.jsx'
 import { estadoApertura } from '../../horarios.js'
@@ -47,6 +50,17 @@ const PRESUPUESTO_MAXIMO = 200000
 // un par de cuadras sin contexto; 17 deja ver los nombres de calles alrededor.
 const ZOOM_MAX_ENCUADRE = 17
 
+// Cuándo la ubicación del cliente sirve para encuadrar el mapa. En celular
+// el GPS acierta por metros, pero un PC sin GPS la estima por WiFi o IP y en
+// Bogotá eso puede errar por kilómetros: encuadrar "tú + negocios" con un
+// punto así aleja el mapa hasta media ciudad y las barberías quedan como
+// puntitos. Más allá de estos límites el punto se dibuja igual (es honesto),
+// pero el mapa se queda en el barrio y se avisa por qué.
+const RADIO_BARRIO_KM = 2
+const PRECISION_MAXIMA_M = 1000
+// Por debajo de esto el halo de precisión no aporta (cabe dentro del punto).
+const PRECISION_SIN_HALO_M = 40
+
 function formatCompacto(precio) {
   if (precio == null) return null
   if (precio >= 1000) return `$${Math.round(precio / 1000)}k`
@@ -85,6 +99,8 @@ export default function ClientHome() {
   // cliente toca "Usar mi ubicación".
   const [ubicacionCliente, setUbicacionCliente] = useState(null)
   const [ubicacionEstado, setUbicacionEstado] = useState('inactiva') // inactiva | cargando | activa | error
+  const [precisionUbicacion, setPrecisionUbicacion] = useState(null) // metros (coords.accuracy)
+  const [avisoUbicacionCerrado, setAvisoUbicacionCerrado] = useState(false)
 
   // Señales de historial (RF-09): solo existen si hay un cliente con sesión.
   const [favoritosCliente, setFavoritosCliente] = useState([])
@@ -171,6 +187,8 @@ export default function ClientHome() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUbicacionCliente({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setPrecisionUbicacion(pos.coords.accuracy ?? null)
+        setAvisoUbicacionCerrado(false)
         setUbicacionEstado('activa')
       },
       () => setUbicacionEstado('error'),
@@ -202,8 +220,12 @@ export default function ClientHome() {
   // solo el propio dueño puede escribir su documento, ver firestore.rules).
   const mapDivRef = useRef(null)
   const mapRef = useRef(null)
-  const markersRef = useRef([])
+  const grupoRef = useRef(null) // capa de leaflet.markercluster con los negocios
+  const markersRef = useRef(new Map()) // negocioId -> marker, para resaltar el destacado
   const puntosRef = useRef([])
+  const destacadoIdRef = useRef(null)
+  const usuarioCapaRef = useRef(null) // punto + halo de precisión del cliente
+  const ubicacionEncuadreRef = useRef(null) // ubicación del cliente solo si sirve para encuadrar
   const [mapError, setMapError] = useState(false)
 
   useEffect(() => {
@@ -215,10 +237,20 @@ export default function ClientHome() {
         mapRef.current = L.map(mapDivRef.current, { zoomControl: true })
           .setView([4.711, -74.0721], 12) // Bogotá — se ajusta con fitBounds al ubicar los negocios
         crearCapaTiles().addTo(mapRef.current)
+        // Las barberías de un barrio suelen quedar a una o dos cuadras entre
+        // sí: sin agrupar, los círculos con foto se tapan unos a otros. A
+        // partir del zoom 18 ya hay espacio de sobra y se muestran todos.
+        grupoRef.current = L.markerClusterGroup({
+          iconCreateFunction: crearIconoGrupo,
+          maxClusterRadius: 44,
+          disableClusteringAtZoom: 18,
+          showCoverageOnHover: false,
+          spiderfyOnMaxZoom: false,
+        }).addTo(mapRef.current)
       }
 
-      markersRef.current.forEach((m) => m.remove())
-      markersRef.current = []
+      grupoRef.current.clearLayers()
+      markersRef.current = new Map()
 
       Promise.all(
         negociosConDatos.map(async (n) => {
@@ -237,26 +269,36 @@ export default function ClientHome() {
         if (cancelado || !mapRef.current) return
         const puntos = resultados.filter(Boolean)
 
-        puntos.forEach(({ n, posicion }) => {
+        const markers = puntos.map(({ n, posicion }) => {
           const precio = formatCompacto(n.precioDesde)
           // Leaflet mete un string de bindTooltip como HTML (innerHTML): con
           // el nombre del negocio, que escribe cualquiera al registrarse, eso
           // permitía inyectar código en la vitrina (XSS). Un nodo con
           // textContent lo muestra siempre como texto plano.
           const etiqueta = document.createElement('span')
-          etiqueta.textContent = precio ? `${n.nombre} · ${precio}` : n.nombre
-          const marker = L.marker([posicion.lat, posicion.lng])
-            .addTo(mapRef.current)
-            .bindTooltip(etiqueta)
+          etiqueta.textContent = precio ? `${n.nombre} · desde ${precio}` : n.nombre
+          const marker = L.marker([posicion.lat, posicion.lng], {
+            icon: crearIconoNegocio({
+              nombre: n.nombre,
+              foto: n.fotos?.[0],
+              iniciales: inicialesDe(n.nombre),
+              abierto: n.estado === 'abierto' || n.estado === 'cierra-pronto',
+            }),
+            title: n.nombre,
+            riseOnHover: true,
+          }).bindTooltip(etiqueta, { direction: 'top', className: 'tooltip-negocio' })
           marker.on('click', () => navigate(`/negocio/${n.id}`))
-          markersRef.current.push(marker)
+          // Al salir de un grupo, Leaflet vuelve a insertar el icono: hay que
+          // reponerle el resaltado si es el destacado.
+          marker.on('add', () => aplicarDestacado(destacadoIdRef.current))
+          markersRef.current.set(n.id, marker)
+          return marker
         })
+        grupoRef.current.addLayers(markers)
+        aplicarDestacado(destacadoIdRef.current)
 
         puntosRef.current = puntos
-        if (puntos.length) {
-          const bounds = L.latLngBounds(puntos.map((p) => [p.posicion.lat, p.posicion.lng]))
-          mapRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: ZOOM_MAX_ENCUADRE })
-        }
+        encuadrar()
       })
     } catch (err) {
       setMapError(true)
@@ -266,6 +308,76 @@ export default function ClientHome() {
 
     return () => { cancelado = true }
   }, [negociosConDatos, navigate])
+
+  // El negocio de la tarjeta de abajo del mapa (el primero que recomienda el
+  // motor) se ve más grande y con anillo de acento, para que la tarjeta y su
+  // pin se lean como la misma cosa.
+  function aplicarDestacado(id) {
+    markersRef.current.forEach((marker, negocioId) => {
+      const esDestacado = negocioId === id
+      marker.setZIndexOffset(esDestacado ? 1000 : 0)
+      marker.getElement()?.querySelector('.pin-negocio')?.classList.toggle('pin-negocio--destacado', esDestacado)
+    })
+  }
+
+  // Encuadra los negocios y, si el cliente compartió su ubicación, también a
+  // él: lo que importa es ver qué queda cerca de uno.
+  function encuadrar() {
+    if (!mapRef.current) return
+    const coords = puntosRef.current.map((p) => [p.posicion.lat, p.posicion.lng])
+    if (ubicacionEncuadreRef.current) coords.push([ubicacionEncuadreRef.current.lat, ubicacionEncuadreRef.current.lng])
+    if (coords.length) {
+      // Abajo hay más margen: la tarjeta del destacado se monta ~40px sobre
+      // el borde inferior del mapa y taparía un pin que quede ahí.
+      mapRef.current.fitBounds(L.latLngBounds(coords), {
+        paddingTopLeft: [60, 70],
+        paddingBottomRight: [60, 100],
+        maxZoom: ZOOM_MAX_ENCUADRE,
+      })
+    } else {
+      mapRef.current.setView([CENTRO_BRITALIA.lat, CENTRO_BRITALIA.lng], 15)
+    }
+  }
+
+  // null si la ubicación sirve; si no, por qué no: 'lejos' (fuera del
+  // barrio) o 'imprecisa' (estimada por WiFi/IP con un error enorme).
+  const problemaUbicacion = useMemo(() => {
+    if (!ubicacionCliente) return null
+    if (precisionUbicacion != null && precisionUbicacion > PRECISION_MAXIMA_M) return 'imprecisa'
+    if (distanciaKm(ubicacionCliente, CENTRO_BRITALIA) > RADIO_BARRIO_KM) return 'lejos'
+    return null
+  }, [ubicacionCliente, precisionUbicacion])
+
+  // Punto "tú estás aquí": solo existe si el cliente tocó "Usar mi
+  // ubicación" (nunca se pide sola, ver arriba).
+  useEffect(() => {
+    ubicacionEncuadreRef.current = ubicacionCliente && !problemaUbicacion ? ubicacionCliente : null
+    if (!mapRef.current) return
+    usuarioCapaRef.current?.remove()
+    usuarioCapaRef.current = null
+    if (!ubicacionCliente) return
+
+    const capa = L.layerGroup()
+    const centro = [ubicacionCliente.lat, ubicacionCliente.lng]
+    // Halo de precisión, como en Google Maps: dice "estás por aquí" en vez
+    // de fingir una exactitud que no hay. Con errores de kilómetros no se
+    // dibuja: teñiría de azul el mapa entero (para eso ya está el aviso).
+    if (precisionUbicacion != null && precisionUbicacion > PRECISION_SIN_HALO_M && precisionUbicacion <= PRECISION_MAXIMA_M) {
+      L.circle(centro, {
+        radius: precisionUbicacion,
+        className: 'halo-usuario',
+        interactive: false,
+      }).addTo(capa)
+    }
+    L.marker(centro, {
+      icon: crearIconoUsuario(),
+      interactive: false,
+      keyboard: false,
+      zIndexOffset: 2000,
+    }).addTo(capa)
+    usuarioCapaRef.current = capa.addTo(mapRef.current)
+    encuadrar()
+  }, [ubicacionCliente, precisionUbicacion, problemaUbicacion])
 
   // Leaflet mide su contenedor una sola vez, al crearse. Si el layout
   // (grid de dos columnas, fuentes que todavía cargan) termina de acomodarse
@@ -282,13 +394,7 @@ export default function ClientHome() {
   // Vuelve a encuadrar los negocios visibles tal como al cargar — para
   // cuando el cliente se pierde navegando el mapa a mano.
   function recentrarMapa() {
-    if (!mapRef.current) return
-    if (puntosRef.current.length) {
-      const bounds = L.latLngBounds(puntosRef.current.map((p) => [p.posicion.lat, p.posicion.lng]))
-      mapRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: ZOOM_MAX_ENCUADRE })
-    } else {
-      mapRef.current.setView([CENTRO_BRITALIA.lat, CENTRO_BRITALIA.lng], 15)
-    }
+    encuadrar()
   }
 
   const consulta = useMemo(() => {
@@ -316,6 +422,11 @@ export default function ClientHome() {
   )
 
   const destacado = recomendaciones[0] || null
+
+  useEffect(() => {
+    destacadoIdRef.current = destacado?.id ?? null
+    aplicarDestacado(destacadoIdRef.current)
+  }, [destacado?.id])
 
   function handleBuscar(e) {
     e.preventDefault()
@@ -455,7 +566,7 @@ export default function ClientHome() {
                 <input
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Corte fade"
+                  placeholder="Ejemplo: Corte fade"
                   style={{ marginTop: 4, border: 'none', padding: '6px 0', fontSize: 14 }}
                 />
               </div>
@@ -581,6 +692,19 @@ export default function ClientHome() {
                 >
                   <Icon name="target" size={16} />
                 </button>
+              )}
+
+              {!mapError && problemaUbicacion && !avisoUbicacionCerrado && (
+                <div className="aviso-mapa" role="status">
+                  <span>
+                    {problemaUbicacion === 'lejos'
+                      ? 'Estás lejos de Britalia · te mostramos los negocios del barrio'
+                      : 'Tu ubicación es aproximada · te mostramos los negocios del barrio'}
+                  </span>
+                  <button type="button" onClick={() => setAvisoUbicacionCerrado(true)} aria-label="Cerrar aviso">
+                    <Icon name="x" size={12} />
+                  </button>
+                </div>
               )}
 
               {mapError && (
@@ -778,6 +902,7 @@ export default function ClientHome() {
 
 const ICON_PATHS = {
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+  x: 'M18 6 6 18M6 6l12 12',
   tag: 'M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3ZM6 6h.008v.008H6V6Z',
   calendar: 'M5 8h14v12H5zM5 8V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M7 3v4M17 3v4M5 12h14',
   star: 'M12 2.5l2.9 6.3 6.6.7-5 4.6 1.4 6.6L12 17.6 6.1 20.7l1.4-6.6-5-4.6 6.6-.7z',
