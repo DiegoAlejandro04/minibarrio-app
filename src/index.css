@@ -433,20 +433,6 @@ input:focus, select:focus, textarea:focus {
   .aviso-mapa { animation: none; }
 }
 
-/* Tooltip del negocio: mismo aspecto que las tarjetas (por defecto Leaflet
-   usa una caja blanca que en modo oscuro desentona). */
-.leaflet-tooltip.tooltip-negocio {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
-  font-weight: 700;
-  font-size: 12.5px;
-  padding: 5px 10px;
-}
-.leaflet-tooltip-top.tooltip-negocio::before { border-top-color: var(--surface); }
-
 /* Animación de leaflet.markercluster al agrupar/desagrupar (su CSS
    MarkerCluster.css solo trae esto y estilos de burbuja que no se usan). */
 .leaflet-cluster-anim .leaflet-marker-icon,

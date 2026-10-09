@@ -50,6 +50,12 @@ const PRESUPUESTO_MAXIMO = 200000
 // un par de cuadras sin contexto; 17 deja ver los nombres de calles alrededor.
 const ZOOM_MAX_ENCUADRE = 17
 
+// PC con mouse: pasar sobre un pin muestra ese negocio en la tarjeta y el
+// clic abre su portafolio. Pantalla táctil (sin hover): el primer toque solo
+// lo muestra en la tarjeta, y al portafolio se entra con su botón — si no,
+// en el celular sería imposible ver la información de un pin sin salir.
+const tieneHover = () => typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
+
 // Cuándo la ubicación del cliente sirve para encuadrar el mapa. En celular
 // el GPS acierta por metros, pero un PC sin GPS la estima por WiFi o IP y en
 // Bogotá eso puede errar por kilómetros: encuadrar "tú + negocios" con un
@@ -60,12 +66,6 @@ const RADIO_BARRIO_KM = 2
 const PRECISION_MAXIMA_M = 1000
 // Por debajo de esto el halo de precisión no aporta (cabe dentro del punto).
 const PRECISION_SIN_HALO_M = 40
-
-function formatCompacto(precio) {
-  if (precio == null) return null
-  if (precio >= 1000) return `$${Math.round(precio / 1000)}k`
-  return COP.format(precio)
-}
 
 const ESTADO_APERTURA = {
   abierto: { label: 'Abierto', bg: 'var(--sage-soft)', text: 'var(--sage-text)' },
@@ -237,6 +237,9 @@ export default function ClientHome() {
         mapRef.current = L.map(mapDivRef.current, { zoomControl: true })
           .setView([4.711, -74.0721], 12) // Bogotá — se ajusta con fitBounds al ubicar los negocios
         crearCapaTiles().addTo(mapRef.current)
+        // Tocar el mapa vacío devuelve la tarjeta al recomendado (los clics
+        // sobre un pin no llegan aquí: Leaflet no los propaga al mapa).
+        mapRef.current.on('click', () => setSeleccionadoId(null))
         // Las barberías de un barrio suelen quedar a una o dos cuadras entre
         // sí: sin agrupar, los círculos con foto se tapan unos a otros. A
         // partir del zoom 18 ya hay espacio de sobra y se muestran todos.
@@ -270,13 +273,8 @@ export default function ClientHome() {
         const puntos = resultados.filter(Boolean)
 
         const markers = puntos.map(({ n, posicion }) => {
-          const precio = formatCompacto(n.precioDesde)
-          // Leaflet mete un string de bindTooltip como HTML (innerHTML): con
-          // el nombre del negocio, que escribe cualquiera al registrarse, eso
-          // permitía inyectar código en la vitrina (XSS). Un nodo con
-          // textContent lo muestra siempre como texto plano.
-          const etiqueta = document.createElement('span')
-          etiqueta.textContent = precio ? `${n.nombre} · desde ${precio}` : n.nombre
+          // Sin tooltip: la tarjeta bajo el mapa ya muestra el negocio al
+          // pasar el mouse o tocar el pin (ver tieneHover arriba).
           const marker = L.marker([posicion.lat, posicion.lng], {
             icon: crearIconoNegocio({
               nombre: n.nombre,
@@ -284,10 +282,14 @@ export default function ClientHome() {
               iniciales: inicialesDe(n.nombre),
               abierto: n.estado === 'abierto' || n.estado === 'cierra-pronto',
             }),
-            title: n.nombre,
+            alt: n.nombre,
             riseOnHover: true,
-          }).bindTooltip(etiqueta, { direction: 'top', className: 'tooltip-negocio' })
-          marker.on('click', () => navigate(`/negocio/${n.id}`))
+          })
+          marker.on('mouseover', () => setSeleccionadoId(n.id))
+          marker.on('click', () => {
+            if (tieneHover()) navigate(`/negocio/${n.id}`)
+            else setSeleccionadoId(n.id)
+          })
           // Al salir de un grupo, Leaflet vuelve a insertar el icono: hay que
           // reponerle el resaltado si es el destacado.
           marker.on('add', () => aplicarDestacado(destacadoIdRef.current))
@@ -404,11 +406,14 @@ export default function ClientHome() {
     return {
       servicios: servicios.length ? servicios : undefined,
       presupuesto: presupuestoNum > 0 ? presupuestoNum : undefined,
-      ubicacion: ubicacionCliente || undefined,
+      // Una ubicación lejana o muy imprecisa no se le pasa al recomendador:
+      // premiaría o castigaría negocios por una cercanía que no es real. Se
+      // omite igual que si el cliente no la hubiera compartido.
+      ubicacion: ubicacionCliente && !problemaUbicacion ? ubicacionCliente : undefined,
     }
-  }, [chipsActivos, terminoActivo, presupuesto, ubicacionCliente])
+  }, [chipsActivos, terminoActivo, presupuesto, ubicacionCliente, problemaUbicacion])
 
-  const hayFiltrosActivos = Boolean(consulta.servicios || consulta.presupuesto || consulta.ubicacion)
+  const hayFiltrosActivos = Boolean(consulta.servicios || consulta.presupuesto || ubicacionCliente)
 
   // RF-09: orden y filtrado reales (no solo texto) vía src/recomendador.js.
   // Sin filtros, igual personaliza con historial + calificación bayesiana.
@@ -421,7 +426,19 @@ export default function ClientHome() {
     [negociosConDatos, consulta, favoritosCliente, resenasCliente, citasCliente]
   )
 
-  const destacado = recomendaciones[0] || null
+  // La tarjeta bajo el mapa muestra el primero del ranking, o el negocio
+  // cuyo pin el cliente señaló o tocó. Si un filtro lo sacó del ranking, se
+  // sigue mostrando (su pin sigue en el mapa), solo que sin razones.
+  const [seleccionadoId, setSeleccionadoId] = useState(null)
+  const destacado = useMemo(() => {
+    if (seleccionadoId) {
+      const enRanking = recomendaciones.find((n) => n.id === seleccionadoId)
+      if (enRanking) return enRanking
+      const enMapa = negociosConDatos.find((n) => n.id === seleccionadoId)
+      if (enMapa) return { ...enMapa, razones: [] }
+    }
+    return recomendaciones[0] || null
+  }, [seleccionadoId, recomendaciones, negociosConDatos])
 
   useEffect(() => {
     destacadoIdRef.current = destacado?.id ?? null
@@ -580,7 +597,9 @@ export default function ClientHome() {
                   style={{
                     display: 'block', width: '100%', marginTop: 4, border: 'none', background: 'transparent',
                     padding: '6px 0', fontSize: 14, fontWeight: ubicacionCliente ? 700 : 400,
-                    color: ubicacionEstado === 'error' ? 'var(--danger)' : ubicacionCliente ? 'var(--sage-text)' : 'var(--text-muted)',
+                    color: ubicacionEstado === 'error' ? 'var(--danger)'
+                      : problemaUbicacion ? 'var(--warning-text)'
+                      : ubicacionCliente ? 'var(--sage-text)' : 'var(--text-muted)',
                     textAlign: 'left', cursor: ubicacionEstado === 'cargando' ? 'default' : 'pointer',
                   }}
                 >
@@ -590,7 +609,9 @@ export default function ClientHome() {
                     </span>
                   )}
                   {ubicacionEstado === 'error' && 'Ubicación no disponible'}
-                  {ubicacionEstado === 'activa' && '● Cerca de ti'}
+                  {ubicacionEstado === 'activa' && !problemaUbicacion && '● Cerca de ti'}
+                  {ubicacionEstado === 'activa' && problemaUbicacion === 'lejos' && '● Lejos de Britalia'}
+                  {ubicacionEstado === 'activa' && problemaUbicacion === 'imprecisa' && '● Ubicación aproximada'}
                   {ubicacionEstado === 'inactiva' && 'Usar mi ubicación'}
                 </button>
               </div>
@@ -760,6 +781,7 @@ export default function ClientHome() {
                     ) : (
                       'Sin reseñas aún · '
                     )}
+                    {destacado.precioDesde != null && <>Desde {COP.format(destacado.precioDesde)} · </>}
                     {destacado.direccion ? acortarDireccion(destacado.direccion) : ''}
                   </div>
                   {destacado.razones[0] && (

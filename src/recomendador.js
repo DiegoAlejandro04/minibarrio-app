@@ -19,6 +19,42 @@ const RESENAS_DE_CONFIANZA = 5 // "votos previos" del promedio bayesiano
 const NOTA_MINIMA_GUSTO = 4 // desde cuántas estrellas se considera que le gustó
 const PALABRA_MINIMA = 3 // palabras de 1-2 letras ("de", "y") no cuentan como especialidad
 
+// Valor para un criterio que el cliente SÍ pidió (presupuesto, cercanía) pero
+// del que el negocio no tiene datos (sin servicios publicados, sin
+// coordenadas). Antes ese componente quedaba en null y su peso se repartía
+// entre los demás: un perfil incompleto se libraba de la penalización y podía
+// quedar por encima de uno completo pero un poco más caro. Con un valor
+// neutro-bajo, completar el perfil siempre conviene.
+const PUNTAJE_SIN_DATOS = 0.4
+
+// Ajuste final (no es un sexto componente, para no alterar los pesos de la
+// encuesta): recomendar primero una barbería cerrada frustra a quien quiere
+// cortarse hoy, pero sigue siendo útil verla para reservar otro día.
+const FACTOR_CERRADO = 0.85
+
+// Negocios a menos de esta diferencia de puntaje se consideran empatados y
+// rotan su orden cada día (ver ordenEquitativo): con pocos negocios y pocas
+// reseñas, si no, el primer lugar sería siempre el mismo y los negocios
+// nuevos nunca aparecerían arriba.
+const MARGEN_EMPATE = 3
+
+// Vocabulario de barbería: cada grupo son formas distintas de pedir lo mismo.
+// "fade" debe encontrar un servicio llamado "Desvanecido", y "barba" uno
+// llamado "Perfilado". Las palabras van ya normalizadas (sin tildes).
+const SINONIMOS = [
+  ['fade', 'desvanecido', 'degradado', 'difuminado', 'taper'],
+  ['barba', 'perfilado', 'afeitado', 'afeitada', 'rasurado', 'bigote'],
+  ['ceja', 'cejas'],
+  ['color', 'tinte', 'tintura', 'decoloracion', 'mechas', 'rayitos', 'platinado', 'iluminacion'],
+  ['nino', 'ninos', 'infantil', 'kids'],
+  ['clasico', 'tradicional', 'tijera'],
+  ['domicilio', 'domicilios'],
+  ['corte', 'cortes', 'peluqueado', 'motilado'],
+]
+// Palabras que por sí solas no distinguen nada dentro de una búsqueda más
+// larga: en "corte fade" lo que importa es "fade" (todo negocio hace cortes).
+const PALABRAS_GENERICAS = new Set(['corte', 'servicio', 'de', 'con', 'para'])
+
 const limitar = (x) => Math.max(0, Math.min(1, x))
 
 // Sin acentos ni mayúsculas, para que "Barbería" y "barberia" coincidan.
@@ -40,6 +76,33 @@ export function distanciaKm(a, b) {
   return 6371 * 2 * Math.asin(Math.sqrt(h))
 }
 
+const palabrasDe = (texto) => normalizar(texto).split(/[^a-z0-9]+/).filter(Boolean)
+
+// Palabra completa, tolerando plurales y terminaciones cortas ("barbas",
+// "cortes"). Ya no es una búsqueda de fragmento: "color" no coincide con
+// "colorido".
+function coincidePalabra(palabra, objetivo) {
+  return palabra === objetivo || (palabra.startsWith(objetivo) && palabra.length - objetivo.length <= 2)
+}
+
+function variantesDe(palabra) {
+  const grupo = SINONIMOS.find((g) => g.some((s) => coincidePalabra(palabra, s)))
+  return grupo || [palabra]
+}
+
+/**
+ * ¿El término buscado ("corte fade", "barba") aparece en este conjunto de
+ * palabras? Cada palabra distintiva del término debe aparecer, por sí misma o
+ * con un sinónimo. Exportada para las pruebas.
+ */
+export function coincideTermino(termino, palabras) {
+  const todas = palabrasDe(termino)
+  const distintivas = todas.filter((p) => !PALABRAS_GENERICAS.has(p))
+  const exigidas = distintivas.length ? distintivas : todas
+  if (!exigidas.length) return false
+  return exigidas.every((p) => variantesDe(p).some((v) => palabras.some((w) => coincidePalabra(w, v))))
+}
+
 function serviciosVisibles(negocio) {
   return (negocio.servicios || []).filter((s) => s.visible !== false)
 }
@@ -54,7 +117,7 @@ function bolsaBusqueda(negocio) {
     .map((s) => `${s.nombre || ''} ${s.descripcion || ''}`)
     .join(' ')
   const textoEspecialidades = (negocio.especialidades || []).join(' ')
-  return normalizar(`${textoServicios} ${textoEspecialidades}`)
+  return palabrasDe(`${textoServicios} ${textoEspecialidades}`)
 }
 
 // Palabras de los nombres de servicio, usadas como proxy de "especialidad"
@@ -88,33 +151,34 @@ function puntajeServicio(negocio, consulta) {
   const bolsa = bolsaBusqueda(negocio)
   const terminos = consulta.servicios.map(normalizar).filter(Boolean)
   if (!terminos.length) return null
-  const coinciden = terminos.filter((t) => bolsa.includes(t)).length
+  const coinciden = terminos.filter((t) => coincideTermino(t, bolsa)).length
   return coinciden / terminos.length
 }
 
 // 1 si el precio cabe en el presupuesto; baja en línea recta hasta 0 al doble.
-// Se abstiene (null) si el negocio no tiene servicios publicados — ahí no hay
-// nada que comparar, y no es justo castigarlo como si fuera caro.
+// Sin servicios con precio publicados, PUNTAJE_SIN_DATOS (ver arriba).
 function puntajePrecio(negocio, consulta) {
   if (!consulta.presupuesto) return null
   const visibles = serviciosVisibles(negocio)
-  if (!visibles.length) return null
+  if (!visibles.length) return PUNTAJE_SIN_DATOS
   const terminos = consulta.servicios?.map(normalizar).filter(Boolean) ?? []
   const relevantes = terminos.length
-    ? visibles.filter((s) => terminos.some((t) => bolsaBusqueda({ servicios: [s] }).includes(t)))
+    ? visibles.filter((s) => terminos.some((t) => coincideTermino(t, bolsaBusqueda({ servicios: [s] }))))
     : visibles
   const base = relevantes.length ? relevantes : visibles
   const precios = base.map((s) => s.precio).filter((p) => typeof p === 'number')
-  if (!precios.length) return null
+  if (!precios.length) return PUNTAJE_SIN_DATOS
   const precio = Math.min(...precios)
   if (precio <= consulta.presupuesto) return 1
   return limitar(2 - precio / consulta.presupuesto)
 }
 
-// Más cerca, más puntaje. Solo si el cliente compartió su ubicación y el
-// negocio ya tiene coordenadas (algunos antiguos solo tienen dirección).
+// Más cerca, más puntaje. Solo si el cliente compartió su ubicación; si el
+// negocio no tiene coordenadas (algunos antiguos solo tienen dirección),
+// PUNTAJE_SIN_DATOS.
 function puntajeCercania(negocio, consulta) {
-  if (!consulta.ubicacion || !negocio.ubicacion) return null
+  if (!consulta.ubicacion) return null
+  if (!negocio.ubicacion) return PUNTAJE_SIN_DATOS
   const km = distanciaKm(consulta.ubicacion, negocio.ubicacion)
   return limitar(1 - km / DISTANCIA_MAXIMA_KM)
 }
@@ -173,6 +237,43 @@ function razonesDe(componentes, negocio, { esFavorito, yaReservo }) {
   return razones
 }
 
+// Número pseudoaleatorio estable en [0, 1) a partir de un texto (FNV-1a):
+// el mismo negocio el mismo día da siempre lo mismo, así el orden no salta
+// cada vez que el cliente toca un filtro.
+function azarEstable(texto) {
+  let h = 2166136261
+  for (let i = 0; i < texto.length; i++) {
+    h ^= texto.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return (h >>> 0) / 4294967296
+}
+
+function claveDelDia(fecha) {
+  return `${fecha.getFullYear()}-${fecha.getMonth() + 1}-${fecha.getDate()}`
+}
+
+// Orden final: por puntaje, pero los negocios a menos de MARGEN_EMPATE puntos
+// entre sí rotan cada día. Se recorre la lista ya ordenada armando bloques
+// (uno nuevo arranca cuando un negocio queda a MARGEN_EMPATE o más del
+// primero del bloque), y dentro de cada bloque se baraja con azarEstable.
+function ordenEquitativo(lista, semilla) {
+  const ordenada = [...lista].sort((a, b) => b.puntaje - a.puntaje || (b.ratingCount ?? 0) - (a.ratingCount ?? 0))
+  const resultado = []
+  let bloque = []
+  const cerrarBloque = () => {
+    bloque.sort((a, b) => azarEstable(`${semilla}:${a.id}`) - azarEstable(`${semilla}:${b.id}`))
+    resultado.push(...bloque)
+    bloque = []
+  }
+  ordenada.forEach((n) => {
+    if (bloque.length && bloque[0].puntaje - n.puntaje >= MARGEN_EMPATE) cerrarBloque()
+    bloque.push(n)
+  })
+  cerrarBloque()
+  return resultado
+}
+
 // --- Función principal ---
 // negocios: documentos de "negocios" ya enriquecidos por el caller con
 //   - servicios: [{ nombre, descripcion?, precio, visible }] (subcolección "servicios")
@@ -182,7 +283,9 @@ function razonesDe(componentes, negocio, { esFavorito, yaReservo }) {
 // contextoCliente: { favoritos: [{ negocioId }], resenas: [{ negocioId, calificacion }],
 //   citas: [{ negocioId, estado }] } del cliente que consulta (vacío si no hay
 //   sesión o es propietario)
-export function recomendar(negocios, consulta = {}, contextoCliente = {}) {
+// opciones: { fecha } — el día que fija la rotación de empates (por defecto
+//   hoy; las pruebas pasan uno fijo)
+export function recomendar(negocios, consulta = {}, contextoCliente = {}, opciones = {}) {
   const conResenas = negocios.filter((n) => n.ratingCount > 0)
   const promedioBarrio = conResenas.length
     ? conResenas.reduce((s, n) => s + n.ratingProm, 0) / conResenas.length
@@ -204,7 +307,7 @@ export function recomendar(negocios, consulta = {}, contextoCliente = {}) {
   ])
   const gustados = negocios.filter((n) => idsGustados.has(n.id))
 
-  return negocios
+  const puntuados = negocios
     .map((negocio) => {
       const esFavorito = favoritoIds.has(negocio.id)
       const notaPropia = notasPropias.get(negocio.id)
@@ -232,7 +335,8 @@ export function recomendar(negocios, consulta = {}, contextoCliente = {}) {
         suma += PESOS[nombre] * valor
         pesoUsado += PESOS[nombre]
       }
-      const puntaje = pesoUsado ? suma / pesoUsado : 0
+      let puntaje = pesoUsado ? suma / pesoUsado : 0
+      if (negocio.estado === 'cerrado') puntaje *= FACTOR_CERRADO
 
       return {
         ...negocio,
@@ -244,7 +348,8 @@ export function recomendar(negocios, consulta = {}, contextoCliente = {}) {
     })
     // Si se pidió un servicio, se descartan los negocios que no ofrecen ninguno.
     .filter((n) => n.componentes.servicio !== 0)
-    .sort((a, b) => b.puntaje - a.puntaje || (b.ratingCount ?? 0) - (a.ratingCount ?? 0))
+
+  return ordenEquitativo(puntuados, claveDelDia(opciones.fecha ?? new Date()))
 }
 
 /* ---------------------------------------------------------------------------
