@@ -309,7 +309,8 @@ export default function ClientHome() {
           const marker = L.marker([posicion.lat, posicion.lng], {
             icon: crearIconoNegocio({
               nombre: n.nombre,
-              foto: n.fotos?.[0],
+              // El logo identifica al negocio; si no hay, la primera foto.
+              foto: n.logo || n.miniatura || n.fotos?.[0],
               iniciales: inicialesDe(n.nombre),
               abierto: n.estado === 'abierto' || n.estado === 'cierra-pronto',
             }),
@@ -922,9 +923,9 @@ export default function ClientHome() {
                 parecía que el mapa cambiaba de tamaño. */}
             {destacado && (
               <div className="card" style={{ marginTop: isMobile ? -28 : -40, marginLeft: isMobile ? 8 : 16, marginRight: isMobile ? 8 : 16, position: 'relative', padding: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', minHeight: isMobile ? undefined : 82 }}>
-                {destacado.fotos?.[0] ? (
+                {destacado.logo || destacado.miniatura || destacado.fotos?.[0] ? (
                   <img
-                    src={destacado.fotos[0]}
+                    src={destacado.logo || destacado.miniatura || destacado.fotos[0]}
                     alt=""
                     style={{ width: 46, height: 46, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
                   />
@@ -1132,15 +1133,22 @@ const ICON_PATHS = {
 // nunca un recuadro gris vacío. El estado (abierto/cerrado) va encima.
 function FotoTarjeta({ negocio, horizontal }) {
   const [fallo, setFallo] = useState(false)
-  const foto = !fallo && negocio.fotos?.[0]
+  // La miniatura de la foto principal (subida desde el panel) o, si no hay,
+  // la primera foto antigua por enlace.
+  const foto = !fallo && (negocio.miniatura || negocio.fotos?.[0])
   const estado = negocio.estado && ESTADO_APERTURA[negocio.estado]
   return (
     <div className="tarjeta-negocio__foto" style={{ height: horizontal ? '100%' : 130, minHeight: horizontal ? 190 : undefined }}>
+      {/* Foto de trabajos de fondo; el logo va encima, en la esquina. Sin
+          fotos, el logo al centro; sin ninguno de los dos, las iniciales. */}
       {foto ? (
         <img src={foto} alt="" loading="lazy" onError={() => setFallo(true)} />
+      ) : negocio.logo ? (
+        <img src={negocio.logo} alt="" className="tarjeta-negocio__logo-centro" />
       ) : (
         <span className="tarjeta-negocio__iniciales">{inicialesDe(negocio.nombre)}</span>
       )}
+      {foto && negocio.logo && <img src={negocio.logo} alt="" className="tarjeta-negocio__logo" />}
       {estado && (
         <span className="tarjeta-negocio__estado" style={{ background: estado.bg, color: estado.text }}>
           ● {estado.label}

@@ -754,6 +754,25 @@ input:focus, select:focus, textarea:focus {
   height: 100%;
   object-fit: cover;
 }
+/* Logo del negocio en su tarjeta: encima de la foto, en la esquina; o al
+   centro cuando no hay foto de trabajos. */
+.tarjeta-negocio__foto img.tarjeta-negocio__logo {
+  position: absolute;
+  inset: auto 10px 10px auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 2.5px #fff, 0 4px 12px oklch(0% 0 0 / .3);
+}
+.tarjeta-negocio__foto img.tarjeta-negocio__logo-centro {
+  position: static;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 3px #fff, 0 6px 18px oklch(0% 0 0 / .3);
+}
 .tarjeta-negocio__iniciales {
   font-size: 40px;
   font-weight: 800;

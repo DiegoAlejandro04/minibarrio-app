@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { collection, doc, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
 import Splash from '../../components/Splash.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
+import { pasosPerfil } from '../../perfilNegocio.js'
 
 // Shell del panel del comerciante: sidebar con navegación real + los datos
 // del negocio y sus servicios, compartidos entre las sub-páginas via
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { to: '/panel', label: 'Resumen', icon: 'grid', end: true },
   { to: '/panel/agenda', label: 'Agenda', icon: 'calendar' },
   { to: '/panel/servicios', label: 'Servicios', icon: 'scissors' },
+  { to: '/panel/identidad', label: 'Identidad', icon: 'store' },
   { to: '/panel/portafolio', label: 'Portafolio', icon: 'image' },
   { to: '/panel/resenas', label: 'Reseñas', icon: 'star' },
   { to: '/panel/clientes', label: 'Clientes', icon: 'users' },
@@ -30,6 +32,7 @@ export default function OwnerLayout() {
 
   const [negocio, setNegocio] = useState(null)
   const [servicios, setServicios] = useState([])
+  const [portada, setPortada] = useState(null) // data URL de la foto de portada, ver OwnerIdentidad.jsx
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -42,22 +45,18 @@ export default function OwnerLayout() {
       onSnapshot(collection(db, 'negocios', uid, 'servicios'), (snap) => {
         setServicios(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       }),
+      onSnapshot(doc(db, 'negocios', uid, 'medios', 'portada'), (snap) => {
+        setPortada(snap.exists() ? snap.data().imagen : null)
+      }),
     ]
     return () => unsubs.forEach((unsub) => unsub())
   }, [uid])
 
-  const perfilCompletado = useMemo(() => {
-    if (!negocio) return 0
-    const checks = [
-      !!negocio.nombre,
-      !!negocio.descripcion,
-      !!negocio.direccion,
-      !!negocio.canalesContacto?.whatsapp,
-      (negocio.fotos || []).length > 0,
-      servicios.length > 0,
-    ]
-    return Math.round((checks.filter(Boolean).length / checks.length) * 100)
-  }, [negocio, servicios])
+  // Barra "Perfil al X%": cuánto está completo y cuál es el siguiente paso
+  // concreto (con enlace a dónde se hace), en vez de un consejo genérico.
+  const pasos = useMemo(() => pasosPerfil(negocio, servicios, !!portada), [negocio, servicios, portada])
+  const perfilCompletado = pasos.length ? Math.round((pasos.filter((p) => p.listo).length / pasos.length) * 100) : 0
+  const siguientePaso = pasos.find((p) => !p.listo)
 
   async function handleLogout() {
     await logout()
@@ -127,10 +126,19 @@ export default function OwnerLayout() {
           <div style={{ height: 6, background: 'oklch(35% 0.03 165)', borderRadius: 999, marginTop: 8, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${perfilCompletado}%`, background: 'var(--accent)', borderRadius: 999 }} />
           </div>
-          {perfilCompletado < 100 && (
-            <div style={{ fontSize: 11, color: 'oklch(70% 0.02 165)', marginTop: 8, lineHeight: 1.4 }}>
-              Completa tu perfil (fotos, servicios y datos de contacto) para aparecer mejor posicionado.
-            </div>
+          {siguientePaso ? (
+            <>
+              <div style={{ fontSize: 11, color: 'oklch(70% 0.02 165)', marginTop: 10 }}>Siguiente paso:</div>
+              <Link
+                to={siguientePaso.ruta}
+                onClick={() => setDrawerAbierto(false)}
+                style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 700, color: '#fff', marginTop: 3, lineHeight: 1.4 }}
+              >
+                <span style={{ color: 'var(--accent)' }}>→</span> {siguientePaso.texto}
+              </Link>
+            </>
+          ) : (
+            <div style={{ fontSize: 11.5, color: 'oklch(80% 0.09 150)', marginTop: 8, fontWeight: 700 }}>¡Tu perfil está completo!</div>
           )}
         </div>
         <button
@@ -193,7 +201,7 @@ export default function OwnerLayout() {
       )}
 
       <main style={{ flex: 1, background: 'var(--bg)', padding: isMobile ? '72px 16px 24px' : '28px 36px', minWidth: 0 }}>
-        <Outlet context={{ negocio, servicios, uid }} />
+        <Outlet context={{ negocio, servicios, uid, portada }} />
       </main>
     </div>
   )

@@ -8,6 +8,9 @@ import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
 import CalificarModal from '../../components/CalificarModal.jsx'
 import { nombreCorto } from '../../nombres.js'
+import { enlaceInstagram, enlaceTiktok, etiquetaMetodoPago } from '../../perfilNegocio.js'
+import { acortarDireccion } from '../../maps/osm.js'
+import { usePortafolio } from '../../portafolio.js'
 import Splash from '../../components/Splash.jsx'
 import { reservarCita } from '../../turnosOcupados.js'
 import { bloqueDelDia, estadoApertura, formatoHora12, resumenHorario } from '../../horarios.js'
@@ -68,6 +71,9 @@ export default function NegocioDetalle() {
   const [negocio, setNegocio] = useState(null)
   const [servicios, setServicios] = useState([])
   const [resenas, setResenas] = useState([])
+  // Foto de portada: va en su propio documento (ver OwnerIdentidad.jsx), así
+  // la vitrina no la descarga para todos los negocios.
+  const [portada, setPortada] = useState(null)
   const [ocupadosDocs, setOcupadosDocs] = useState([]) // turnos tomados: [{ fechaHora }]
   const [loading, setLoading] = useState(true)
 
@@ -102,6 +108,9 @@ export default function NegocioDetalle() {
       onSnapshot(collection(db, 'negocios', id, 'resenas'), (snap) => {
         setResenas(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       }),
+      onSnapshot(doc(db, 'negocios', id, 'medios', 'portada'), (snap) => {
+        setPortada(snap.exists() ? snap.data().imagen : null)
+      }, () => setPortada(null)),
     ]
     return () => unsubs.forEach((unsub) => unsub())
   }, [id])
@@ -163,6 +172,10 @@ export default function NegocioDetalle() {
     })
     return unsub
   }, [currentUser, id])
+
+  // Fotos del portafolio (subidas + antiguas por enlace), ver portafolio.js.
+  // Va antes de los return tempranos (cargando / no encontrado): es un hook.
+  const { fotos: fotosPortafolio } = usePortafolio(negocio)
 
   // Citas del propio cliente en este negocio: la reseña solo se habilita con
   // una que ya pasó y no se canceló (reseña verificada, ver firestore.rules).
@@ -283,8 +296,12 @@ export default function NegocioDetalle() {
     )
   }
 
-  const fotos = negocio.fotos || []
+  const fotos = fotosPortafolio
+  const servicioDe = (foto) => foto.servicioId && servicios.find((s) => s.id === foto.servicioId)
   const whatsapp = negocio.canalesContacto?.whatsapp
+  const instagram = negocio.canalesContacto?.instagram
+  const tiktok = negocio.canalesContacto?.tiktok
+  const metodosPago = negocio.metodosPago || []
 
   return (
     <div>
@@ -292,7 +309,28 @@ export default function NegocioDetalle() {
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <Link to="/" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-text)' }}>← Volver a la vitrina</Link>
 
-          {fotos.length === 0 ? (
+          {portada ? (
+            <div style={{ position: 'relative', marginTop: 14 }}>
+              <img
+                src={portada}
+                alt={`Portada de ${negocio.nombre}`}
+                style={{ width: '100%', aspectRatio: '3 / 1', maxHeight: 340, objectFit: 'cover', borderRadius: 'var(--radius-lg)', display: 'block' }}
+              />
+              {fotos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setGaleriaAbierta(true)}
+                  style={{
+                    position: 'absolute', right: 12, bottom: 12, fontSize: 12.5, fontWeight: 700, padding: '8px 14px',
+                    borderRadius: 'var(--radius-sm)', background: 'oklch(15% 0.01 50 / 0.65)', border: '1px solid oklch(100% 0 0 / 0.25)',
+                    color: '#fff', cursor: 'pointer', backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  Ver fotos de trabajos ({fotos.length})
+                </button>
+              )}
+            </div>
+          ) : fotos.length === 0 ? (
             <div
               style={{
                 marginTop: 14, height: 180, borderRadius: 'var(--radius-lg)', background: 'var(--ink-2)',
@@ -321,9 +359,10 @@ export default function NegocioDetalle() {
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                 {fotos.slice(0, 3).map((f) => (
                   <img
-                    key={f}
-                    src={f}
-                    alt=""
+                    key={f.id}
+                    src={f.imagen}
+                    alt={f.titulo || ''}
+                    title={f.titulo || undefined}
                     style={{ height: isMobile ? 160 : 240, width: 'auto', maxWidth: '100%', borderRadius: 'var(--radius-md)', objectFit: 'contain', flexShrink: 0 }}
                     onError={(e) => { e.currentTarget.style.opacity = 0.15 }}
                   />
@@ -360,15 +399,27 @@ export default function NegocioDetalle() {
             </div>
             <div style={{ padding: 16, overflowY: 'auto' }}>
               <div style={{ columns: '220px 3', columnGap: 10 }}>
-                {fotos.map((f) => (
-                  <img
-                    key={f}
-                    src={f}
-                    alt=""
-                    style={{ width: '100%', height: 'auto', display: 'block', marginBottom: 10, borderRadius: 'var(--radius-sm)', breakInside: 'avoid' }}
-                    onError={(e) => { e.currentTarget.style.opacity = 0.15 }}
-                  />
-                ))}
+                {fotos.map((f) => {
+                  const servicio = servicioDe(f)
+                  return (
+                    // Cada foto con su texto y el servicio que muestra (con
+                    // precio): así la foto también vende.
+                    <figure key={f.id} style={{ margin: '0 0 12px', breakInside: 'avoid' }}>
+                      <img
+                        src={f.imagen}
+                        alt={f.titulo || ''}
+                        style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 'var(--radius-sm)' }}
+                        onError={(e) => { e.currentTarget.style.opacity = 0.15 }}
+                      />
+                      {(f.titulo || servicio) && (
+                        <figcaption style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12.5, marginTop: 6 }}>
+                          <span style={{ fontWeight: 700 }}>{f.titulo || servicio?.nombre}</span>
+                          {servicio && <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{f.titulo ? `${servicio.nombre} · ` : ''}{COP.format(servicio.precio || 0)}</span>}
+                        </figcaption>
+                      )}
+                    </figure>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -377,6 +428,17 @@ export default function NegocioDetalle() {
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '18px 16px 40px' : '24px 32px 60px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        {negocio.logo && (
+          <img
+            src={negocio.logo}
+            alt={`Logo de ${negocio.nombre}`}
+            style={{
+              width: isMobile ? 56 : 72, height: isMobile ? 56 : 72, borderRadius: '50%', objectFit: 'cover', flexShrink: 0,
+              boxShadow: '0 0 0 3px var(--bg), 0 0 0 5px var(--accent)',
+            }}
+          />
+        )}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ fontSize: 22, fontWeight: 800 }}>{negocio.nombre}</div>
@@ -402,7 +464,7 @@ export default function NegocioDetalle() {
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {rating ? <span>★ {rating.toFixed(1)} ({resenas.length} reseñas)</span> : <span>Sin reseñas aún</span>}
             <span>·</span>
-            <span>{negocio.direccion}</span>
+            <span title={negocio.direccion}>{acortarDireccion(negocio.direccion || '')}</span>
             {estado && (
               <>
                 <span>·</span>
@@ -426,6 +488,31 @@ export default function NegocioDetalle() {
               ))}
             </div>
           )}
+          {metodosPago.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, marginRight: 2 }}>Aceptamos</span>
+              {metodosPago.map((m) => (
+                <span key={m} style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
+                  {etiquetaMetodoPago(m)}
+                </span>
+              ))}
+            </div>
+          )}
+          {(instagram || tiktok) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+              {instagram && (
+                <a href={enlaceInstagram(instagram)} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ padding: '6px 12px', fontSize: 12.5 }}>
+                  Instagram · @{instagram}
+                </a>
+              )}
+              {tiktok && (
+                <a href={enlaceTiktok(tiktok)} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ padding: '6px 12px', fontSize: 12.5 }}>
+                  TikTok · @{tiktok}
+                </a>
+              )}
+            </div>
+          )}
+        </div>
         </div>
       </div>
 
@@ -692,7 +779,9 @@ export default function NegocioDetalle() {
           )}
 
           <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 12, textAlign: 'center' }}>
-            No se realizan pagos en la plataforma.
+            {metodosPago.length > 0
+              ? `Pagas en el local: ${metodosPago.map(etiquetaMetodoPago).join(', ')}.`
+              : 'No se realizan pagos en la plataforma.'}
           </p>
         </div>
 

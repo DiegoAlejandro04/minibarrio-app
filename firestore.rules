@@ -61,6 +61,24 @@ service cloud.firestore {
       return !(campo in datos) || (datos[campo] is list && datos[campo].size() <= max);
     }
 
+    // Imagen recortada y comprimida en el navegador, guardada como data URL
+    // (no hay Firebase Storage, ver src/imagenes.js). maxBytes es el tope del
+    // texto: 140 KB para el logo, 650 KB para la portada.
+    function imagenValida(datos, campo, maxBytes) {
+      return !(campo in datos)
+        || (datos[campo] is string
+            && datos[campo].size() <= maxBytes
+            && datos[campo].matches('data:image/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+'));
+    }
+
+    function fotoPortafolioValida() {
+      let datos = request.resource.data;
+      return imagenValida(datos, 'imagen', 245760)
+        && textoMax(datos, 'titulo', 60)
+        && textoMax(datos, 'servicioId', 60)
+        && (!('orden' in datos) || datos.orden is number);
+    }
+
     function numeroEntre(datos, campo, min, max) {
       return datos[campo] is number && datos[campo] >= min && datos[campo] <= max;
     }
@@ -81,9 +99,15 @@ service cloud.firestore {
         && textoMax(datos, 'categoria', 60)
         && listaMax(datos, 'fotos', 30)
         && listaMax(datos, 'especialidades', 20)
+        && listaMax(datos, 'metodosPago', 6)
+        && imagenValida(datos, 'logo', 143360)
+        && imagenValida(datos, 'miniatura', 61440)
+        && textoMax(datos, 'fotoPrincipalId', 60)
         && (!('canalesContacto' in datos)
             || (textoMax(datos.canalesContacto, 'telefono', 20)
-                && textoMax(datos.canalesContacto, 'whatsapp', 20)));
+                && textoMax(datos.canalesContacto, 'whatsapp', 20)
+                && textoMax(datos.canalesContacto, 'instagram', 30)
+                && textoMax(datos.canalesContacto, 'tiktok', 30)));
     }
 
     function servicioValido() {
@@ -169,11 +193,41 @@ service cloud.firestore {
       allow update: if esDueno(negocioId)
                     && camposCambiados().hasOnly([
                          'nombre', 'descripcion', 'direccion', 'ubicacion', 'correo',
-                         'canalesContacto', 'especialidades', 'horarios', 'fotos'
+                         'canalesContacto', 'especialidades', 'horarios', 'fotos',
+                         'logo', 'metodosPago', 'miniatura', 'fotoPrincipalId'
                        ])
                     && negocioValido()
                     && (!camposCambiados().hasAny(['ubicacion']) || ubicacionValida(request.resource.data));
       allow delete: if esDueno(negocioId);
+
+      // Foto de portada, aparte del documento del negocio: pesa hasta 650 KB
+      // y la vitrina descarga los documentos de todos los negocios; esta
+      // solo se lee al abrir el portafolio de ese negocio.
+      match /medios/{medioId} {
+        allow read: if true;
+        allow create, update: if esDueno(negocioId)
+                              && medioId == 'portada'
+                              && request.resource.data.keys().hasOnly(['imagen', 'actualizadoEn'])
+                              && 'imagen' in request.resource.data
+                              && imagenValida(request.resource.data, 'imagen', 665600);
+        allow delete: if esDueno(negocioId);
+      }
+
+      // Fotos del portafolio subidas desde el panel: una por documento (hasta
+      // 240 KB cada una), aparte del negocio por el mismo motivo que la
+      // portada. El tope de 12 fotos lo controla el panel (las reglas no
+      // pueden contar documentos).
+      match /fotosPortafolio/{fotoId} {
+        allow read: if true;
+        allow create: if esDueno(negocioId)
+                      && request.resource.data.keys().hasOnly(['imagen', 'titulo', 'servicioId', 'orden', 'creadoEn'])
+                      && 'imagen' in request.resource.data
+                      && fotoPortafolioValida();
+        allow update: if esDueno(negocioId)
+                      && camposCambiados().hasOnly(['titulo', 'servicioId', 'orden'])
+                      && fotoPortafolioValida();
+        allow delete: if esDueno(negocioId);
+      }
 
       match /servicios/{servicioId} {
         allow read: if true;

@@ -27,6 +27,9 @@ const ICON_PATHS = {
   mail: 'M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM3 6l9 7 9-7',
   menu: 'M3 6h18M3 12h18M3 18h18',
   target: 'M12 2a10 10 0 1 0 .01 0zM12 9a3 3 0 1 0 .01 0zM12 2v3M12 19v3M2 12h3M19 12h3',
+  store: 'M3 9l1.5-5h15L21 9M3 9h18M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M5 12v8h14v-8M10 20v-5h4v5',
+  upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+  check: 'M20 6 9 17l-5-5',
 }
 
 export default function Icon({ name, size = 18, filled = false }) {
