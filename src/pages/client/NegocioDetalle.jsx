@@ -26,6 +26,7 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 // cambios adicionales.
 
 const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
+const SERVICIOS_VISIBLES = 6
 const FECHA_CORTA = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })
 
 function toDateInputValue(date) {
@@ -85,6 +86,9 @@ export default function NegocioDetalle() {
   const minFecha = useMemo(() => toDateInputValue(manana), [manana])
 
   const [servicioId, setServicioId] = useState(null)
+  // Con muchos servicios se muestran los primeros SERVICIOS_VISIBLES y un
+  // botón para ver el resto: 10 filas empujaban los "Trabajos" muy abajo.
+  const [verTodosServicios, setVerTodosServicios] = useState(false)
   const [fecha, setFecha] = useState(minFecha)
   const [hora, setHora] = useState(null)
   const [reservando, setReservando] = useState(false)
@@ -543,37 +547,76 @@ export default function NegocioDetalle() {
               {servicios.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13.5 }}>Este negocio todavía no ha publicado servicios.</p>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 12 }}>
-                  {servicios.map((s) => {
+                // Filas a todo el ancho, como una carta de precios: con uno o con
+                // diez servicios la columna queda llena (en dos columnas, un solo
+                // servicio dejaba media columna vacía).
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {servicios
+                    // Plegada, igual se muestra el seleccionado aunque esté
+                    // más abajo de los primeros.
+                    .filter((s, i) => verTodosServicios || i < SERVICIOS_VISIBLES || s.id === servicioId)
+                    .map((s) => {
                     const seleccionado = s.id === servicioId
+                    // Foto del servicio: la suya, o una del portafolio etiquetada
+                    // con este servicio (ver OwnerPortafolio.jsx).
+                    const foto = s.fotoUrl || fotos.find((f) => f.servicioId === s.id)?.imagen
                     return (
                       <button
                         key={s.id}
                         type="button"
                         onClick={() => { setServicioId(s.id); setHora(null); setCitaConfirmada(null) }}
-                        className="card"
-                        style={{
-                          textAlign: 'left', padding: 14, cursor: 'pointer', display: 'flex', gap: 12,
-                          border: `1.5px solid ${seleccionado ? 'var(--accent)' : 'var(--border)'}`,
-                          background: seleccionado ? 'var(--accent-soft)' : 'var(--surface)',
-                        }}
+                        className={`card servicio-fila${seleccionado ? ' servicio-fila--activo' : ''}`}
+                        aria-pressed={seleccionado}
                       >
-                        {s.fotoUrl ? (
-                          <img src={s.fotoUrl} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+                        {foto ? (
+                          <img src={foto} alt="" className="servicio-fila__foto" />
                         ) : (
-                          <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--surface-2)', flexShrink: 0 }} />
+                          <span className="servicio-fila__icono" aria-hidden="true"><Icon name="scissors" size={20} /></span>
                         )}
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 14 }}>{s.nombre}</div>
-                          {s.descripcion && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{s.descripcion}</div>}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 13, gap: 10 }}>
-                            <span style={{ fontWeight: 700 }}>{COP.format(s.precio || 0)}</span>
-                            <span style={{ color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>{s.duracionMinutos} min</span>
-                          </div>
-                        </div>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: 'block', fontWeight: 800, fontSize: 14.5 }}>{s.nombre}</span>
+                          <span style={{ display: 'block', fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
+                            {s.descripcion || `${s.duracionMinutos} min`}
+                          </span>
+                        </span>
+                        <span style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <span style={{ display: 'block', fontWeight: 800, fontSize: 15 }}>{COP.format(s.precio || 0)}</span>
+                          {s.descripcion && <span style={{ display: 'block', fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>{s.duracionMinutos} min</span>}
+                        </span>
+                        <span className="servicio-fila__marca" aria-hidden="true">{seleccionado && <Icon name="check" size={13} />}</span>
                       </button>
                     )
                   })}
+                  {servicios.length > SERVICIOS_VISIBLES && (
+                    <button type="button" className="servicios-mas" onClick={() => setVerTodosServicios((v) => !v)} aria-expanded={verTodosServicios}>
+                      {verTodosServicios ? 'Ver menos ▴' : `Ver los ${servicios.length} servicios ▾`}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {fotos.length > 0 && (
+                <div style={{ marginTop: 32 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+                    <div style={{ fontWeight: 800, fontSize: 17 }}>Trabajos</div>
+                    {fotos.length > 6 && (
+                      <button type="button" onClick={() => setGaleriaAbierta(true)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0 }}>
+                        Ver las {fotos.length} fotos
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+                    {fotos.slice(0, 6).map((f) => {
+                      const servicio = servicioDe(f)
+                      const texto = f.titulo || servicio?.nombre
+                      return (
+                        <button key={f.id} type="button" className="trabajo-mini" onClick={() => setGaleriaAbierta(true)} aria-label={texto || 'Ver foto'}>
+                          <img src={f.imagen} alt={texto || ''} onError={(e) => { e.currentTarget.style.opacity = 0.15 }} />
+                          {texto && <span className="trabajo-mini__texto">{texto}</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </>
