@@ -482,12 +482,40 @@ export default function ClientHome() {
     navigate('/login')
   }
 
+  // Menú ☰ del encabezado en celular: ahí no caben el logo, "Iniciar sesión"
+  // y "Registra tu negocio" en una sola fila (~420px en una pantalla de 375),
+  // así que queda la acción principal a la vista y el resto en el menú. Se
+  // cierra al tocar fuera, con Escape o al elegir una opción.
+  const [menuAbierto, setMenuAbierto] = useState(false)
+  const headerRef = useRef(null)
+  useEffect(() => {
+    if (!menuAbierto) return undefined
+    const alTocarFuera = (e) => {
+      if (!headerRef.current?.contains(e.target)) setMenuAbierto(false)
+    }
+    const alTeclear = (e) => {
+      if (e.key === 'Escape') setMenuAbierto(false)
+    }
+    document.addEventListener('pointerdown', alTocarFuera)
+    document.addEventListener('keydown', alTeclear)
+    return () => {
+      document.removeEventListener('pointerdown', alTocarFuera)
+      document.removeEventListener('keydown', alTeclear)
+    }
+  }, [menuAbierto])
+  useEffect(() => {
+    if (!isMobile) setMenuAbierto(false)
+  }, [isMobile])
+
   return (
     <div>
       <header
+        ref={headerRef}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: isMobile ? '14px 16px' : '14px 32px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 12,
+          padding: isMobile ? '12px 16px' : '14px 32px', background: 'var(--surface)', borderBottom: '1px solid var(--border)',
+          flexWrap: isMobile ? 'nowrap' : 'wrap', gap: 12,
+          position: 'relative', zIndex: 1100, // el menú móvil va por encima del mapa (Leaflet llega a z-index 1000)
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 28, flexWrap: 'wrap' }}>
@@ -514,6 +542,46 @@ export default function ClientHome() {
           )}
         </div>
 
+        {isMobile ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            {!currentUser && (
+              <Link to="/login" className="btn btn-outline" style={{ padding: '7px 12px', fontSize: 13 }}>
+                Iniciar sesión
+              </Link>
+            )}
+            {currentUser && role === 'cliente' && (
+              <Link
+                to="/perfil"
+                title="Mi perfil"
+                style={{
+                  width: 34, height: 34, borderRadius: '50%', background: 'var(--accent)', color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
+                }}
+              >
+                {inicialesDe(currentUser.displayName)}
+              </Link>
+            )}
+            {currentUser && role === 'propietario' && (
+              <Link to="/panel" className="btn btn-outline" style={{ padding: '7px 12px', fontSize: 13 }}>
+                Mi panel
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => setMenuAbierto((v) => !v)}
+              aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
+              aria-expanded={menuAbierto}
+              aria-controls="menu-movil"
+              style={{
+                width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: menuAbierto ? 'var(--surface-2)' : 'transparent', color: 'var(--text)',
+                border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: 0,
+              }}
+            >
+              <Icon name={menuAbierto ? 'x' : 'menu'} size={18} />
+            </button>
+          </div>
+        ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           {!isMobile && (
             <span
@@ -561,6 +629,62 @@ export default function ClientHome() {
             </>
           )}
         </div>
+        )}
+
+        {isMobile && menuAbierto && (
+          <>
+            {/* Velo sobre la página: enfoca el menú y tocarlo lo cierra. Vive
+                dentro del <header>, así que el listener de "tocar fuera" no
+                lo cuenta como fuera — por eso su propio onClick. */}
+            <div className="menu-movil-velo" aria-hidden="true" onClick={() => setMenuAbierto(false)} />
+            <nav id="menu-movil" className="menu-movil" aria-label="Menú principal">
+              <div className="menu-movil__zona">
+                <Icon name="pin" size={13} />
+                Britalia, Kennedy · Barberías y estética
+              </div>
+
+              {currentUser && (
+                <div className="menu-movil__usuario">
+                  <span className="menu-movil__avatar">{inicialesDe(currentUser.displayName)}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="menu-movil__nombre">{currentUser.displayName || 'Mi cuenta'}</div>
+                    <div className="menu-movil__correo">{currentUser.email}</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="menu-movil__lista">
+                <OpcionMenu href="#resultados" icono="search" titulo="Explorar barberías" detalle="Precios, mapa y portafolios" onElegir={() => setMenuAbierto(false)} />
+                {currentUser && role === 'cliente' && (
+                  <OpcionMenu to="/perfil" icono="user" titulo="Mi perfil" detalle="Citas, favoritos y reseñas" onElegir={() => setMenuAbierto(false)} />
+                )}
+                {currentUser && role === 'propietario' && (
+                  <OpcionMenu to="/panel" icono="store" titulo="Mi panel" detalle="Agenda, servicios y portafolio" onElegir={() => setMenuAbierto(false)} />
+                )}
+                {!currentUser && (
+                  <OpcionMenu to="/registro/cliente" icono="user" titulo="Crear cuenta de cliente" detalle="Guarda favoritos y reserva citas" onElegir={() => setMenuAbierto(false)} />
+                )}
+                <OpcionMenu icono="info" titulo="Cómo funciona" detalle="Guía para clientes y negocios" inactiva />
+              </div>
+
+              {!currentUser ? (
+                <div className="menu-movil__negocio">
+                  <span className="menu-movil__negocio-icono"><Icon name="store" size={20} /></span>
+                  <div className="menu-movil__negocio-titulo">¿Tienes una barbería?</div>
+                  <div className="menu-movil__negocio-detalle">Muestra tus precios y trabajos, y recibe reservas de clientes del barrio. Es gratis.</div>
+                  <Link to="/registro/negocio" className="btn btn-primary" onClick={() => setMenuAbierto(false)}>
+                    Registra tu negocio
+                  </Link>
+                </div>
+              ) : (
+                <button type="button" onClick={handleLogout} className="menu-movil__salir">
+                  <Icon name="logout" size={17} />
+                  Cerrar sesión
+                </button>
+              )}
+            </nav>
+          </>
+        )}
       </header>
 
       <section style={{ background: 'var(--surface-2)', padding: isMobile ? '28px 16px' : '48px 32px' }}>
@@ -862,7 +986,26 @@ export default function ClientHome() {
         </div>
 
         {loading ? (
-          <p style={{ color: 'var(--text-muted)', marginTop: 24 }}>Cargando negocios…</p>
+          // Tarjetas fantasma con la misma forma que las reales: la página no
+          // salta cuando llegan los datos y se lee como "ya casi", no como
+          // vacía (en celular, la primera carga puede tardar un par de
+          // segundos — después la caché de Firestore la vuelve inmediata).
+          <div
+            aria-label="Cargando negocios…"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}
+          >
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="card" style={{ overflow: 'hidden' }}>
+                <div className="esqueleto" style={{ height: 110, borderRadius: 0 }} />
+                <div style={{ padding: 14 }}>
+                  <div className="esqueleto" style={{ height: 14, width: '60%' }} />
+                  <div className="esqueleto" style={{ height: 11, width: '85%', marginTop: 10 }} />
+                  <div className="esqueleto" style={{ height: 11, width: '45%', marginTop: 8 }} />
+                  <div className="esqueleto" style={{ height: 22, width: '100%', marginTop: 16 }} />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : recomendaciones.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', marginTop: 24 }}>
             {hayFiltrosActivos ? 'No encontramos negocios que coincidan con tu búsqueda.' : 'Aún no hay negocios registrados en MiniBarrio.'}
@@ -933,11 +1076,37 @@ export default function ClientHome() {
 
 const ICON_PATHS = {
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+  menu: 'M3 6h18M3 12h18M3 18h18',
   x: 'M18 6 6 18M6 6l12 12',
   tag: 'M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3ZM6 6h.008v.008H6V6Z',
   calendar: 'M5 8h14v12H5zM5 8V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M7 3v4M17 3v4M5 12h14',
   star: 'M12 2.5l2.9 6.3 6.6.7-5 4.6 1.4 6.6L12 17.6 6.1 20.7l1.4-6.6-5-4.6 6.6-.7z',
   target: 'M12 2a10 10 0 1 0 .01 0zM12 9a3 3 0 1 0 .01 0zM12 2v3M12 19v3M2 12h3M19 12h3',
+  pin: 'M12 21s-7-6.1-7-11.5a7 7 0 1 1 14 0C19 14.9 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
+  store: 'M3 9l1.5-5h15L21 9M3 9h18M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M5 12v8h14v-8M10 20v-5h4v5',
+  info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+  chevron: 'M9 18l6-6-6-6',
+  logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+}
+
+// Opción del menú móvil: ícono en círculo, título, detalle corto y flecha.
+// Con `to` es un Link de la app; con `href`, un ancla de esta página; con
+// `inactiva`, un aviso de "muy pronto" que no lleva a ninguna parte.
+function OpcionMenu({ to, href, icono, titulo, detalle, inactiva = false, onElegir }) {
+  const contenido = (
+    <>
+      <span className="menu-movil__icono"><Icon name={icono} size={18} /></span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span className="menu-movil__titulo">{titulo}</span>
+        <span className="menu-movil__detalle">{detalle}</span>
+      </span>
+      {inactiva ? <span className="menu-movil__pronto">Pronto</span> : <span className="menu-movil__flecha"><Icon name="chevron" size={16} /></span>}
+    </>
+  )
+  if (inactiva) return <div className="menu-movil__opcion menu-movil__opcion--inactiva" aria-disabled="true">{contenido}</div>
+  if (to) return <Link to={to} className="menu-movil__opcion" onClick={onElegir}>{contenido}</Link>
+  return <a href={href} className="menu-movil__opcion" onClick={onElegir}>{contenido}</a>
 }
 
 function Icon({ name, size = 18 }) {

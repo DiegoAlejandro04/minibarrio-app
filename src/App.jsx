@@ -160,7 +160,9 @@ export default function App() {
           instante se alcanzaba a ver la página de abajo (ya sea la nueva al
           navegar, o la real mientras se confirma la sesión al arrancar). */}
       {mostrarSplash && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--bg)' }}>
+        // zIndex por encima de todo lo de la página: controles de Leaflet
+        // (hasta 1001) y el encabezado de la vitrina con su menú móvil (1100).
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'var(--bg)' }}>
           <Splash />
         </div>
       )}

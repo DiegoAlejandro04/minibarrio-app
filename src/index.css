@@ -57,38 +57,53 @@
 /* Modo oscuro — preferencia del cliente (ver ClientConfiguracion.jsx). Se
    activa poniendo data-theme="dark" en <html>; el panel del propietario
    fuerza data-theme="light" en su propio contenedor para quedar excluido
-   (ver OwnerLayout.jsx), ya que esta preferencia es solo del lado cliente. */
+   (ver OwnerLayout.jsx), ya que esta preferencia es solo del lado cliente.
+
+   Paleta "verde noche": los fondos toman el tono del verde de marca (--ink,
+   hue ~170) en vez de café. El naranja de acento es casi complementario de
+   ese verde, así que botones, pines y precios resaltan mucho más, y los
+   bloques que usan --ink (franja del pie de página, encabezado del
+   portafolio, tarjeta del menú móvil) quedan de la misma familia que el
+   fondo en vez de chocar con él. Se mantienen los escalones de
+   luminosidad: fondo < tarjeta < elevado.
+
+   Alternativa probada, "carbón neutro" (grises casi sin color): cambiar
+   fondos/bordes/textos por
+     --bg 16.5% 0.005 60 · --surface 21% 0.006 60 · --surface-2 26% 0.007 60
+     --border 30% 0.007 60 · --border-strong 38% 0.008 60
+     --text 94% 0.005 70 · --text-muted 74% 0.008 65 · --text-faint 57% 0.008 60
+     --map-gradient (25% 0.008 60 → 21% 0.006 60) · --weekend-bg 24% 0.007 60 */
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: oklch(18% 0.012 60);
-  --surface: oklch(22% 0.014 60);
-  --surface-2: oklch(27% 0.016 58);
-  --border: oklch(33% 0.018 58);
-  --border-strong: oklch(40% 0.02 58);
+  --bg: oklch(16.5% 0.016 170);
+  --surface: oklch(21% 0.018 170);
+  --surface-2: oklch(26% 0.02 168);
+  --border: oklch(30% 0.02 168);
+  --border-strong: oklch(38% 0.022 168);
 
-  --text: oklch(93% 0.008 70);
-  --text-muted: oklch(74% 0.014 65);
-  --text-faint: oklch(56% 0.016 60);
+  --text: oklch(94% 0.008 150);
+  --text-muted: oklch(76% 0.014 160);
+  --text-faint: oklch(58% 0.016 165);
 
-  --accent: oklch(70% 0.15 48);
-  --accent-hover: oklch(76% 0.14 46);
-  --accent-soft: oklch(32% 0.06 50);
+  --accent: oklch(72% 0.16 48);
+  --accent-hover: oklch(78% 0.145 50);
+  --accent-soft: oklch(31% 0.065 48);
 
-  --sage-soft: oklch(30% 0.05 150);
-  --sage-text: oklch(80% 0.09 150);
+  --sage-soft: oklch(30% 0.06 150);
+  --sage-text: oklch(84% 0.1 150);
 
-  --warning-soft: oklch(32% 0.07 75);
-  --warning-text: oklch(85% 0.09 75);
+  --warning-soft: oklch(31% 0.07 75);
+  --warning-text: oklch(86% 0.1 75);
   --danger: oklch(72% 0.18 25);
-  --danger-soft: oklch(30% 0.09 25);
+  --danger-soft: oklch(29% 0.08 25);
 
-  --map-gradient: linear-gradient(135deg, oklch(27% 0.025 165), oklch(25% 0.014 70));
-  --today-bg: oklch(34% 0.05 55);
-  --weekend-bg: oklch(30% 0.014 55);
+  --map-gradient: linear-gradient(135deg, oklch(25% 0.03 170), oklch(21% 0.018 170));
+  --today-bg: oklch(33% 0.06 50);
+  --weekend-bg: oklch(24% 0.02 168);
 
-  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.35), 0 1px 1px oklch(0% 0 0 / 0.25);
-  --shadow-md: 0 8px 24px oklch(0% 0 0 / 0.45), 0 2px 6px oklch(0% 0 0 / 0.3);
+  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.4), 0 1px 1px oklch(0% 0 0 / 0.28);
+  --shadow-md: 0 8px 24px oklch(0% 0 0 / 0.5), 0 2px 6px oklch(0% 0 0 / 0.32);
 }
 
 * { box-sizing: border-box; }
@@ -98,8 +113,13 @@
    App.jsx todavía tapa el contenido real cargando) y después crece lo
    suficiente para tener scroll (fotos de un negocio, etc.) empuja todo el
    contenido unos pixeles hacia la izquierda justo en ese momento — se ve
-   como un salto al terminar de cargar. */
-html { scrollbar-gutter: stable; }
+   como un salto al terminar de cargar.
+
+   Con la barra siempre visible (overflow-y: scroll) y no con
+   scrollbar-gutter: stable: este último reservaba el hueco pero lo dejaba
+   vacío cuando no había scroll, una franja del color del fondo a la derecha
+   donde los encabezados no llegaban al borde. */
+html { overflow-y: scroll; }
 
 body {
   margin: 0;
@@ -438,6 +458,196 @@ input:focus, select:focus, textarea:focus {
 .leaflet-cluster-anim .leaflet-marker-icon,
 .leaflet-cluster-anim .leaflet-marker-shadow {
   transition: transform .3s ease-out, opacity .3s ease-in;
+}
+
+/* Menú ☰ del encabezado de la vitrina en celular (ClientHome.jsx): una hoja
+   que baja desde el encabezado, con esquinas redondeadas abajo y un velo que
+   oscurece la página para enfocar las opciones. */
+.menu-movil-velo {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  background: oklch(15% 0.01 50 / 0.42);
+  backdrop-filter: blur(2px);
+  animation: menu-movil-velo .2s ease-out;
+}
+.menu-movil {
+  position: absolute;
+  top: calc(100% - 1px);
+  left: 0;
+  right: 0;
+  padding: 14px 16px 18px;
+  background: var(--surface);
+  border-radius: 0 0 22px 22px;
+  box-shadow: 0 18px 40px -12px oklch(0% 0 0 / 0.35);
+  transform-origin: top center;
+  animation: menu-movil-entrada .24s cubic-bezier(.2, .8, .3, 1);
+}
+.menu-movil__zona {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--sage-text);
+  background: var(--sage-soft);
+  padding: 5px 10px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+
+.menu-movil__usuario {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--surface-2);
+  border-radius: 14px;
+}
+.menu-movil__avatar {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.menu-movil__nombre { font-weight: 800; font-size: 14.5px; color: var(--text); }
+.menu-movil__correo { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.menu-movil__lista { display: flex; flex-direction: column; gap: 2px; }
+.menu-movil__opcion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  color: var(--text);
+  transition: background .15s;
+  animation: menu-movil-opcion .3s cubic-bezier(.2, .8, .3, 1) both;
+}
+.menu-movil__opcion:nth-child(2) { animation-delay: .03s; }
+.menu-movil__opcion:nth-child(3) { animation-delay: .06s; }
+.menu-movil__opcion:nth-child(4) { animation-delay: .09s; }
+.menu-movil__opcion:active:not(.menu-movil__opcion--inactiva) { background: var(--surface-2); }
+.menu-movil__icono {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.menu-movil__titulo { display: block; font-size: 15px; font-weight: 800; line-height: 1.25; }
+.menu-movil__detalle { display: block; font-size: 12.5px; color: var(--text-muted); margin-top: 1px; }
+.menu-movil__flecha { color: var(--text-faint); display: flex; }
+.menu-movil__opcion--inactiva { cursor: default; }
+.menu-movil__opcion--inactiva .menu-movil__icono { background: var(--surface-2); color: var(--text-faint); }
+.menu-movil__opcion--inactiva .menu-movil__titulo { color: var(--text-muted); }
+.menu-movil__pronto {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+/* Tarjeta para dueños de negocio: el llamado principal del menú sin sesión. */
+.menu-movil__negocio {
+  position: relative;
+  overflow: hidden;
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  animation: menu-movil-opcion .34s .12s cubic-bezier(.2, .8, .3, 1) both;
+}
+/* Resplandor de acento en la esquina, detrás del contenido. */
+.menu-movil__negocio::before {
+  content: '';
+  position: absolute;
+  top: -70px;
+  right: -60px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklch, var(--accent) 55%, transparent) 0%, transparent 68%);
+}
+.menu-movil__negocio > * { position: relative; }
+.menu-movil__negocio-icono {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.menu-movil__negocio-titulo { font-size: 16px; font-weight: 800; }
+.menu-movil__negocio-detalle { font-size: 12.5px; line-height: 1.45; color: oklch(85% 0.015 165); margin: 4px 0 14px; }
+.menu-movil__negocio .btn { text-align: center; padding: 11px 16px; }
+
+.menu-movil__salir {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@keyframes menu-movil-entrada {
+  from { opacity: 0; transform: translateY(-10px) scaleY(.97); }
+  to { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+@keyframes menu-movil-opcion {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes menu-movil-velo {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Bloque fantasma mientras carga (tarjetas de la vitrina): un brillo que
+   recorre el bloque de izquierda a derecha. */
+.esqueleto {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-2) 0%, color-mix(in oklch, var(--surface-2) 55%, var(--surface)) 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+  animation: esqueleto-brillo 1.3s ease-in-out infinite;
+}
+@keyframes esqueleto-brillo {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-movil, .menu-movil-velo, .menu-movil__opcion, .menu-movil__negocio, .esqueleto { animation: none; }
 }
 
 .error-text {
