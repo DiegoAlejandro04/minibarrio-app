@@ -25,8 +25,11 @@ import OwnerResenas from './pages/owner/OwnerResenas.jsx'
 import OwnerConfiguracion from './pages/owner/OwnerConfiguracion.jsx'
 import Proximamente from './components/Proximamente.jsx'
 import NotFound from './pages/NotFound.jsx'
+// Página inactiva a futuro (enlaces de los correos de Firebase con diseño
+// propio). Ver el encabezado de AccionCuenta.jsx para saber cómo activarla.
+// import AccionCuenta from './pages/AccionCuenta.jsx'
 
-// Cuánto se muestra el splash (al arrancar con sesión iniciada, o al navegar
+// Cuánto se muestra el splash (al arrancar, con o sin sesión, o al navegar
 // a la vitrina o al panel del cliente): lo justo para que termine la
 // animación de entrada del logo (la última pieza arranca a los 220 ms y dura
 // 500 ms, ver Splash.jsx) más una breve pausa — nunca se corta a la mitad.
@@ -45,7 +48,7 @@ function muestraSplash(desde, hacia) {
 }
 
 export default function App() {
-  const { currentUser, modoOscuro, modoOscuroPanel, authReady } = useAuth()
+  const { modoOscuro, modoOscuroPanel, authReady } = useAuth()
   const location = useLocation()
   const tipoNavegacion = useNavigationType() // 'PUSH' (clic/navigate normal) | 'POP' (atrás/adelante del navegador) | 'REPLACE'
 
@@ -89,20 +92,14 @@ export default function App() {
   // el splash solo se queda encima el tiempo justo para que su animación
   // termine, en vez de cortarse apenas los datos ya estén listos.
   //
-  // Para quien NO tiene sesión no hay nada que ocultar ni que esperar (no
-  // hay perfil que traer de Firestore), así que ahí se quita apenas se sepa
-  // — solo se compromete al mínimo de la animación cuando sí hay alguien
-  // detrás.
+  // Se muestra completo también sin sesión: es la entrada de la marca para
+  // quien llega por primera vez, no solo una pantalla de espera.
   const [splashInicial, setSplashInicial] = useState(true)
   useEffect(() => {
     if (!authReady) return undefined
-    if (!currentUser) {
-      setSplashInicial(false)
-      return undefined
-    }
     const t = setTimeout(() => setSplashInicial(false), DURACION_SPLASH_MS)
     return () => clearTimeout(t)
-  }, [authReady, currentUser])
+  }, [authReady])
 
   const mostrarSplash = splashInicial || splashNavegacion
 
@@ -111,6 +108,7 @@ export default function App() {
       <Routes>
         {/* Rutas públicas */}
         <Route path="/login" element={<Login />} />
+        {/* <Route path="/cuenta/accion" element={<AccionCuenta />} /> — inactiva, ver AccionCuenta.jsx */}
         <Route path="/registro/cliente" element={<RegisterClient />} />
         <Route path="/registro/negocio" element={<RegisterBusiness />} />
 

@@ -226,6 +226,7 @@ export default function ClientHome() {
   const destacadoIdRef = useRef(null)
   const usuarioCapaRef = useRef(null) // punto + halo de precisión del cliente
   const ubicacionEncuadreRef = useRef(null) // ubicación del cliente solo si sirve para encuadrar
+  const primerEncuadreHechoRef = useRef(false)
   const [mapError, setMapError] = useState(false)
 
   useEffect(() => {
@@ -234,8 +235,12 @@ export default function ClientHome() {
 
     try {
       if (!mapRef.current) {
+        // Arranca ya sobre Britalia, no sobre todo Bogotá: mientras llegan los
+        // negocios de Firestore el cliente ve su barrio (y se descargan los
+        // tiles del zoom correcto), en vez de una ciudad entera que luego
+        // salta de golpe al encuadre real.
         mapRef.current = L.map(mapDivRef.current, { zoomControl: true })
-          .setView([4.711, -74.0721], 12) // Bogotá — se ajusta con fitBounds al ubicar los negocios
+          .setView([CENTRO_BRITALIA.lat, CENTRO_BRITALIA.lng], 16)
         crearCapaTiles().addTo(mapRef.current)
         // Tocar el mapa vacío devuelve la tarjeta al recomendado (los clics
         // sobre un pin no llegan aquí: Leaflet no los propaga al mapa).
@@ -300,7 +305,10 @@ export default function ClientHome() {
         aplicarDestacado(destacadoIdRef.current)
 
         puntosRef.current = puntos
-        encuadrar()
+        // El primer encuadre, sin animación: los pines aparecen ya en su
+        // sitio. Los siguientes (llegan reseñas o servicios nuevos) sí animan.
+        encuadrar({ animar: primerEncuadreHechoRef.current })
+        primerEncuadreHechoRef.current = true
       })
     } catch (err) {
       setMapError(true)
@@ -324,7 +332,7 @@ export default function ClientHome() {
 
   // Encuadra los negocios y, si el cliente compartió su ubicación, también a
   // él: lo que importa es ver qué queda cerca de uno.
-  function encuadrar() {
+  function encuadrar({ animar = true } = {}) {
     if (!mapRef.current) return
     const coords = puntosRef.current.map((p) => [p.posicion.lat, p.posicion.lng])
     if (ubicacionEncuadreRef.current) coords.push([ubicacionEncuadreRef.current.lat, ubicacionEncuadreRef.current.lng])
@@ -335,9 +343,10 @@ export default function ClientHome() {
         paddingTopLeft: [60, 70],
         paddingBottomRight: [60, 100],
         maxZoom: ZOOM_MAX_ENCUADRE,
+        animate: animar,
       })
     } else {
-      mapRef.current.setView([CENTRO_BRITALIA.lat, CENTRO_BRITALIA.lng], 15)
+      mapRef.current.setView([CENTRO_BRITALIA.lat, CENTRO_BRITALIA.lng], 15, { animate: animar })
     }
   }
 

@@ -8,7 +8,7 @@
 import { initializeApp } from 'firebase/app'
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { getAuth } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -44,4 +44,12 @@ export const auth = getAuth(app)
 // Correos de Firebase Auth (p. ej. recuperar contraseña) y ventanas de
 // Google en español.
 auth.languageCode = 'es'
-export const db = getFirestore(app)
+// Caché local de Firestore (IndexedDB): en la segunda visita la vitrina, el
+// mapa y los paneles pintan al instante con la última copia guardada y luego
+// se actualizan solos con los datos del servidor (onSnapshot dispara dos
+// veces). Compartida entre pestañas abiertas. Si el navegador no permite
+// IndexedDB (p. ej. algunas ventanas privadas), Firestore sigue funcionando
+// sin caché.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+})

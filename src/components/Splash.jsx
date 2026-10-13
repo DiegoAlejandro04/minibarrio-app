@@ -2,7 +2,7 @@
 // headers (badge "MB" + MiniBarrio) en vez de un simple texto "Cargando…".
 //
 // Dos usos, con la animación prendida o apagada a propósito:
-// - El splash de TRANSICIÓN (App.jsx: al arrancar con sesión iniciada, o al
+// - El splash de TRANSICIÓN (App.jsx: al arrancar, con o sin sesión, o al
 //   navegar a ciertas pantallas, ver muestraSplash) es un overlay que se
 //   queda encima el tiempo justo para que su animación de salto termine —
 //   ahí `animar` va en true. Se usa una sola vez por transición, así que
