@@ -4,13 +4,16 @@ import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext.jsx'
 import Icon from './Icon.jsx'
 
-// Formulario de reseña (RF-10). Se asocia al negocio, no a una cita puntual
-// específica: el modelo de datos (ver docs/MODELO_DATOS.md) guarda "resenas"
-// como subcolección de "negocios" sin referencia a la cita de origen.
+// Formulario de reseña (RF-10). Reseña verificada: solo se abre con una cita
+// del cliente en este negocio que ya pasó y no se canceló (la elige
+// NegocioDetalle.jsx), y firestore.rules lo vuelve a comprobar en el servidor
+// con esa misma cita (citaId). Se guarda también el nombre corto del cliente
+// ("Laura M.") para mostrarlo con la reseña: las reglas no dejan leer
+// perfiles ajenos, así que no se podría buscar después.
 
 const MAX_COMENTARIO = 500 // mismo tope que exige firestore.rules
 
-export default function CalificarModal({ negocio, onClose, onCreada }) {
+export default function CalificarModal({ negocio, citaId, nombreCliente, onClose, onCreada }) {
   const { currentUser } = useAuth()
   const [calificacion, setCalificacion] = useState(0)
   const [hover, setHover] = useState(0)
@@ -35,12 +38,14 @@ export default function CalificarModal({ negocio, onClose, onCreada }) {
         calificacion,
         comentario: comentario.trim().slice(0, MAX_COMENTARIO),
         creadoEn: serverTimestamp(),
+        citaId,
+        ...(nombreCliente ? { nombreCliente: nombreCliente.slice(0, 40) } : {}),
       })
       onCreada?.()
       onClose()
     } catch (err) {
       setError(err.code === 'permission-denied'
-        ? 'Ya calificaste este negocio.'
+        ? 'No se pudo publicar: solo puedes calificar una vez, y después de una cita tuya en este negocio.'
         : 'No se pudo publicar tu reseña. Intenta de nuevo.')
       // eslint-disable-next-line no-console
       console.error(err)

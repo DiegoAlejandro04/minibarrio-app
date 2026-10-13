@@ -11,14 +11,15 @@ import PqrsModal from './PqrsModal.jsx'
 
 const ENLACES_EXPLORAR = [
   { to: '/', label: 'Inicio' },
-  { to: '/#resultados', label: 'Barberías recomendadas' },
+  { to: '/#resultados', label: 'Negocios recomendados' },
+  { to: '/#como-funciona', label: 'Cómo funciona' },
 ]
 
-// "Cómo funciona" y "Categorías" todavía no tienen página propia — en el
-// header (ClientHome.jsx) aparecen igual de deshabilitadas con el mismo
-// tooltip "Próximamente", así que aquí se muestran del mismo modo en vez de
-// simular un enlace que no lleva a ningún lado.
-const PROXIMAMENTE_EXPLORAR = ['Cómo funciona', 'Categorías']
+// "Categorías" todavía no tiene página propia — en el header (ClientHome.jsx)
+// aparece igual de deshabilitada con el mismo tooltip "Próximamente", así que
+// aquí se muestra del mismo modo en vez de simular un enlace que no lleva a
+// ningún lado.
+const PROXIMAMENTE_EXPLORAR = ['Categorías']
 
 const ENLACES_CUENTA = [
   { to: '/registro/cliente', label: 'Crear cuenta de cliente' },
@@ -40,19 +41,23 @@ export default function Footer() {
 
   return (
     <footer>
-      {/* Banner: invitación a propietarios, con la paleta oscura reservada
-          para esto en index.css (--ink/--ink-2/--ink-text). */}
-      <div style={{ background: 'var(--ink)', color: 'var(--ink-text)' }}>
-        <div
-          style={{
-            maxWidth: 1160, margin: '0 auto', padding: isMobile ? '28px 16px' : '34px 32px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
-          }}
-        >
-          <div>
-            <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 800 }}>¿Tienes una barbería en Britalia?</div>
-            <div style={{ fontSize: 13.5, opacity: 0.75, marginTop: 4 }}>
-              Únete gratis y muestra tu portafolio a los clientes del barrio.
+      {/* Invitación a propietarios: una tarjeta con margen y resplandor (no
+          una franja de borde a borde, que en modo oscuro chocaba con el
+          fondo). Mismo estilo que la tarjeta del menú móvil, ver
+          .banner-negocio en index.css. */}
+      <div style={{ maxWidth: 1224, margin: '0 auto', padding: isMobile ? '8px 16px 36px' : '16px 32px 56px' }}>
+        <div className="banner-negocio" style={{ padding: isMobile ? '22px 20px' : '30px 36px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <span className="banner-negocio__icono" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l1.5-5h15L21 9M3 9h18M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M5 12v8h14v-8M10 20v-5h4v5" />
+              </svg>
+            </span>
+            <div>
+              <div style={{ fontSize: isMobile ? 18 : 21, fontWeight: 800 }}>¿Tienes una barbería o estética en Britalia?</div>
+              <div style={{ fontSize: 13.5, color: 'oklch(85% 0.015 165)', marginTop: 4 }}>
+                Únete gratis: muestra tus precios y trabajos, y recibe reservas de clientes del barrio.
+              </div>
             </div>
           </div>
           <Link to="/registro/negocio" className="btn btn-primary" style={{ flexShrink: 0 }}>
@@ -61,11 +66,14 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Pie de página: logo, navegación y derechos. */}
-      <div style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+      {/* Pie de página: logo, navegación y derechos. Mismo fondo que la
+          página (no --surface): una franja de otro tono justo debajo de la
+          tarjeta de negocios partía la página en bandas. Lo separa solo una
+          línea fina. */}
+      <div style={{ background: 'var(--bg)', borderTop: '1px solid var(--border)' }}>
         <div
           style={{
-            maxWidth: 1160, margin: '0 auto', padding: isMobile ? '32px 16px 24px' : '40px 32px 28px',
+            maxWidth: 1224, margin: '0 auto', padding: isMobile ? '32px 16px 24px' : '40px 32px 28px',
             display: 'flex', flexWrap: 'wrap', gap: 32, justifyContent: 'space-between',
           }}
         >
@@ -141,7 +149,7 @@ export default function Footer() {
         <div style={{ borderTop: '1px solid var(--border)' }}>
           <div
             style={{
-              maxWidth: 1160, margin: '0 auto', padding: isMobile ? '14px 16px' : '16px 32px',
+              maxWidth: 1224, margin: '0 auto', padding: isMobile ? '14px 16px' : '16px 32px',
               fontSize: 11.5, color: 'var(--text-faint)', textAlign: isMobile ? 'left' : 'center',
             }}
           >

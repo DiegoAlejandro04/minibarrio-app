@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  collection, deleteDoc, doc, getDoc, onSnapshot, serverTimestamp, setDoc,
+  collection, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where,
 } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
 import CalificarModal from '../../components/CalificarModal.jsx'
+import { nombreCorto } from '../../nombres.js'
 import Splash from '../../components/Splash.jsx'
 import { reservarCita } from '../../turnosOcupados.js'
 import { bloqueDelDia, estadoApertura, formatoHora12, resumenHorario } from '../../horarios.js'
@@ -162,6 +163,25 @@ export default function NegocioDetalle() {
     })
     return unsub
   }, [currentUser, id])
+
+  // Citas del propio cliente en este negocio: la reseña solo se habilita con
+  // una que ya pasó y no se canceló (reseña verificada, ver firestore.rules).
+  const [misCitas, setMisCitas] = useState([])
+  useEffect(() => {
+    if (!currentUser || role !== 'cliente') {
+      setMisCitas([])
+      return undefined
+    }
+    const consulta = query(collection(db, 'citas'), where('clienteId', '==', currentUser.uid), where('negocioId', '==', id))
+    const unsub = onSnapshot(consulta, (snap) => setMisCitas(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+    return unsub
+  }, [currentUser, role, id])
+  const citaParaResenar = useMemo(() => {
+    const ahora = Date.now()
+    return misCitas
+      .filter((c) => c.estado !== 'cancelada' && c.fechaHora?.toMillis && c.fechaHora.toMillis() < ahora)
+      .sort((a, b) => b.fechaHora.toMillis() - a.fechaHora.toMillis())[0] || null
+  }, [misCitas])
 
   const rating = useMemo(() => {
     if (resenas.length === 0) return null
@@ -479,6 +499,10 @@ export default function NegocioDetalle() {
                 {role !== 'propietario' && (
                   yaCalifique ? (
                     <span style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700 }}>Ya calificaste este negocio</span>
+                  ) : currentUser && !citaParaResenar ? (
+                    <span style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, textAlign: 'right' }}>
+                      Podrás calificar este negocio después de tu cita
+                    </span>
                   ) : (
                     <button
                       type="button"
@@ -503,8 +527,12 @@ export default function NegocioDetalle() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 }}>
                   {resenas.slice(0, 5).map((r) => (
                     <div key={r.id} className="card" style={{ padding: 14 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 700, fontSize: 13.5 }}>★ {r.calificacion || 0}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700, fontSize: 13.5 }}>★ {r.calificacion || 0}</span>
+                          {r.nombreCliente && <span style={{ fontSize: 13, fontWeight: 700 }}>{r.nombreCliente}</span>}
+                          {r.citaId && <span className="resena-verificada">✓ Verificada</span>}
+                        </span>
                         {r.creadoEn?.toDate && (
                           <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>
                             {new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).format(r.creadoEn.toDate())}
@@ -679,7 +707,12 @@ export default function NegocioDetalle() {
       </div>
 
       {calificando && (
-        <CalificarModal negocio={negocio} onClose={() => setCalificando(false)} />
+        <CalificarModal
+          negocio={negocio}
+          citaId={citaParaResenar?.id}
+          nombreCliente={nombreCorto(currentUser?.displayName)}
+          onClose={() => setCalificando(false)}
+        />
       )}
     </div>
   )

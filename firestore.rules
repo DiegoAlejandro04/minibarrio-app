@@ -95,8 +95,43 @@ service cloud.firestore {
         && numeroEntre(datos, 'duracionMinutos', 1, 480);
     }
 
+    // Reseña verificada: el cliente indica una cita SUYA en este negocio, ya
+    // pasada (su fecha y hora quedaron atrás) y no cancelada. No depende de
+    // que el dueño la marque "completada" (muchos no lo harían); si el
+    // cliente no llegó, el dueño cancela la cita y con eso ya no puede
+    // reseñar con ella.
+    function citaParaResena(negocioId) {
+      let datos = request.resource.data;
+      let cita = get(/databases/$(database)/documents/citas/$(datos.citaId)).data;
+      return 'citaId' in datos
+        && datos.citaId is string
+        && cita.clienteId == request.auth.uid
+        && cita.negocioId == negocioId
+        && cita.fechaHora < request.time
+        && cita.estado != 'cancelada';
+    }
+
     function cambiosCita() {
       return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // Campos que cambia una edición. Al editar se limita QUÉ campos pueden
+    // cambiar (no qué campos tiene el documento): así nadie agrega campos
+    // basura a su propio documento, y los negocios creados con versiones
+    // viejas de la app, que pueden tener algún campo extra, se siguen
+    // pudiendo editar.
+    function camposCambiados() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // Ubicación del negocio: null o { lat, lng } con coordenadas válidas.
+    function ubicacionValida(datos) {
+      return !('ubicacion' in datos)
+        || datos.ubicacion == null
+        || (datos.ubicacion is map
+            && datos.ubicacion.keys().hasOnly(['lat', 'lng'])
+            && datos.ubicacion.lat is number && datos.ubicacion.lat >= -90 && datos.ubicacion.lat <= 90
+            && datos.ubicacion.lng is number && datos.ubicacion.lng >= -180 && datos.ubicacion.lng <= 180);
     }
 
     match /usuarios/{uid} {
@@ -110,6 +145,7 @@ service cloud.firestore {
                     && perfilValido();
       allow update: if esDueno(uid)
                     && request.resource.data.rol == resource.data.rol
+                    && camposCambiados().hasOnly(['nombre', 'correo', 'telefono', 'modoOscuro', 'modoOscuroPanel'])
                     && perfilValido();
       allow delete: if false;
 
@@ -124,11 +160,19 @@ service cloud.firestore {
                     && rolDe(request.auth.uid) == 'propietario'
                     && request.resource.data.propietarioId == request.auth.uid
                     && request.resource.data.verificado == false
-                    && negocioValido();
+                    && negocioValido()
+                    && ubicacionValida(request.resource.data);
+      // verificado, propietarioId y creadoEn quedan fuera de la lista: no se
+      // pueden cambiar al editar. La ubicación solo se valida si cambió: un
+      // negocio guardado con otro formato igual puede editar su nombre u
+      // horarios.
       allow update: if esDueno(negocioId)
-                    && !request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAny(['verificado', 'propietarioId', 'creadoEn'])
-                    && negocioValido();
+                    && camposCambiados().hasOnly([
+                         'nombre', 'descripcion', 'direccion', 'ubicacion', 'correo',
+                         'canalesContacto', 'especialidades', 'horarios', 'fotos'
+                       ])
+                    && negocioValido()
+                    && (!camposCambiados().hasAny(['ubicacion']) || ubicacionValida(request.resource.data));
       allow delete: if esDueno(negocioId);
 
       match /servicios/{servicioId} {
@@ -136,7 +180,9 @@ service cloud.firestore {
         allow create: if esDueno(negocioId)
                       && request.resource.data.keys().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl'])
                       && servicioValido();
-        allow update: if esDueno(negocioId) && servicioValido();
+        allow update: if esDueno(negocioId)
+                      && camposCambiados().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl'])
+                      && servicioValido();
         allow delete: if esDueno(negocioId);
       }
 
@@ -144,11 +190,13 @@ service cloud.firestore {
         allow read: if true;
         allow create: if esDueno(resenaId)
                       && rolDe(request.auth.uid) == 'cliente'
-                      && request.resource.data.keys().hasOnly(['negocioId', 'clienteId', 'calificacion', 'comentario', 'creadoEn'])
+                      && request.resource.data.keys().hasOnly(['negocioId', 'clienteId', 'calificacion', 'comentario', 'creadoEn', 'citaId', 'nombreCliente'])
                       && request.resource.data.clienteId == request.auth.uid
                       && request.resource.data.negocioId == negocioId
                       && request.resource.data.creadoEn == request.time
-                      && resenaValida();
+                      && resenaValida()
+                      && textoMax(request.resource.data, 'nombreCliente', 40)
+                      && citaParaResena(negocioId);
         allow update: if esDueno(resource.data.clienteId)
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['calificacion', 'comentario'])
                       && resenaValida();

@@ -11,6 +11,9 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 import { recomendar, distanciaKm } from '../../recomendador.js'
 import { ESPECIALIDADES } from '../../especialidades.js'
 import Footer from '../../components/Footer.jsx'
+import ComoFunciona from '../../components/ComoFunciona.jsx'
+import ResenasRecientes from '../../components/ResenasRecientes.jsx'
+import * as datosDemo from '../../demo.js'
 import { estadoApertura } from '../../horarios.js'
 
 // Vitrina pública de negocios (RF-05 búsqueda, RF-06 mapa, RF-09
@@ -26,16 +29,6 @@ import { estadoApertura } from '../../horarios.js'
 // especialidad marcada por algún negocio.
 const FILTER_CHIPS = ESPECIALIDADES
 
-// Propuestas de valor de la portada: en vez de contadores (negocios
-// registrados, etc.) que con pocos datos de prueba comunican lo contrario de
-// lo que buscan — "1 barbería registrada" no inspira confianza — estas
-// frases son ciertas sin importar cuántos negocios haya en la plataforma.
-const PROPUESTAS_VALOR = [
-  { icono: 'tag', titulo: 'Precios reales', detalle: 'Sin sorpresas al llegar' },
-  { icono: 'calendar', titulo: 'Reserva en minutos', detalle: 'Desde el portafolio' },
-  { icono: 'star', titulo: 'Reseñas verificadas', detalle: 'De clientes que ya fueron' },
-]
-
 const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const MILES = new Intl.NumberFormat('es-CO') // solo separador de miles, sin símbolo — campo de presupuesto
 
@@ -49,6 +42,10 @@ const PRESUPUESTO_MAXIMO = 200000
 // solo negocio fitBounds se va al zoom máximo de los tiles (19) y solo se ven
 // un par de cuadras sin contexto; 17 deja ver los nombres de calles alrededor.
 const ZOOM_MAX_ENCUADRE = 17
+
+// Datos de mentira para ver la vitrina con más negocios (?demo en localhost,
+// ver src/demo.js). Solo existen en desarrollo.
+const DEMO = import.meta.env.DEV ? datosDemo : null
 
 // PC con mouse: pasar sobre un pin muestra ese negocio en la tarjeta y el
 // clic abre su portafolio. Pantalla táctil (sin hover): el primer toque solo
@@ -115,17 +112,35 @@ export default function ClientHome() {
     return unsub
   }, [])
 
+  // Reseñas para "Lo que dicen los clientes": las buenas (4★ o más) con un
+  // comentario de verdad, las más recientes primero. La sección solo se
+  // muestra si hay suficientes (ver ResenasRecientes.jsx).
+  const [resenasRecientes, setResenasRecientes] = useState([])
+
   useEffect(() => {
     const unsub = onSnapshot(collectionGroup(db, 'resenas'), (snap) => {
       const acc = {}
+      const destacadas = []
       snap.docs.forEach((d) => {
         const negocioId = d.ref.parent.parent.id
-        const calificacion = d.data().calificacion || 0
+        const datos = d.data()
+        const calificacion = datos.calificacion || 0
         if (!acc[negocioId]) acc[negocioId] = { suma: 0, total: 0 }
         acc[negocioId].suma += calificacion
         acc[negocioId].total += 1
+        const comentario = (datos.comentario || '').trim()
+        if (calificacion >= 4 && comentario.length >= 8) {
+          destacadas.push({
+            id: d.ref.path, negocioId, calificacion, comentario,
+            fecha: datos.creadoEn?.toDate?.() || null,
+            nombreCliente: datos.nombreCliente || null,
+            verificada: !!datos.citaId, // ver citaParaResena en firestore.rules
+          })
+        }
       })
       setRatings(acc)
+      destacadas.sort((a, b) => (b.fecha?.getTime() || 0) - (a.fecha?.getTime() || 0))
+      setResenasRecientes(destacadas.slice(0, 6))
     })
     return unsub
   }, [])
@@ -196,10 +211,21 @@ export default function ClientHome() {
     )
   }
 
+  // Modo demo (solo en desarrollo, con ?demo en la dirección): suma negocios
+  // y reseñas de mentira a los reales, solo en memoria. Ver src/demo.js.
+  // DEMO es null en `npm run build` (import.meta.env.DEV es false): todo lo
+  // que cuelga de él se elimina del bundle de producción.
+  const [cantidadDemo] = useState(() => (DEMO ? DEMO.negociosDemoActivos() : 0))
+  const negociosVista = useMemo(
+    () => (DEMO && cantidadDemo ? [...negocios, ...DEMO.NEGOCIOS_DEMO.slice(0, cantidadDemo)] : negocios),
+    [negocios, cantidadDemo]
+  )
+  const resenasVista = DEMO && cantidadDemo ? [...DEMO.RESENAS_DEMO, ...resenasRecientes] : resenasRecientes
+
   const negociosConDatos = useMemo(
-    () => negocios.map((n) => {
-      const r = ratings[n.id]
-      const servicios = serviciosPorNegocio[n.id] || []
+    () => negociosVista.map((n) => {
+      const r = ratings[n.id] || (DEMO && cantidadDemo ? DEMO.RATINGS_DEMO[n.id] : undefined)
+      const servicios = serviciosPorNegocio[n.id] || (DEMO && cantidadDemo ? DEMO.SERVICIOS_DEMO[n.id] : undefined) || []
       const preciosVisibles = servicios.filter((s) => s.visible !== false).map((s) => s.precio || 0)
       return {
         ...n,
@@ -210,7 +236,7 @@ export default function ClientHome() {
         estado: estadoApertura(n.horarios),
       }
     }),
-    [negocios, ratings, serviciosPorNegocio]
+    [negociosVista, ratings, serviciosPorNegocio, cantidadDemo]
   )
 
   // Mapa real con OpenStreetMap vía Leaflet (RF-06), gratis y sin API key.
@@ -439,6 +465,8 @@ export default function ClientHome() {
   // cuyo pin el cliente señaló o tocó. Si un filtro lo sacó del ranking, se
   // sigue mostrando (su pin sigue en el mapa), solo que sin razones.
   const [seleccionadoId, setSeleccionadoId] = useState(null)
+  const tarjetasHorizontales = !isMobile && recomendaciones.length <= 2
+
   const destacado = useMemo(() => {
     if (seleccionadoId) {
       const enRanking = recomendaciones.find((n) => n.id === seleccionadoId)
@@ -535,7 +563,7 @@ export default function ClientHome() {
           {!isMobile && (
             <nav style={{ display: 'flex', gap: 20, fontSize: 13.5, fontWeight: 700 }}>
               <a href="#resultados" style={{ color: 'var(--text-muted)' }}>Explorar</a>
-              <span style={{ color: 'var(--text-faint)', cursor: 'not-allowed' }} title="Próximamente">Cómo funciona</span>
+              <a href="#como-funciona" style={{ color: 'var(--text-muted)' }}>Cómo funciona</a>
               <span style={{ color: 'var(--text-faint)', cursor: 'not-allowed' }} title="Por ahora solo barberías y estética">Categorías</span>
               <Link to="/registro/negocio" style={{ color: 'var(--text-muted)' }}>Para negocios</Link>
             </nav>
@@ -649,7 +677,7 @@ export default function ClientHome() {
               )}
 
               <div className="menu-movil__lista">
-                <OpcionMenu href="#resultados" icono="search" titulo="Explorar barberías" detalle="Precios, mapa y portafolios" onElegir={() => setMenuAbierto(false)} />
+                <OpcionMenu href="#resultados" icono="search" titulo="Explorar negocios" detalle="Barberías y estéticas: precios, mapa y portafolios" onElegir={() => setMenuAbierto(false)} />
                 {currentUser && role === 'cliente' && (
                   <OpcionMenu to="/perfil" icono="user" titulo="Mi perfil" detalle="Citas, favoritos y reseñas" onElegir={() => setMenuAbierto(false)} />
                 )}
@@ -659,13 +687,13 @@ export default function ClientHome() {
                 {!currentUser && (
                   <OpcionMenu to="/registro/cliente" icono="user" titulo="Crear cuenta de cliente" detalle="Guarda favoritos y reserva citas" onElegir={() => setMenuAbierto(false)} />
                 )}
-                <OpcionMenu icono="info" titulo="Cómo funciona" detalle="Guía para clientes y negocios" inactiva />
+                <OpcionMenu href="#como-funciona" icono="info" titulo="Cómo funciona" detalle="Busca, compara y reserva en 3 pasos" onElegir={() => setMenuAbierto(false)} />
               </div>
 
               {!currentUser ? (
                 <div className="menu-movil__negocio">
                   <span className="menu-movil__negocio-icono"><Icon name="store" size={20} /></span>
-                  <div className="menu-movil__negocio-titulo">¿Tienes una barbería?</div>
+                  <div className="menu-movil__negocio-titulo">¿Tienes una barbería o estética?</div>
                   <div className="menu-movil__negocio-detalle">Muestra tus precios y trabajos, y recibe reservas de clientes del barrio. Es gratis.</div>
                   <Link to="/registro/negocio" className="btn btn-primary" onClick={() => setMenuAbierto(false)}>
                     Registra tu negocio
@@ -683,7 +711,11 @@ export default function ClientHome() {
       </header>
 
       <section style={{ background: 'var(--surface-2)', padding: isMobile ? '28px 16px' : '48px 32px' }}>
-        <div style={{ maxWidth: 1160, margin: '0 auto', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 24 : 40, alignItems: 'start' }}>
+        {/* alignItems center: texto y mapa quedan centrados uno frente al
+            otro en vez de alineados arriba con alturas distintas. */}
+        {/* Dos columnas iguales con un espacio amplio entre texto y mapa
+            (80px en PC), dentro de los mismos márgenes laterales. */}
+        <div style={{ maxWidth: 1160, margin: '0 auto', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 24 : 80, alignItems: 'center' }}>
           <div>
             <span
               style={{
@@ -698,7 +730,7 @@ export default function ClientHome() {
             </h1>
             <p style={{ color: 'var(--text-muted)', fontSize: 15, marginTop: 12, lineHeight: 1.6 }}>
               Compara precios, mira el portafolio real de cada negocio y revisa la disponibilidad
-              de los servicios de cada barbería registrada.
+              de los servicios de cada barbería y estética registrada.
             </p>
 
             <form
@@ -819,7 +851,12 @@ export default function ClientHome() {
           <div>
             <div
               style={{
-                position: 'relative', height: isMobile ? 220 : 300, borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+                // En PC, proporción fija (no alto fijo): con un alto fijo, en
+                // pantallas anchas el mapa crecía solo a lo ancho y quedaba
+                // como una franja. Así mantiene la misma forma en cualquier
+                // ancho de ventana.
+                position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+                ...(isMobile ? { height: 240 } : { aspectRatio: '1.85 / 1', minHeight: 280 }),
                 background: 'var(--map-gradient)',
                 border: '1px solid var(--border)',
                 isolation: 'isolate', // atrapa el z-index alto de los controles de Leaflet para que no floten por encima de la tarjeta "destacado" de abajo
@@ -879,14 +916,28 @@ export default function ClientHome() {
               )}
             </div>
 
+            {/* Alto fijo y miniatura siempre presente (foto o iniciales): si la
+                tarjeta cambiaba de alto al cambiar de negocio (con o sin foto,
+                con o sin la línea de razones), todo el bloque se recentraba y
+                parecía que el mapa cambiaba de tamaño. */}
             {destacado && (
-              <div className="card" style={{ marginTop: isMobile ? -28 : -40, marginLeft: isMobile ? 8 : 16, marginRight: isMobile ? 8 : 16, position: 'relative', padding: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                {destacado.fotos?.[0] && (
+              <div className="card" style={{ marginTop: isMobile ? -28 : -40, marginLeft: isMobile ? 8 : 16, marginRight: isMobile ? 8 : 16, position: 'relative', padding: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', minHeight: isMobile ? undefined : 82 }}>
+                {destacado.fotos?.[0] ? (
                   <img
                     src={destacado.fotos[0]}
                     alt=""
                     style={{ width: 46, height: 46, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
                   />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 46, height: 46, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'linear-gradient(135deg, oklch(74% 0.15 52), oklch(52% 0.14 36))', color: '#fff', fontSize: 15, fontWeight: 800,
+                    }}
+                  >
+                    {inicialesDe(destacado.nombre)}
+                  </span>
                 )}
                 <div style={{ flex: '1 1 160px', minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -930,34 +981,13 @@ export default function ClientHome() {
           </div>
         </div>
 
-        <div
-          style={{
-            maxWidth: 1160, margin: `${isMobile ? 24 : 36}px auto 0`, paddingTop: isMobile ? 20 : 26,
-            borderTop: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap',
-            gap: isMobile ? 20 : 28, justifyContent: isMobile ? 'flex-start' : 'space-between',
-          }}
-        >
-          {PROPUESTAS_VALOR.map((v) => (
-            <div key={v.titulo} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flex: '1 1 180px', maxWidth: 280 }}>
-              <span
-                style={{
-                  width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                  background: 'var(--accent-soft)', color: 'var(--accent-hover)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <Icon name={v.icono} size={17} />
-              </span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.25 }}>{v.titulo}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 1 }}>{v.detalle}</div>
-              </div>
-            </div>
-          ))}
-        </div>
       </section>
 
-      <section id="resultados" style={{ maxWidth: 1160, margin: '0 auto', padding: isMobile ? '28px 16px' : '40px 32px' }}>
+      {/* 1224 = 1160 + 2×32 de padding: el contenido queda en 1160 y empieza
+          en el mismo borde que el texto del hero (el hero aplica su padding
+          fuera del ancho máximo). Mismo criterio en ComoFunciona,
+          ResenasRecientes y Footer. */}
+      <section id="resultados" style={{ maxWidth: 1224, margin: '0 auto', padding: isMobile ? '28px 16px' : '40px 32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 800 }}>
@@ -966,7 +996,7 @@ export default function ClientHome() {
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
               {hayFiltrosActivos
                 ? `${recomendaciones.length} negocio${recomendaciones.length === 1 ? '' : 's'} encontrado${recomendaciones.length === 1 ? '' : 's'}`
-                : 'Barberías registradas en Britalia, Kennedy.'}
+                : 'Barberías y estéticas de Britalia, Kennedy.'}
             </div>
           </div>
           {hayFiltrosActivos && (
@@ -1006,11 +1036,26 @@ export default function ClientHome() {
             {hayFiltrosActivos ? 'No encontramos negocios que coincidan con tu búsqueda.' : 'Aún no hay negocios registrados en MiniBarrio.'}
           </p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginTop: 20 }}>
+          // auto-fit (no auto-fill): las tarjetas llenan la fila en vez de
+          // dejar media fila vacía. Con 1 o 2 negocios en PC, cada tarjeta
+          // ocupa más de 600px: en vertical la foto quedaba como una franja
+          // delgada, así que ahí pasan a horizontal (foto a la izquierda).
+          <div
+            style={{
+              display: 'grid', gap: 16, marginTop: 20,
+              gridTemplateColumns: `repeat(auto-fit, minmax(${tarjetasHorizontales ? 420 : 230}px, 1fr))`,
+              maxWidth: recomendaciones.length === 1 ? (tarjetasHorizontales ? 640 : 520) : undefined,
+            }}
+          >
             {recomendaciones.map((n) => (
-              <Link key={n.id} to={`/negocio/${n.id}`} className="card" style={{ overflow: 'hidden', display: 'block', color: 'inherit' }}>
-                <div style={{ height: 110, background: 'var(--surface-2)' }} />
-                <div style={{ padding: 14 }}>
+              <Link
+                key={n.id}
+                to={`/negocio/${n.id}`}
+                className={`card tarjeta-negocio${tarjetasHorizontales ? ' tarjeta-negocio--horizontal' : ''}`}
+                style={{ overflow: 'hidden', color: 'inherit' }}
+              >
+                <FotoTarjeta negocio={n} horizontal={tarjetasHorizontales} />
+                <div className="tarjeta-negocio__cuerpo" style={{ padding: tarjetasHorizontales ? '18px 20px' : 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                     <div style={{ fontWeight: 800, fontSize: 14.5 }}>{n.nombre}</div>
                     {n.ratingProm && (
@@ -1031,14 +1076,9 @@ export default function ClientHome() {
                     <span style={{ fontSize: 12.5, fontWeight: 700 }}>
                       {n.precioDesde != null ? `Desde ${COP.format(n.precioDesde)}` : 'Consulta precios'}
                     </span>
-                    {n.estado && (
-                      <span
-                        style={{
-                          fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999,
-                          background: ESTADO_APERTURA[n.estado].bg, color: ESTADO_APERTURA[n.estado].text,
-                        }}
-                      >
-                        {ESTADO_APERTURA[n.estado].label}
+                    {n.especialidades?.[0] && (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
+                        {n.especialidades[0]}
                       </span>
                     )}
                   </div>
@@ -1064,6 +1104,12 @@ export default function ClientHome() {
         )}
       </section>
 
+      <ComoFunciona />
+      <ResenasRecientes
+        resenas={resenasVista}
+        nombresNegocios={Object.fromEntries([...negocios, ...(DEMO ? DEMO.NEGOCIOS_DEMO : [])].map((n) => [n.id, n.nombre]))}
+      />
+
       <Footer />
     </div>
   )
@@ -1073,15 +1119,35 @@ const ICON_PATHS = {
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
   menu: 'M3 6h18M3 12h18M3 18h18',
   x: 'M18 6 6 18M6 6l12 12',
-  tag: 'M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3ZM6 6h.008v.008H6V6Z',
-  calendar: 'M5 8h14v12H5zM5 8V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M7 3v4M17 3v4M5 12h14',
-  star: 'M12 2.5l2.9 6.3 6.6.7-5 4.6 1.4 6.6L12 17.6 6.1 20.7l1.4-6.6-5-4.6 6.6-.7z',
   target: 'M12 2a10 10 0 1 0 .01 0zM12 9a3 3 0 1 0 .01 0zM12 2v3M12 19v3M2 12h3M19 12h3',
   user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
   store: 'M3 9l1.5-5h15L21 9M3 9h18M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M5 12v8h14v-8M10 20v-5h4v5',
   info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
   chevron: 'M9 18l6-6-6-6',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+}
+
+// Foto de la tarjeta de un negocio en "Recomendado para ti": la primera del
+// portafolio; sin foto (o si no carga), un fondo de color con sus iniciales —
+// nunca un recuadro gris vacío. El estado (abierto/cerrado) va encima.
+function FotoTarjeta({ negocio, horizontal }) {
+  const [fallo, setFallo] = useState(false)
+  const foto = !fallo && negocio.fotos?.[0]
+  const estado = negocio.estado && ESTADO_APERTURA[negocio.estado]
+  return (
+    <div className="tarjeta-negocio__foto" style={{ height: horizontal ? '100%' : 130, minHeight: horizontal ? 190 : undefined }}>
+      {foto ? (
+        <img src={foto} alt="" loading="lazy" onError={() => setFallo(true)} />
+      ) : (
+        <span className="tarjeta-negocio__iniciales">{inicialesDe(negocio.nombre)}</span>
+      )}
+      {estado && (
+        <span className="tarjeta-negocio__estado" style={{ background: estado.bg, color: estado.text }}>
+          ● {estado.label}
+        </span>
+      )}
+    </div>
+  )
 }
 
 // Opción del menú móvil: ícono en círculo, título, detalle corto y flecha.

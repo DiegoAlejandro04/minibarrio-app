@@ -690,6 +690,213 @@ input:focus, select:focus, textarea:focus {
   .menu-movil, .menu-movil-velo, .menu-movil__opcion, .menu-movil__negocio, .esqueleto { animation: none; }
 }
 
+/* ── Secciones de la vitrina (ClientHome.jsx, ComoFunciona.jsx,
+   ResenasRecientes.jsx): encabezado común de etiqueta + título + bajada. ── */
+.seccion-kicker {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.seccion-titulo {
+  text-align: center;
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 800;
+  margin: 6px 0 0;
+  color: var(--text);
+}
+.seccion-subtitulo {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+}
+.paso-etiqueta {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in oklch, var(--accent) 30%, transparent);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+/* Tarjetas de "Recomendado para ti": foto arriba, estado encima de la foto. */
+.tarjeta-negocio { transition: box-shadow .2s ease, border-color .2s ease; }
+.tarjeta-negocio:hover {
+  border-color: color-mix(in oklch, var(--accent) 35%, var(--border));
+  box-shadow: 0 14px 30px -14px color-mix(in oklch, var(--accent) 45%, transparent);
+}
+.tarjeta-negocio { display: block; }
+/* Pocos negocios en PC: foto a la izquierda, datos a la derecha. */
+.tarjeta-negocio--horizontal { display: grid; grid-template-columns: 42% 1fr; }
+.tarjeta-negocio--horizontal .tarjeta-negocio__cuerpo { display: flex; flex-direction: column; justify-content: center; }
+.tarjeta-negocio__foto {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Respaldo sin foto: degradado del naranja de marca a terracota, con las
+     iniciales del negocio. Sin mezclar con el verde: naranja + verde da un
+     oliva turbio. */
+  background: linear-gradient(135deg, oklch(74% 0.15 52), oklch(52% 0.14 36));
+}
+.tarjeta-negocio__foto img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tarjeta-negocio__iniciales {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: #fff;
+  opacity: .92;
+}
+.tarjeta-negocio__estado {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px oklch(0% 0 0 / .25);
+}
+
+/* Franja de reseñas: un tono distinto al fondo corta la monotonía entre
+   secciones. */
+.banda-resenas {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.resena-tarjeta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 210px;
+  padding: 26px 26px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  transition: box-shadow .2s ease;
+}
+.resena-tarjeta:hover {
+  box-shadow: 0 14px 30px -14px color-mix(in oklch, var(--accent) 40%, transparent);
+}
+.resena-comilla {
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  font-size: 58px;
+  line-height: 1;
+  font-family: Georgia, serif;
+  color: color-mix(in oklch, var(--accent) 25%, transparent);
+}
+/* Insignia de reseña verificada (hecha con una cita real ya pasada). */
+.resena-verificada {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--sage-soft);
+  color: var(--sage-text);
+  white-space: nowrap;
+}
+.resena-estrellas { color: var(--accent); font-size: 15px; letter-spacing: 3px; }
+/* padding-right: el texto nunca pasa por debajo de las comillas decorativas. */
+.resena-texto { font-size: 15px; line-height: 1.6; margin: 14px 0 22px; padding-right: 34px; color: var(--text); }
+/* Pie de la tarjeta separado del texto por una línea fina. */
+.resena-pie { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+/* Carrusel de reseñas (ResenasRecientes.jsx): una fila a todo el ancho que
+   se desliza sola y se detiene al pasar el mouse o tocarla. Los bordes se
+   desvanecen en una franja ancha (12%) para que las tarjetas entren y salgan
+   suaves en vez de verse cortadas. Cada tarjeta lleva su separación como
+   margin-right (no gap): así las dos copias de la lista miden exactamente lo
+   mismo y el -50% del final cae justo donde empieza la segunda copia. */
+.carrusel-resenas {
+  overflow: hidden;
+  padding-top: 8px; /* aire para la sombra del hover */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.carrusel-resenas__pista {
+  display: flex;
+  width: max-content;
+  animation: carrusel-resenas linear infinite;
+}
+.carrusel-resenas:hover .carrusel-resenas__pista,
+.carrusel-resenas:active .carrusel-resenas__pista { animation-play-state: paused; }
+.carrusel-resenas .resena-tarjeta { width: 320px; flex-shrink: 0; margin-right: 22px; }
+@media (max-width: 767px) {
+  .carrusel-resenas .resena-tarjeta { width: 270px; margin-right: 16px; }
+}
+@keyframes carrusel-resenas {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+/* Sin movimiento: la fila queda quieta y se recorre con el dedo o la rueda;
+   la copia de relleno se oculta. */
+@media (prefers-reduced-motion: reduce) {
+  .carrusel-resenas { overflow-x: auto; -webkit-mask-image: none; mask-image: none; padding: 8px 16px 0; }
+  .carrusel-resenas__pista { animation: none; }
+  .carrusel-resenas__pista > [aria-hidden="true"] { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta-negocio, .resena-tarjeta { transition: none; }
+}
+
+/* Tarjeta "¿Tienes una barbería?" del pie de página (Footer.jsx). */
+.banner-negocio {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  border-radius: 22px;
+  background: var(--ink);
+  border: 1px solid color-mix(in oklch, var(--accent) 22%, transparent);
+  color: #fff;
+}
+[data-theme="dark"] .banner-negocio { background: oklch(26% 0.035 168); }
+.banner-negocio::before {
+  content: '';
+  position: absolute;
+  /* En la esquina, lejos del botón: detrás de él se leía como un halo café. */
+  top: -260px;
+  right: -220px;
+  width: 460px;
+  height: 460px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklch, var(--accent) 18%, transparent) 0%, transparent 62%);
+  pointer-events: none;
+}
+.banner-negocio > * { position: relative; }
+.banner-negocio__icono {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .error-text {
   color: var(--danger);
   font-size: 13px;
