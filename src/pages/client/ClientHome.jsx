@@ -638,11 +638,6 @@ export default function ClientHome() {
                 lo cuenta como fuera — por eso su propio onClick. */}
             <div className="menu-movil-velo" aria-hidden="true" onClick={() => setMenuAbierto(false)} />
             <nav id="menu-movil" className="menu-movil" aria-label="Menú principal">
-              <div className="menu-movil__zona">
-                <Icon name="pin" size={13} />
-                Britalia, Kennedy · Barberías y estética
-              </div>
-
               {currentUser && (
                 <div className="menu-movil__usuario">
                   <span className="menu-movil__avatar">{inicialesDe(currentUser.displayName)}</span>
@@ -1082,7 +1077,6 @@ const ICON_PATHS = {
   calendar: 'M5 8h14v12H5zM5 8V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M7 3v4M17 3v4M5 12h14',
   star: 'M12 2.5l2.9 6.3 6.6.7-5 4.6 1.4 6.6L12 17.6 6.1 20.7l1.4-6.6-5-4.6 6.6-.7z',
   target: 'M12 2a10 10 0 1 0 .01 0zM12 9a3 3 0 1 0 .01 0zM12 2v3M12 19v3M2 12h3M19 12h3',
-  pin: 'M12 21s-7-6.1-7-11.5a7 7 0 1 1 14 0C19 14.9 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
   user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
   store: 'M3 9l1.5-5h15L21 9M3 9h18M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M5 12v8h14v-8M10 20v-5h4v5',
   info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',

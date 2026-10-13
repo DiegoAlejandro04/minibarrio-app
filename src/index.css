@@ -106,6 +106,49 @@
   --shadow-md: 0 8px 24px oklch(0% 0 0 / 0.5), 0 2px 6px oklch(0% 0 0 / 0.32);
 }
 
+/* Mismo modo oscuro, declarado también con @media (prefers-color-scheme).
+   La app lo activa con data-theme (index.html + App.jsx), pero Samsung
+   Internet solo reconoce que una página trae su propio modo oscuro si
+   encuentra esta media query en el CSS; si no, oscurece la página por su
+   cuenta (el naranja salía rojo oscuro y el mapa, claro). Se excluye
+   data-theme="light" para respetar a quien eligió claro en su perfil y al
+   panel del negocio. Mantener sincronizado con el bloque de arriba. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: oklch(16.5% 0.016 170);
+    --surface: oklch(21% 0.018 170);
+    --surface-2: oklch(26% 0.02 168);
+    --border: oklch(30% 0.02 168);
+    --border-strong: oklch(38% 0.022 168);
+
+    --text: oklch(94% 0.008 150);
+    --text-muted: oklch(76% 0.014 160);
+    --text-faint: oklch(58% 0.016 165);
+
+    --accent: oklch(72% 0.16 48);
+    --accent-hover: oklch(78% 0.145 50);
+    --accent-soft: oklch(31% 0.065 48);
+
+    --sage-soft: oklch(30% 0.06 150);
+    --sage-text: oklch(84% 0.1 150);
+
+    --warning-soft: oklch(31% 0.07 75);
+    --warning-text: oklch(86% 0.1 75);
+    --danger: oklch(72% 0.18 25);
+    --danger-soft: oklch(29% 0.08 25);
+
+    --map-gradient: linear-gradient(135deg, oklch(25% 0.03 170), oklch(21% 0.018 170));
+    --today-bg: oklch(33% 0.06 50);
+    --weekend-bg: oklch(24% 0.02 168);
+
+    --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.4), 0 1px 1px oklch(0% 0 0 / 0.28);
+    --shadow-md: 0 8px 24px oklch(0% 0 0 / 0.5), 0 2px 6px oklch(0% 0 0 / 0.32);
+  }
+}
+
+
 * { box-sizing: border-box; }
 
 /* Reserva siempre el espacio de la barra de scroll vertical, aparezca o no:
@@ -478,26 +521,13 @@ input:focus, select:focus, textarea:focus {
   top: calc(100% - 1px);
   left: 0;
   right: 0;
-  padding: 14px 16px 18px;
+  padding: 10px 16px 18px;
   background: var(--surface);
   border-radius: 0 0 22px 22px;
   box-shadow: 0 18px 40px -12px oklch(0% 0 0 / 0.35);
   transform-origin: top center;
   animation: menu-movil-entrada .24s cubic-bezier(.2, .8, .3, 1);
 }
-.menu-movil__zona {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--sage-text);
-  background: var(--sage-soft);
-  padding: 5px 10px;
-  border-radius: 999px;
-  margin-bottom: 12px;
-}
-
 .menu-movil__usuario {
   display: flex;
   align-items: center;
@@ -543,7 +573,11 @@ input:focus, select:focus, textarea:focus {
   height: 38px;
   flex-shrink: 0;
   border-radius: 12px;
-  background: var(--accent-soft);
+  /* Cuadro neutro + contorno de acento, no un fondo naranja: cualquier
+     naranja mezclado con el verde noche (opaco como --accent-soft o
+     translúcido) da café. Así el ícono naranja queda limpio sobre gris. */
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 30%, transparent);
   color: var(--accent);
   display: flex;
   align-items: center;
@@ -553,7 +587,7 @@ input:focus, select:focus, textarea:focus {
 .menu-movil__detalle { display: block; font-size: 12.5px; color: var(--text-muted); margin-top: 1px; }
 .menu-movil__flecha { color: var(--text-faint); display: flex; }
 .menu-movil__opcion--inactiva { cursor: default; }
-.menu-movil__opcion--inactiva .menu-movil__icono { background: var(--surface-2); color: var(--text-faint); }
+.menu-movil__opcion--inactiva .menu-movil__icono { background: var(--surface-2); box-shadow: none; color: var(--text-faint); }
 .menu-movil__opcion--inactiva .menu-movil__titulo { color: var(--text-muted); }
 .menu-movil__pronto {
   font-size: 10.5px;
@@ -573,21 +607,27 @@ input:focus, select:focus, textarea:focus {
   padding: 16px;
   border-radius: 18px;
   background: var(--ink);
+  border: 1px solid color-mix(in oklch, var(--accent) 20%, transparent);
   color: #fff;
   display: flex;
   flex-direction: column;
   animation: menu-movil-opcion .34s .12s cubic-bezier(.2, .8, .3, 1) both;
 }
-/* Resplandor de acento en la esquina, detrás del contenido. */
+/* En modo oscuro el menú ya es verde noche: la tarjeta sube un escalón de
+   luz para leerse como tarjeta y no fundirse con el fondo del menú. */
+[data-theme="dark"] .menu-movil__negocio { background: oklch(26% 0.035 168); }
+/* Resplandor de acento en la esquina, detrás del contenido: amplio y tenue
+   para que se sienta como luz y no como una mancha. */
 .menu-movil__negocio::before {
   content: '';
   position: absolute;
-  top: -70px;
-  right: -60px;
-  width: 200px;
-  height: 200px;
+  top: -150px;
+  right: -130px;
+  width: 340px;
+  height: 340px;
   border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in oklch, var(--accent) 55%, transparent) 0%, transparent 68%);
+  background: radial-gradient(circle, color-mix(in oklch, var(--accent) 26%, transparent) 0%, transparent 62%);
+  pointer-events: none;
 }
 .menu-movil__negocio > * { position: relative; }
 .menu-movil__negocio-icono {

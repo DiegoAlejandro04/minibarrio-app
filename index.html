@@ -5,9 +5,25 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- La app trae su propio modo oscuro (ver AuthContext.jsx): con esto
-         Chrome en Android no oscurece la página por su cuenta, que dejaba el
-         mapa (imágenes) claro en medio de todo oscuro. -->
+         Chrome y Samsung Internet en Android no oscurecen la página por su
+         cuenta, que dejaba el mapa (imágenes) claro en medio de todo oscuro
+         y volvía rojo oscuro el naranja de los botones. -->
     <meta name="color-scheme" content="light dark" />
+    <!-- Tema desde el primer instante, antes de que cargue React: misma
+         regla que AuthContext.jsx + App.jsx (la elección guardada manda; sin
+         elección, el modo del dispositivo; /panel usa la suya propia). Así
+         no hay parpadeo en claro al recargar, y el navegador ve la página
+         oscura desde el inicio en vez de intentar oscurecerla él. -->
+    <script>
+      (function () {
+        try {
+          var panel = location.pathname.indexOf('/panel') === 0
+          var guardado = localStorage.getItem(panel ? 'minibarrio:modoOscuroPanel' : 'minibarrio:modoOscuro')
+          var oscuro = guardado === '1' || (guardado === null && !panel && matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.dataset.theme = oscuro ? 'dark' : 'light'
+        } catch (e) { /* sin localStorage: React decide al cargar */ }
+      })()
+    </script>
     <title>MiniBarrio · La vitrina digital de las barberías de tu barrio</title>
     <meta name="description" content="Prototipo académico: portafolio comercial y recomendación para barberías del barrio Britalia, Kennedy." />
     <link rel="preconnect" href="https://fonts.googleapis.com">
