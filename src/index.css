@@ -1726,3 +1726,334 @@ input:focus, select:focus, textarea:focus {
 @supports (-webkit-touch-callout: none) {
   input, select, textarea { font-size: 16px !important; }
 }
+
+/* ==========================================================================
+   Panel del negocio — menú lateral de cristal (OwnerLayout.jsx)
+   Usa los colores de la página y cambia con el modo oscuro del panel. En el
+   computador se contrae a solo iconos; en el celular queda siempre visible
+   como barra de iconos y se expande encima del contenido.
+   ========================================================================== */
+.panel-negocio {
+  --pn-ancho: 268px;
+  --pn-colapsado: 78px;
+  --pn-margen: 14px;
+  --pn-movil: 62px;
+
+  --vidrio-fondo: oklch(100% 0 0 / 0.5);
+  --vidrio-fondo-movil: oklch(99% 0.006 80 / 0.82);
+  --vidrio-borde: oklch(100% 0 0 / 0.8);
+  --vidrio-campo: oklch(100% 0 0 / 0.55);
+  --vidrio-linea: oklch(23% 0.02 55 / 0.1);
+  --vidrio-hover: oklch(23% 0.02 55 / 0.06);
+  --vidrio-activo: oklch(68% 0.15 48 / 0.14);
+  --vidrio-activo-texto: var(--accent-hover);
+  --vidrio-sombra: 0 20px 50px oklch(23% 0.02 55 / 0.12), inset 0 1px 0 oklch(100% 0 0 / 0.6);
+  --mancha-opacidad: 0.35;
+
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+}
+[data-theme="dark"] .panel-negocio {
+  --vidrio-fondo: oklch(30% 0.03 168 / 0.38);
+  --vidrio-fondo-movil: oklch(22% 0.022 170 / 0.85);
+  --vidrio-borde: oklch(100% 0 0 / 0.12);
+  --vidrio-campo: oklch(100% 0 0 / 0.06);
+  --vidrio-linea: oklch(100% 0 0 / 0.12);
+  --vidrio-hover: oklch(100% 0 0 / 0.07);
+  --vidrio-activo: oklch(72% 0.16 48 / 0.18);
+  --vidrio-activo-texto: var(--accent);
+  --vidrio-sombra: 0 20px 50px oklch(0% 0 0 / 0.45), inset 0 1px 0 oklch(100% 0 0 / 0.06);
+  --mancha-opacidad: 0.28;
+}
+
+/* Manchas de color detrás del cristal */
+.panel-mancha {
+  position: fixed;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: var(--mancha-opacidad);
+  pointer-events: none;
+}
+.panel-mancha-1 { width: 340px; height: 340px; top: -90px; left: -80px; background: var(--accent); }
+.panel-mancha-2 { width: 380px; height: 380px; bottom: -120px; left: 60px; background: var(--sage); }
+
+/* Cristal */
+.panel-vidrio {
+  position: sticky;
+  top: var(--pn-margen);
+  z-index: 2;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  width: var(--pn-ancho);
+  height: calc(100vh - var(--pn-margen) * 2);
+  height: calc(100dvh - var(--pn-margen) * 2);
+  margin: var(--pn-margen) 0 var(--pn-margen) var(--pn-margen);
+  padding: 22px 18px;
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 24px;
+  background: var(--vidrio-fondo);
+  -webkit-backdrop-filter: blur(30px) saturate(140%);
+  backdrop-filter: blur(30px) saturate(140%);
+  box-shadow: var(--vidrio-sombra);
+  color: var(--text);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  transition: width .4s ease, padding .4s ease;
+}
+.panel-vidrio::-webkit-scrollbar { display: none; }
+.panel-negocio.colapsado .panel-vidrio {
+  width: var(--pn-colapsado);
+  padding: 22px 13px;
+}
+.panel-oculto-colapsado { white-space: nowrap; }
+.panel-negocio.colapsado .panel-oculto-colapsado { display: none; }
+
+/* Cabecera */
+.panel-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.panel-negocio.colapsado .panel-cabecera { justify-content: center; }
+.panel-negocio.colapsado .panel-marca { display: none; }
+.panel-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 800;
+  min-width: 0;
+}
+.panel-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.panel-alternar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .25s;
+}
+.panel-alternar:hover { background: var(--vidrio-hover); }
+
+/* Buscador */
+.panel-buscador {
+  height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 16px;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 30px;
+  background: var(--vidrio-campo);
+  color: var(--text-muted);
+  transition: border-color .25s;
+}
+.panel-buscador:focus-within { border-color: var(--accent); }
+.panel-buscador input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+.panel-buscador input::placeholder { color: var(--text-faint); }
+.panel-negocio.colapsado .panel-buscador {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin-left: auto;
+  margin-right: auto;
+  justify-content: center;
+  cursor: pointer;
+}
+.panel-negocio.colapsado .panel-buscador input { display: none; }
+
+/* Menú */
+.panel-menu,
+.panel-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.panel-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .25s, color .25s;
+}
+.panel-item svg { flex-shrink: 0; transition: color .25s; }
+.panel-item:hover { background: var(--vidrio-hover); color: var(--text); }
+.panel-item:hover svg { color: var(--accent); }
+.panel-item.activo {
+  background: var(--vidrio-activo);
+  color: var(--vidrio-activo-texto);
+  font-weight: 700;
+}
+.panel-salir:hover,
+.panel-salir:hover svg { color: var(--danger); }
+.panel-negocio.colapsado .panel-item {
+  justify-content: center;
+  padding: 12px 0;
+}
+.panel-divisor {
+  height: 1px;
+  margin: 10px 4px;
+  flex-shrink: 0;
+  background: var(--vidrio-linea);
+}
+.panel-sin-resultados {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  padding: 8px 12px;
+}
+.panel-negocio.colapsado .panel-sin-resultados { display: none; }
+
+/* Pie: progreso del perfil y cerrar sesión */
+.panel-pie {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+}
+.panel-progreso {
+  padding: 14px;
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 14px;
+  background: var(--vidrio-campo);
+}
+.panel-progreso-barra {
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--vidrio-linea);
+  overflow: hidden;
+}
+.panel-progreso-barra > div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.panel-progreso-paso {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text);
+}
+.panel-progreso-anillo {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) var(--avance), var(--vidrio-linea) 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.panel-progreso-anillo span {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Contenido */
+.panel-contenido {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  padding: 28px 36px;
+}
+
+/* Celular: barra de iconos fija a la izquierda que se expande encima */
+.panel-negocio.es-movil .panel-vidrio {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  left: calc(10px + env(safe-area-inset-left));
+  z-index: 51;
+  width: 264px;
+  height: auto;
+  margin: 0;
+  padding: 18px 14px;
+  border-radius: 22px;
+}
+.panel-negocio.es-movil:not(.colapsado) .panel-vidrio { background: var(--vidrio-fondo-movil); }
+.panel-negocio.es-movil.colapsado .panel-vidrio {
+  width: var(--pn-movil);
+  padding: 16px 8px;
+}
+.panel-negocio.es-movil .panel-contenido {
+  padding: calc(16px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 24px calc(var(--pn-movil) + 22px + env(safe-area-inset-left));
+}
+.panel-velo {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: oklch(20% 0.01 0 / 0.35);
+  animation: panel-aparecer .3s ease;
+}
+@keyframes panel-aparecer {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-vidrio,
+  .panel-item,
+  .panel-velo { transition: none; animation: none; }
+}

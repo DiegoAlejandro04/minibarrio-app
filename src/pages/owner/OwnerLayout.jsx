@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { collection, doc, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -8,27 +8,60 @@ import Splash from '../../components/Splash.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { pasosPerfil } from '../../perfilNegocio.js'
 
-// Shell del panel del comerciante: sidebar con navegación real + los datos
+// Shell del panel del comerciante: sidebar de cristal (estilos .panel-* en
+// index.css) que se contrae a solo iconos, con navegación real + los datos
 // del negocio y sus servicios, compartidos entre las sub-páginas via
 // Outlet context (evita que cada página vuelva a suscribirse a lo mismo).
 
-const NAV_ITEMS = [
-  { to: '/panel', label: 'Resumen', icon: 'grid', end: true },
-  { to: '/panel/agenda', label: 'Agenda', icon: 'calendar' },
-  { to: '/panel/servicios', label: 'Servicios', icon: 'scissors' },
-  { to: '/panel/identidad', label: 'Identidad', icon: 'store' },
-  { to: '/panel/portafolio', label: 'Portafolio', icon: 'image' },
-  { to: '/panel/resenas', label: 'Reseñas', icon: 'star' },
-  { to: '/panel/clientes', label: 'Clientes', icon: 'users' },
-  { to: '/panel/configuracion', label: 'Configuración', icon: 'gear' },
+// Menú en grupos, separados por una línea en el panel.
+const GRUPOS_NAV = [
+  [
+    { to: '/panel', label: 'Resumen', icon: 'grid', end: true },
+    { to: '/panel/agenda', label: 'Agenda', icon: 'calendar' },
+  ],
+  [
+    { to: '/panel/servicios', label: 'Servicios', icon: 'scissors' },
+    { to: '/panel/identidad', label: 'Identidad', icon: 'store' },
+    { to: '/panel/portafolio', label: 'Portafolio', icon: 'image' },
+    { to: '/panel/resenas', label: 'Reseñas', icon: 'star' },
+    { to: '/panel/clientes', label: 'Clientes', icon: 'users' },
+  ],
+  [
+    { to: '/panel/configuracion', label: 'Configuración', icon: 'gear' },
+  ],
 ]
+
+// En el computador se recuerda si el dueño dejó el panel contraído.
+const CLAVE_COLAPSADO = 'minibarrio:panelColapsado'
+
+function leerColapsado() {
+  try {
+    return localStorage.getItem(CLAVE_COLAPSADO) === '1'
+  } catch {
+    return false
+  }
+}
 
 export default function OwnerLayout() {
   const { currentUser, logout } = useAuth()
   const navigate = useNavigate()
   const uid = currentUser?.uid
   const isMobile = useIsMobile()
-  const [drawerAbierto, setDrawerAbierto] = useState(false)
+  // En el celular el panel queda siempre visible como barra de iconos y se
+  // expande encima del contenido; en el computador se contrae o expande.
+  const [abiertoMovil, setAbiertoMovil] = useState(false)
+  const [colapsadoEscritorio, setColapsadoEscritorio] = useState(leerColapsado)
+  const [busqueda, setBusqueda] = useState('')
+  const buscadorRef = useRef(null)
+  const colapsado = isMobile ? !abiertoMovil : colapsadoEscritorio
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CLAVE_COLAPSADO, colapsadoEscritorio ? '1' : '0')
+    } catch {
+      // Sin almacenamiento (modo privado): solo no se recuerda.
+    }
+  }, [colapsadoEscritorio])
 
   const [negocio, setNegocio] = useState(null)
   const [servicios, setServicios] = useState([])
@@ -74,133 +107,155 @@ export default function OwnerLayout() {
     )
   }
 
-  const sidebar = (
-    <aside
-      style={{
-        width: isMobile ? 260 : 232, background: 'var(--ink)', color: 'var(--ink-text)', flexShrink: 0,
-        display: 'flex', flexDirection: 'column', padding: '22px 16px',
-        ...(isMobile && {
-          position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 51, boxShadow: 'var(--shadow-md)', overflowY: 'auto',
-        }),
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 16.5, fontWeight: 800, padding: '0 6px' }}>
-        <span
-          style={{
-            width: 30, height: 30, borderRadius: 9, background: 'var(--accent)', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0,
-          }}
-        >
-          MB
-        </span>
-        MiniBarrio
-      </div>
+  const texto = busqueda.trim().toLowerCase()
+  const visible = (item) => !texto || item.label.toLowerCase().includes(texto)
+  const grupos = GRUPOS_NAV.map((grupo) => grupo.filter(visible)).filter((grupo) => grupo.length > 0)
+  const verCerrarSesion = !texto || 'cerrar sesión'.includes(texto)
 
-      <div style={{ fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', color: 'oklch(70% 0.02 165)', margin: '26px 6px 10px' }}>
-        Panel del comerciante
-      </div>
+  function alternar() {
+    if (isMobile) setAbiertoMovil((v) => !v)
+    else setColapsadoEscritorio((v) => !v)
+  }
 
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            onClick={() => setDrawerAbierto(false)}
-            style={({ isActive }) => ({
-              display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 9,
-              fontSize: 13.5, fontWeight: 700, textDecoration: 'none',
-              background: isActive ? 'var(--ink-2)' : 'transparent',
-              color: isActive ? '#fff' : 'oklch(70% 0.02 165)',
-            })}
-          >
-            <Icon name={item.icon} size={16} />
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
+  // Al navegar en el celular el panel vuelve a quedar en solo iconos.
+  function alNavegar() {
+    setBusqueda('')
+    if (isMobile) setAbiertoMovil(false)
+  }
 
-      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ background: 'var(--ink-2)', borderRadius: 12, padding: 14 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700 }}>Perfil al {perfilCompletado}%</div>
-          <div style={{ height: 6, background: 'oklch(35% 0.03 165)', borderRadius: 999, marginTop: 8, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${perfilCompletado}%`, background: 'var(--accent)', borderRadius: 999 }} />
-          </div>
-          {siguientePaso ? (
-            <>
-              <div style={{ fontSize: 11, color: 'oklch(70% 0.02 165)', marginTop: 10 }}>Siguiente paso:</div>
-              <Link
-                to={siguientePaso.ruta}
-                onClick={() => setDrawerAbierto(false)}
-                style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 700, color: '#fff', marginTop: 3, lineHeight: 1.4 }}
-              >
-                <span style={{ color: 'var(--accent)' }}>→</span> {siguientePaso.texto}
-              </Link>
-            </>
-          ) : (
-            <div style={{ fontSize: 11.5, color: 'oklch(80% 0.09 150)', marginTop: 8, fontWeight: 700 }}>¡Tu perfil está completo!</div>
-          )}
-        </div>
-        <button
-          onClick={handleLogout}
-          style={{
-            background: 'transparent', border: '1px solid oklch(38% 0.03 165)', color: 'oklch(85% 0.01 165)',
-            display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', fontSize: 13, fontWeight: 700,
-            borderRadius: 'var(--radius-sm)', padding: '10px 16px',
-          }}
-        >
-          <Icon name="logout" size={15} /> Cerrar sesión
-        </button>
-      </div>
-    </aside>
-  )
+  function abrirBusqueda() {
+    if (isMobile) setAbiertoMovil(true)
+    else setColapsadoEscritorio(false)
+    requestAnimationFrame(() => buscadorRef.current?.focus())
+  }
+
+  function alTeclearBusqueda(e) {
+    if (e.key === 'Escape') {
+      setBusqueda('')
+    } else if (e.key === 'Enter' && grupos.length > 0) {
+      navigate(grupos[0][0].to)
+      alNavegar()
+    }
+  }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {isMobile ? (
-        <>
-          <header
-            style={{
-              position: 'fixed', top: 0, left: 0, right: 0, height: 56, zIndex: 40,
-              background: 'var(--ink)', color: '#fff', display: 'flex', alignItems: 'center',
-              justifyContent: 'space-between', padding: '0 16px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 15, fontWeight: 800 }}>
-              <span
-                style={{
-                  width: 26, height: 26, borderRadius: 8, background: 'var(--accent)', color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, flexShrink: 0,
-                }}
-              >
-                MB
-              </span>
-              MiniBarrio
-            </div>
-            <button
-              type="button"
-              onClick={() => setDrawerAbierto(true)}
-              aria-label="Abrir menú"
-              style={{ background: 'none', border: 'none', color: '#fff', display: 'flex', padding: 4 }}
-            >
-              <Icon name="menu" size={22} />
-            </button>
-          </header>
+    <div className={`panel-negocio${isMobile ? ' es-movil' : ''}${colapsado ? ' colapsado' : ''}`}>
+      {/* Manchas de color de la marca detrás del cristal: sin algo detrás,
+          el desenfoque no se nota. */}
+      <div className="panel-mancha panel-mancha-1" aria-hidden="true" />
+      <div className="panel-mancha panel-mancha-2" aria-hidden="true" />
 
-          {drawerAbierto && (
-            <div
-              role="presentation"
-              onClick={() => setDrawerAbierto(false)}
-              style={{ position: 'fixed', inset: 0, background: 'oklch(20% 0.01 0 / 0.45)', zIndex: 50 }}
-            />
-          )}
-          {drawerAbierto && sidebar}
-        </>
-      ) : (
-        sidebar
+      {isMobile && abiertoMovil && (
+        <div role="presentation" className="panel-velo" onClick={() => setAbiertoMovil(false)} />
       )}
 
-      <main style={{ flex: 1, background: 'var(--bg)', padding: isMobile ? '72px 16px 24px' : '28px 36px', minWidth: 0 }}>
+      <aside className="panel-vidrio" aria-label="Menú del panel">
+        <div className="panel-cabecera">
+          <div className="panel-marca">
+            <span className="panel-logo">MB</span>
+            <span className="panel-oculto-colapsado">MiniBarrio</span>
+          </div>
+          <button
+            type="button"
+            className="panel-alternar"
+            onClick={alternar}
+            aria-label={colapsado ? 'Expandir menú' : 'Contraer menú'}
+            aria-expanded={!colapsado}
+          >
+            <Icon name={colapsado ? 'menu' : 'x'} size={18} />
+          </button>
+        </div>
+
+        <div className="panel-buscador" onClick={colapsado ? abrirBusqueda : undefined}>
+          <Icon name="search" size={16} />
+          <input
+            ref={buscadorRef}
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            onKeyDown={alTeclearBusqueda}
+            placeholder="Buscar"
+            aria-label="Buscar en el menú"
+            maxLength={40}
+            tabIndex={colapsado ? -1 : 0}
+          />
+        </div>
+
+        <nav className="panel-menu">
+          {grupos.map((grupo, i) => (
+            <div key={grupo[0].to} className="panel-grupo">
+              {i > 0 && <div className="panel-divisor" />}
+              {grupo.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  onClick={alNavegar}
+                  title={colapsado ? item.label : undefined}
+                  className={({ isActive }) => `panel-item${isActive ? ' activo' : ''}`}
+                >
+                  <Icon name={item.icon} size={17} />
+                  <span className="panel-oculto-colapsado">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          ))}
+          {grupos.length === 0 && !verCerrarSesion && (
+            <p className="panel-sin-resultados">Sin resultados</p>
+          )}
+        </nav>
+
+        <div className="panel-pie">
+          {!texto && (
+            colapsado ? (
+              <Link
+                to={siguientePaso?.ruta || '/panel/identidad'}
+                onClick={alNavegar}
+                className="panel-progreso-anillo"
+                style={{ '--avance': `${perfilCompletado * 3.6}deg` }}
+                title={`Perfil al ${perfilCompletado}%`}
+                aria-label={`Perfil al ${perfilCompletado}%`}
+              >
+                <span>{perfilCompletado}</span>
+              </Link>
+            ) : (
+              <div className="panel-progreso">
+                <div style={{ fontSize: 12.5, fontWeight: 700 }}>Perfil al {perfilCompletado}%</div>
+                <div className="panel-progreso-barra">
+                  <div style={{ width: `${perfilCompletado}%` }} />
+                </div>
+                {siguientePaso ? (
+                  <>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>Siguiente paso:</div>
+                    <Link to={siguientePaso.ruta} onClick={alNavegar} className="panel-progreso-paso">
+                      <span style={{ color: 'var(--accent)' }}>→</span> {siguientePaso.texto}
+                    </Link>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 11.5, color: 'var(--sage-text)', marginTop: 8, fontWeight: 700 }}>¡Tu perfil está completo!</div>
+                )}
+              </div>
+            )
+          )}
+
+          {verCerrarSesion && (
+            <>
+              <div className="panel-divisor" />
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="panel-item panel-salir"
+                title={colapsado ? 'Cerrar sesión' : undefined}
+              >
+                <Icon name="logout" size={17} />
+                <span className="panel-oculto-colapsado">Cerrar sesión</span>
+              </button>
+            </>
+          )}
+        </div>
+      </aside>
+
+      <main className="panel-contenido">
         <Outlet context={{ negocio, servicios, uid, portada }} />
       </main>
     </div>
