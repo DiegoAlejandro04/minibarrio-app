@@ -2658,3 +2658,52 @@ a.panel-perfil-avatar:hover { color: #fff; }
   .fuerza-barra > div,
   .fuerza-check { transition: none; }
 }
+
+/* Botón "Cancelar" de una cita (panel del cliente): borde rojo y, al pasar
+   el mouse, el mismo rojo pastel de "Cerrar sesión". */
+.btn-cancelar-cita {
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 1px solid var(--danger);
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  transition: background .25s, color .25s;
+}
+.btn-cancelar-cita:hover:not(:disabled) { background: var(--danger-soft); }
+.btn-cancelar-cita:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Ventana de confirmación (ConfirmarModal.jsx): ícono en círculo rojo pastel
+   y botón rojo para la acción que no se puede deshacer. */
+.confirmar-icono {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.btn-peligro {
+  background: var(--danger);
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 4px 15px color-mix(in oklch, var(--danger) 35%, transparent);
+  transition: filter .2s ease, transform .2s ease;
+}
+.btn-peligro:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.btn-peligro:disabled { opacity: .6; cursor: not-allowed; }
+
+/* "Reservar de nuevo" (Mis citas, panel del cliente): al pasar el mouse se
+   llena de naranja, como los botones principales. */
+.vitrina .btn-reservar-de-nuevo { transition: background .25s, color .25s, border-color .25s, box-shadow .25s; }
+.vitrina .btn-reservar-de-nuevo:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 15px var(--vidrio-brillo);
+}

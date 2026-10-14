@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import Icon from '../../components/Icon.jsx'
+import ConfirmarModal from '../../components/ConfirmarModal.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva } from '../../reservas.js'
 
@@ -23,6 +24,7 @@ function capitalize(s) {
 export default function ClientCitas() {
   const { citas, negociosPorId, serviciosPorId, cancelarCita } = useOutletContext()
   const [cancelandoId, setCancelandoId] = useState(null)
+  const [porCancelar, setPorCancelar] = useState(null) // cita que pide confirmación | null
   const isMobile = useIsMobile()
 
   const ahora = useMemo(() => new Date(), [])
@@ -46,10 +48,13 @@ export default function ClientCitas() {
     [citasConFecha, ahora]
   )
 
+  // Se cancela solo después de confirmarlo en la ventana (ConfirmarModal),
+  // igual que en la vista Principal (ClientResumen.jsx).
   async function handleCancelar(citaId) {
     setCancelandoId(citaId)
     try {
       await cancelarCita(citaId)
+      setPorCancelar(null)
     } finally {
       setCancelandoId(null)
     }
@@ -61,17 +66,15 @@ export default function ClientCitas() {
     const boton = mostrarCancelar ? (
       <button
         type="button"
-        onClick={() => handleCancelar(c.id)}
+        onClick={() => setPorCancelar(c)}
         disabled={cancelandoId === c.id}
-        style={{
-          padding: '7px 12px', fontSize: 12, fontWeight: 700, borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--danger)', background: 'var(--surface)', color: 'var(--danger)', cursor: 'pointer', flexShrink: 0,
-        }}
+        className="btn-cancelar-cita"
+        style={{ flexShrink: 0 }}
       >
         {cancelandoId === c.id ? 'Cancelando…' : 'Cancelar'}
       </button>
     ) : (
-      <Link to={`/negocio/${c.negocioId}`} className="btn btn-outline" style={{ padding: '7px 12px', fontSize: 12, flexShrink: 0 }}>
+      <Link to={`/negocio/${c.negocioId}`} className="btn btn-outline btn-reservar-de-nuevo" style={{ padding: '7px 12px', fontSize: 12, flexShrink: 0 }}>
         Reservar de nuevo
       </Link>
     )
@@ -151,6 +154,29 @@ export default function ClientCitas() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {pasadas.map((c) => <Fila key={c.id} c={c} mostrarCancelar={false} />)}
         </div>
+      )}
+
+      {porCancelar && (
+        <ConfirmarModal
+          icono="calendar"
+          titulo="¿Seguro que quieres cancelar esta cita?"
+          mensaje={(
+            <>
+              <strong style={{ color: 'var(--text)' }}>{negociosPorId[porCancelar.negocioId]?.nombre || 'Negocio'}</strong>
+              {' · '}{serviciosPorId[`${porCancelar.negocioId}:${porCancelar.servicioId}`]?.nombre || 'Servicio'}
+              <br />
+              {capitalize(FECHA_LARGA.format(porCancelar.fecha))}, {HORA.format(porCancelar.fecha)}
+              <br />
+              El turno quedará libre para otra persona y no se puede deshacer.
+            </>
+          )}
+          textoConfirmar="Sí, cancelar"
+          textoCargando="Cancelando…"
+          textoVolver="No, volver"
+          cargando={cancelandoId === porCancelar.id}
+          onConfirmar={() => handleCancelar(porCancelar.id)}
+          onCerrar={() => setPorCancelar(null)}
+        />
       )}
     </div>
   )

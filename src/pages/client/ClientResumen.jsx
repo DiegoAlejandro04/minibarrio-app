@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import Icon from '../../components/Icon.jsx'
 import CalificarModal from '../../components/CalificarModal.jsx'
+import ConfirmarModal from '../../components/ConfirmarModal.jsx'
 import { inicialesDe } from '../../components/FotoNegocio.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva } from '../../reservas.js'
@@ -25,6 +26,7 @@ export default function ClientResumen() {
 
   const [calificando, setCalificando] = useState(null) // negocio | null
   const [cancelandoId, setCancelandoId] = useState(null)
+  const [porCancelar, setPorCancelar] = useState(null) // cita que pide confirmación | null
 
   const ahora = useMemo(() => new Date(), [])
 
@@ -66,10 +68,12 @@ export default function ClientResumen() {
     return completadas[0]
   }, [citasConFecha, resenas])
 
+  // Se cancela solo después de confirmarlo en la ventana (ConfirmarModal).
   async function handleCancelar(citaId) {
     setCancelandoId(citaId)
     try {
       await cancelarCita(citaId)
+      setPorCancelar(null)
     } finally {
       setCancelandoId(null)
     }
@@ -131,13 +135,10 @@ export default function ClientResumen() {
             </Link>
             <button
               type="button"
-              onClick={() => handleCancelar(proximaCita.id)}
+              onClick={() => setPorCancelar(proximaCita)}
               disabled={cancelandoId === proximaCita.id}
-              style={{
-                padding: '8px 14px', fontSize: 12.5, fontWeight: 700, borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--danger)', background: 'var(--surface)', color: 'var(--danger)', cursor: 'pointer',
-                flex: isMobile ? 1 : 'initial',
-              }}
+              className="btn-cancelar-cita"
+              style={{ flex: isMobile ? 1 : 'initial' }}
             >
               {cancelandoId === proximaCita.id ? 'Cancelando…' : 'Cancelar'}
             </button>
@@ -269,6 +270,29 @@ export default function ClientResumen() {
           </div>
         )}
       </div>
+
+      {porCancelar && (
+        <ConfirmarModal
+          icono="calendar"
+          titulo="¿Seguro que quieres cancelar esta cita?"
+          mensaje={(
+            <>
+              <strong style={{ color: 'var(--text)' }}>{negociosPorId[porCancelar.negocioId]?.nombre || 'Negocio'}</strong>
+              {' · '}{serviciosPorId[`${porCancelar.negocioId}:${porCancelar.servicioId}`]?.nombre || 'Servicio'}
+              <br />
+              {FECHA_CORTA.format(porCancelar.fecha)}, {HORA.format(porCancelar.fecha)}
+              <br />
+              El turno quedará libre para otra persona y no se puede deshacer.
+            </>
+          )}
+          textoConfirmar="Sí, cancelar"
+          textoCargando="Cancelando…"
+          textoVolver="No, volver"
+          cargando={cancelandoId === porCancelar.id}
+          onConfirmar={() => handleCancelar(porCancelar.id)}
+          onCerrar={() => setPorCancelar(null)}
+        />
+      )}
 
       {calificando && (
         <CalificarModal negocio={calificando} onClose={() => setCalificando(null)} />
