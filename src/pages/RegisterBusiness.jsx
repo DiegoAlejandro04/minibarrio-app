@@ -8,6 +8,8 @@ import MapaUbicacion from '../components/MapaUbicacion.jsx'
 import Icon from '../components/Icon.jsx'
 import { BotonOjo, Campo } from './Acceso.jsx'
 import { avisoDominioCorreo, correoPermitido } from '../correos.js'
+import FuerzaContrasena, { avisoConfirmacion, contrasenaSegura } from '../components/FuerzaContrasena.jsx'
+import { soloDigitos } from '../telefonos.js'
 
 const initialForm = {
   nombrePropietario: '',
@@ -39,6 +41,7 @@ export default function RegisterBusiness() {
 
   const [mostrar, setMostrar] = useState(false) // ver/ocultar contraseñas
   const [revisarCorreo, setRevisarCorreo] = useState(false) // se intentó enviar
+  const confirmacion = avisoConfirmacion(form.contrasena, form.confirmar)
   const cambiar = (campo) => (valor) => setForm((f) => ({ ...f, [campo]: valor }))
 
   async function handleSubmit(e) {
@@ -52,6 +55,10 @@ export default function RegisterBusiness() {
     }
     if (form.contrasena !== form.confirmar) {
       setError('Las contraseñas no coinciden.')
+      return
+    }
+    if (!contrasenaSegura(form.contrasena)) {
+      setError('La contraseña no cumple todos los requisitos de seguridad.')
       return
     }
     if (!acepta) {
@@ -134,6 +141,14 @@ export default function RegisterBusiness() {
                 onChange={cambiar('confirmar')}
               />
             </div>
+            <FuerzaContrasena valor={form.contrasena} />
+            {/* El aviso de confirmación va debajo de la fila (no dentro, que
+                es de dos columnas). */}
+            {confirmacion && (
+              <div className={`acceso-aviso-campo${confirmacion.ok ? ' ok' : ''}`} role={confirmacion.ok ? 'status' : 'alert'}>
+                {confirmacion.texto}
+              </div>
+            )}
 
             <div className="acceso-seccion">Datos del negocio</div>
             <Campo id="negocio-nombre" label="Nombre del negocio" autoComplete="organization" maxLength={80} value={form.nombreNegocio} onChange={cambiar('nombreNegocio')} />
@@ -185,8 +200,8 @@ export default function RegisterBusiness() {
             </div>
 
             <div className="acceso-fila">
-              <Campo id="negocio-whatsapp" label="WhatsApp" type="tel" autoComplete="tel" maxLength={20} value={form.whatsapp} onChange={cambiar('whatsapp')} />
-              <Campo id="negocio-telefono" label="Teléfono" type="tel" maxLength={20} value={form.telefono} onChange={cambiar('telefono')} />
+              <Campo id="negocio-whatsapp" label="WhatsApp" type="tel" inputMode="numeric" autoComplete="tel" maxLength={15} value={form.whatsapp} onChange={(v) => cambiar('whatsapp')(soloDigitos(v))} />
+              <Campo id="negocio-telefono" label="Teléfono" type="tel" inputMode="numeric" maxLength={15} value={form.telefono} onChange={(v) => cambiar('telefono')(soloDigitos(v))} />
             </div>
 
             <label className="acceso-consentimiento">
@@ -221,6 +236,6 @@ function mapAuthError(err) {
   const code = err?.code || ''
   if (code.includes('email-already-in-use')) return 'Ya existe una cuenta con ese correo.'
   if (code.includes('invalid-email')) return 'El correo electrónico no es válido.'
-  if (code.includes('weak-password')) return 'La contraseña debe tener al menos 6 caracteres.'
+  if (code.includes('weak-password') || code.includes('password-does-not-meet-requirements')) return 'La contraseña no cumple todos los requisitos de seguridad.'
   return 'No se pudo crear la cuenta. Intenta de nuevo en unos minutos.'
 }

@@ -33,6 +33,8 @@ const ICON_PATHS = {
   lock: 'M6 11h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 0 1 8 0v4M12 15v2',
   arrowLeft: 'M19 12H5M12 19l-7-7 7-7',
   home: 'M3 10.5 12 3l9 7.5M5 9v11h5v-6h4v6h5V9',
+  shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  shieldCheck: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4',
 }
 
 export default function Icon({ name, size = 18, filled = false }) {

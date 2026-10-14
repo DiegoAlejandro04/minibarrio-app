@@ -1531,6 +1531,8 @@ input:focus, select:focus, textarea:focus {
   font-weight: 600;
   color: var(--danger);
 }
+.acceso-aviso-campo.ok { color: oklch(58% 0.15 150); }
+[data-theme="dark"] .acceso-aviso-campo.ok { color: oklch(74% 0.17 150); }
 
 /* Botón principal: en relieve; al pasar el mouse se llena de naranja */
 .acceso-boton {
@@ -2519,3 +2521,117 @@ a.panel-perfil-avatar:hover { color: #fff; }
 .panel-negocio.centrado:not(.es-movil).colapsado .panel-vidrio { width: var(--pn-colapsado); }
 .panel-negocio.centrado:not(.es-movil) .panel-pie { margin-top: 6px; }
 .panel-negocio.centrado:not(.es-movil) .panel-contenido { padding: 0; }
+
+/* Medidor de seguridad de la contraseña (FuerzaContrasena.jsx), dentro de
+   las tarjetas de registro: mismo relieve suave que los campos (.acceso). */
+.fuerza {
+  --fuerza-color: var(--danger);
+  --fuerza-verde: oklch(62% 0.16 150);
+  margin: -6px 2px 18px;
+}
+[data-theme="dark"] .fuerza { --fuerza-verde: oklch(74% 0.17 150); }
+.fuerza-media { --fuerza-color: var(--warning); }
+.fuerza-segura { --fuerza-color: var(--fuerza-verde); }
+
+.fuerza-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.fuerza-cabecera strong {
+  margin-left: 6px;
+  color: var(--fuerza-color);
+  font-weight: 800;
+  transition: color .3s ease;
+}
+.fuerza-icono {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fuerza-color);
+  background: color-mix(in oklch, var(--fuerza-color) 14%, transparent);
+  transition: color .3s ease, background .3s ease;
+}
+.fuerza-barra {
+  height: 7px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--neu-base, var(--surface-2));
+  box-shadow: var(--neu-hundido, inset 0 0 0 1px var(--border));
+}
+.fuerza-barra > div {
+  height: 100%;
+  border-radius: 20px;
+  background: var(--fuerza-color);
+  transition: width .4s ease, background .3s ease;
+}
+
+/* La lista se pliega suave al cumplirse todo (grid de 1fr a 0fr). */
+.fuerza-plegable {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows .4s ease, opacity .3s ease;
+}
+.fuerza-plegable.plegado { grid-template-rows: 0fr; opacity: 0; }
+.fuerza-requisitos {
+  min-height: 0;
+  overflow: hidden;
+  list-style: none;
+  margin: 0;
+  padding: 12px 0 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.fuerza-requisitos li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  background: var(--neu-base, var(--surface-2));
+  box-shadow: var(--neu-hundido, inset 0 0 0 1px var(--border));
+  color: var(--text-faint);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  transition: color .3s ease, box-shadow .3s ease;
+}
+.fuerza-requisitos li:last-child { grid-column: span 2; }
+.fuerza-check {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in oklch, var(--text-faint) 18%, transparent);
+  color: transparent;
+  transition: background .3s ease, color .3s ease, transform .3s ease;
+}
+.fuerza-requisitos li.cumple { color: var(--text); }
+.fuerza-requisitos li.cumple .fuerza-check {
+  background: var(--fuerza-verde);
+  color: #fff;
+  transform: scale(1.06);
+}
+
+@media (max-width: 380px) {
+  .fuerza-requisitos { grid-template-columns: 1fr; }
+  .fuerza-requisitos li:last-child { grid-column: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fuerza-plegable,
+  .fuerza-barra > div,
+  .fuerza-check { transition: none; }
+}

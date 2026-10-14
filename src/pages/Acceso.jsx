@@ -6,6 +6,8 @@ import Icon from '../components/Icon.jsx'
 import GoogleIcon from '../components/GoogleIcon.jsx'
 import RecuperarContrasenaModal from '../components/RecuperarContrasenaModal.jsx'
 import { avisoDominioCorreo, correoPermitido } from '../correos.js'
+import FuerzaContrasena, { avisoConfirmacion, contrasenaSegura } from '../components/FuerzaContrasena.jsx'
+import { soloDigitos } from '../telefonos.js'
 
 // Inicio de sesión y registro de cliente en una sola tarjeta que gira en 3D
 // entre sus dos caras (estilo "neumórfico": sombras suaves en relieve y
@@ -230,6 +232,7 @@ function CaraRegistro({ onGirar }) {
 
   const cambiar = (campo) => (valor) => setForm((f) => ({ ...f, [campo]: valor }))
   const [revisarCorreo, setRevisarCorreo] = useState(false) // se intentó enviar
+  const confirmacion = avisoConfirmacion(form.contrasena, form.confirmar)
   const avisoCorreo = avisoDominioCorreo(form.correo, revisarCorreo)
 
   async function handleSubmit(e) {
@@ -244,8 +247,8 @@ function CaraRegistro({ onGirar }) {
       setError('Las contraseñas no coinciden.')
       return
     }
-    if (form.contrasena.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.')
+    if (!contrasenaSegura(form.contrasena)) {
+      setError('La contraseña no cumple todos los requisitos de seguridad.')
       return
     }
     if (!acepta) {
@@ -303,7 +306,7 @@ function CaraRegistro({ onGirar }) {
       <form onSubmit={handleSubmit}>
         <Campo id="registro-nombre" label="Nombre completo" autoComplete="name" maxLength={80} value={form.nombre} onChange={cambiar('nombre')} />
         <Campo id="registro-correo" label="Correo electrónico" type="email" autoComplete="email" maxLength={120} value={form.correo} onChange={cambiar('correo')} aviso={avisoCorreo} />
-        <Campo id="registro-telefono" label="Teléfono / WhatsApp" type="tel" autoComplete="tel" maxLength={20} value={form.telefono} onChange={cambiar('telefono')} />
+        <Campo id="registro-telefono" label="Teléfono / WhatsApp" type="tel" inputMode="numeric" autoComplete="tel" maxLength={15} value={form.telefono} onChange={(v) => cambiar('telefono')(soloDigitos(v))} />
         <Campo
           id="registro-contrasena"
           label="Contraseña"
@@ -313,6 +316,7 @@ function CaraRegistro({ onGirar }) {
           onChange={cambiar('contrasena')}
           derecha={<BotonOjo mostrar={mostrar} onClick={() => setMostrar((v) => !v)} />}
         />
+        <FuerzaContrasena valor={form.contrasena} />
         <Campo
           id="registro-confirmar"
           label="Confirmar contraseña"
@@ -320,6 +324,8 @@ function CaraRegistro({ onGirar }) {
           autoComplete="new-password"
           value={form.confirmar}
           onChange={cambiar('confirmar')}
+          aviso={confirmacion?.texto}
+          avisoOk={confirmacion?.ok}
         />
 
         <label className="acceso-consentimiento">
@@ -358,8 +364,11 @@ function CaraRegistro({ onGirar }) {
 // Campo con etiqueta flotante y borde "eléctrico" naranja al enfocarlo. El
 // placeholder=" " es lo que permite saber con CSS (:placeholder-shown) si el
 // campo tiene texto, para dejar la etiqueta arriba.
-// `aviso` es un mensaje de error del propio campo, que se muestra debajo.
-export function Campo({ id, label, type = 'text', value, onChange, autoComplete, maxLength, derecha, disabled = false, aviso }) {
+// `aviso` es un mensaje del propio campo, que se muestra debajo: de error
+// (rojo) o, con avisoOk, de confirmación (verde). `inputMode` elige el
+// teclado del celular (p. ej. "numeric" para teléfonos).
+export function Campo({ id, label, type = 'text', value, onChange, autoComplete, maxLength, derecha, disabled = false, aviso, avisoOk = false, inputMode }) {
+  const esError = aviso && !avisoOk
   const campo = (
     <div className={`acceso-campo${derecha ? ' con-boton' : ''}${aviso ? ' con-aviso' : ''}`}>
       <div className="acceso-campo-brillo" aria-hidden="true" />
@@ -372,10 +381,11 @@ export function Campo({ id, label, type = 'text', value, onChange, autoComplete,
         placeholder=" "
         autoComplete={autoComplete}
         maxLength={maxLength}
+        inputMode={inputMode}
         required={!disabled}
         disabled={disabled}
         readOnly={!onChange}
-        aria-invalid={aviso ? true : undefined}
+        aria-invalid={esError ? true : undefined}
         aria-describedby={aviso ? `${id}-aviso` : undefined}
       />
       <label htmlFor={id}>{label}</label>
@@ -386,7 +396,7 @@ export function Campo({ id, label, type = 'text', value, onChange, autoComplete,
   return (
     <>
       {campo}
-      <div id={`${id}-aviso`} className="acceso-aviso-campo" role="alert">{aviso}</div>
+      <div id={`${id}-aviso`} className={`acceso-aviso-campo${avisoOk ? ' ok' : ''}`} role={esError ? 'alert' : 'status'}>{aviso}</div>
     </>
   )
 }
@@ -424,6 +434,6 @@ function mapAuthError(err) {
   const code = err?.code || ''
   if (code.includes('email-already-in-use')) return 'Ya existe una cuenta con ese correo.'
   if (code.includes('invalid-email')) return 'El correo electrónico no es válido.'
-  if (code.includes('weak-password')) return 'La contraseña es demasiado débil.'
+  if (code.includes('weak-password') || code.includes('password-does-not-meet-requirements')) return 'La contraseña no cumple todos los requisitos de seguridad.'
   return 'No se pudo crear la cuenta. Intenta de nuevo en unos minutos.'
 }
