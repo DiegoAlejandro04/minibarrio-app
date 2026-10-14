@@ -1923,7 +1923,12 @@ input:focus, select:focus, textarea:focus {
   color: var(--vidrio-activo-texto);
   font-weight: 700;
 }
-.panel-salir:hover,
+/* Cerrar sesión: rojo pastel al pasar el mouse, igual que en la barra de la
+   página principal (.nav-salir). */
+.panel-salir:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
 .panel-salir:hover svg { color: var(--danger); }
 .panel-negocio.colapsado .panel-item {
   justify-content: center;
@@ -2153,6 +2158,12 @@ input:focus, select:focus, textarea:focus {
 .nav-enlace:hover svg,
 .nav-enlace.activo svg { opacity: 1; color: var(--accent); }
 .nav-enlace:hover { transform: translateY(-2px); }
+/* Cerrar sesión: al pasar el mouse se tiñe de rojo pastel, para que se note
+   que es la acción de salir. */
+.nav-salir:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
 .nav-salir:hover svg { color: var(--danger); }
 
 .nav-acciones {
@@ -2208,6 +2219,18 @@ input:focus, select:focus, textarea:focus {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px var(--nav-brillo);
 }
+/* "Regístrate" (cuenta de cliente): mismo tamaño que el botón naranja, pero
+   solo con borde, para no competir con "Registra tu negocio". */
+.nav-cta-secundario {
+  background: transparent;
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.nav-cta-secundario:hover {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 20px var(--nav-brillo);
+}
 .nav-boton-menu {
   width: 38px;
   height: 38px;
@@ -2228,10 +2251,10 @@ input:focus, select:focus, textarea:focus {
 #como-funciona { scroll-margin-top: 84px; }
 
 /* Pantallas medianas: no cabe todo, los enlaces quedan solo con su ícono. */
-@media (max-width: 1320px) {
+@media (max-width: 1440px) {
   .nav-zona { display: none; }
 }
-@media (max-width: 1140px) {
+@media (max-width: 1260px) {
   .nav-menu .nav-enlace > span,
   .nav-salir > span { display: none; }
   .nav-enlace { padding: 10px 12px; }

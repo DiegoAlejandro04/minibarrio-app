@@ -42,6 +42,9 @@ const PRESUPUESTO_MAXIMO = 200000
 // solo negocio fitBounds se va al zoom máximo de los tiles (19) y solo se ven
 // un par de cuadras sin contexto; 17 deja ver los nombres de calles alrededor.
 const ZOOM_MAX_ENCUADRE = 17
+// Con "Usar mi ubicación", el mapa encuadra al cliente con sus negocios más
+// cercanos (ver encuadrar).
+const NEGOCIOS_CERCA_ENCUADRE = 2
 
 // "a 350 m" / "a 1,2 km" (HU-03: cada negocio muestra su distancia). Es la
 // misma distancia (Haversine) con la que el recomendador calcula la cercanía.
@@ -366,19 +369,40 @@ export default function ClientHome() {
     })
   }
 
-  // Encuadra los negocios y, si el cliente compartió su ubicación, también a
-  // él: lo que importa es ver qué queda cerca de uno.
+  // Encuadra los negocios y, si el cliente compartió su ubicación, a él con
+  // los negocios más cercanos: lo que importa es ver qué queda cerca de uno.
   function encuadrar({ animar = true } = {}) {
     if (!mapRef.current) return
-    const coords = puntosRef.current.map((p) => [p.posicion.lat, p.posicion.lng])
-    if (ubicacionEncuadreRef.current) coords.push([ubicacionEncuadreRef.current.lat, ubicacionEncuadreRef.current.lng])
+    const usuario = ubicacionEncuadreRef.current
+    let coords = puntosRef.current.map((p) => [p.posicion.lat, p.posicion.lng])
+    if (usuario) {
+      // Solo los NEGOCIOS_CERCA_ENCUADRE más cercanos: uno lejano obligaba a
+      // alejar el mapa hasta que el cliente y los negocios quedaban como
+      // puntitos. Los demás pines siguen ahí, a un arrastre.
+      coords = puntosRef.current
+        .map((p) => ({ p, km: distanciaKm(usuario, p.posicion) }))
+        .sort((a, b) => a.km - b.km)
+        .slice(0, NEGOCIOS_CERCA_ENCUADRE)
+        .map(({ p }) => [p.posicion.lat, p.posicion.lng])
+      coords.push([usuario.lat, usuario.lng])
+    }
     if (coords.length) {
+      const limites = L.latLngBounds(coords)
       // Abajo hay más margen: la tarjeta del destacado se monta ~40px sobre
-      // el borde inferior del mapa y taparía un pin que quede ahí.
-      mapRef.current.fitBounds(L.latLngBounds(coords), {
-        paddingTopLeft: [60, 70],
-        paddingBottomRight: [60, 100],
-        maxZoom: ZOOM_MAX_ENCUADRE,
+      // el borde inferior del mapa y taparía un pin que quede ahí. Con la
+      // ubicación el margen es menor, para que no aleje de más.
+      const margenArriba = usuario ? [40, 45] : [60, 70]
+      const margenAbajo = usuario ? [40, 75] : [60, 100]
+      // Sin ubicación, la vista de inicio queda un nivel más lejos de lo que
+      // cabría, para ver el barrio alrededor de los negocios.
+      const zoomQueCabe = mapRef.current.getBoundsZoom(
+        limites, false, L.point(margenArriba[0] + margenAbajo[0], margenArriba[1] + margenAbajo[1])
+      )
+      const zoomMaximo = usuario ? ZOOM_MAX_ENCUADRE : Math.min(zoomQueCabe, ZOOM_MAX_ENCUADRE) - 1
+      mapRef.current.fitBounds(limites, {
+        paddingTopLeft: margenArriba,
+        paddingBottomRight: margenAbajo,
+        maxZoom: zoomMaximo,
         animate: animar,
       })
     } else {
@@ -501,6 +525,12 @@ export default function ClientHome() {
   function handleBuscar(e) {
     e.preventDefault()
     setTerminoActivo(busqueda.trim())
+    // Baja despacio hasta los resultados, ya con la búsqueda aplicada (un
+    // cuadro después, cuando React volvió a pintar). scroll-margin-top en
+    // index.css deja el título libre de la barra flotante.
+    requestAnimationFrame(() => {
+      document.getElementById('resultados')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 
   function handleChip(chip) {
@@ -638,7 +668,9 @@ export default function ClientHome() {
             </div>
           ) : (
             <div className="nav-acciones">
-              <span className="nav-zona">Britalia, Kennedy</span>
+              {/* Sin sesión no cabe junto a los dos botones de registro (y la
+                  portada ya dice "Britalia, Kennedy" justo debajo). */}
+              {currentUser && <span className="nav-zona">Britalia, Kennedy</span>}
               {currentUser ? (
                 <>
                   {role === 'cliente' ? (
@@ -657,7 +689,8 @@ export default function ClientHome() {
                 </>
               ) : (
                 <>
-                  <Link to="/login" className="nav-enlace">Iniciar sesión</Link>
+                  <Link to="/login" className="nav-enlace">Inicia sesión</Link>
+                  <Link to="/registro/cliente" className="nav-cta nav-cta-secundario">Regístrate</Link>
                   <Link to="/registro/negocio" className="nav-cta">Registra tu negocio</Link>
                 </>
               )}

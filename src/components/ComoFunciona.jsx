@@ -1,7 +1,7 @@
 import useIsMobile from '../hooks/useIsMobile.js'
 
 // "Cómo funciona" de la vitrina (ClientHome.jsx): el recorrido del cliente en
-// tres pasos, cada uno con una ilustración propia en SVG (no íconos de
+// cuatro pasos, cada uno con una ilustración propia en SVG (no íconos de
 // línea: estos cuentan el paso en miniatura). Estilo plano a propósito:
 // colores sólidos, sin degradados, sin brillos ni resplandor detrás — con
 // esos efectos se veían como ilustraciones genéricas "de IA". Estáticas.
@@ -10,6 +10,7 @@ import useIsMobile from '../hooks/useIsMobile.js'
 // fondo claro y sobre el verde noche.
 
 const PASOS = [
+  { titulo: 'Regístrate o inicia sesión', detalle: 'Crea tu cuenta gratis en un minuto, con tu correo o con Google.', Ilustracion: IlustracionCuenta },
   { titulo: 'Busca', detalle: 'Por servicio, presupuesto o cercanía en el mapa.', Ilustracion: IlustracionBusca },
   { titulo: 'Compara', detalle: 'Precios reales, fotos de trabajos y reseñas.', Ilustracion: IlustracionCompara },
   { titulo: 'Reserva', detalle: 'Elige un turno libre y recibe tu comprobante.', Ilustracion: IlustracionReserva },
@@ -20,12 +21,12 @@ export default function ComoFunciona() {
   return (
     <section id="como-funciona" style={{ maxWidth: 1224, margin: '0 auto', padding: isMobile ? '44px 16px' : '72px 32px' }}>
       <div className="seccion-kicker">Cómo funciona</div>
-      <h2 className="seccion-titulo">Tu próxima cita, en tres pasos</h2>
+      <h2 className="seccion-titulo">Tu próxima cita, en cuatro pasos</h2>
       <p className="seccion-subtitulo">Sin llamadas ni filas, desde tu celular o tu computador.</p>
 
       <div
         style={{
-          display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
+          display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))',
           gap: isMobile ? 32 : 24, marginTop: isMobile ? 28 : 40,
         }}
       >
@@ -128,6 +129,27 @@ function IlustracionReserva() {
       </g>
       <circle cx="98" cy="80" r="18" fill={C.verdeOk} />
       <path d="M90 80l5.5 5.5L107 74" stroke={C.blanco} strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IlustracionCuenta() {
+  return (
+    <svg viewBox="0 0 132 112" style={tamanoIlustracion} role="img" aria-label="Celular con el formulario de cuenta y un candado">
+      <g transform="rotate(-7 60 58)">
+        <rect x="34" y="10" width="52" height="92" rx="11" fill={C.verdeOscuro} />
+        <rect x="39" y="18" width="42" height="76" rx="7" fill={C.crema} stroke={C.arena} strokeWidth="1.5" />
+        <circle cx="60" cy="37" r="10" fill={C.terracota} />
+        <circle cx="60" cy="34" r="4" fill={C.piel} />
+        <path d="M52.5 44.5c1.6-4.3 4.3-6.2 7.5-6.2s5.9 1.9 7.5 6.2a10 10 0 0 1-15 0z" fill={C.piel} />
+        <rect x="45" y="54" width="30" height="6" rx="3" fill={C.arena} />
+        <rect x="45" y="64" width="30" height="6" rx="3" fill={C.arena} />
+        <rect x="45" y="76" width="30" height="9" rx="4.5" fill={C.naranja} />
+      </g>
+      <circle cx="98" cy="78" r="18" fill={C.verdeOk} />
+      <path d="M92 76v-4a6 6 0 0 1 12 0v4" stroke={C.blanco} strokeWidth="3.5" fill="none" strokeLinecap="round" />
+      <rect x="89" y="75" width="18" height="13" rx="3.5" fill={C.blanco} />
+      <circle cx="98" cy="81.5" r="2.2" fill={C.verdeOk} />
     </svg>
   )
 }
