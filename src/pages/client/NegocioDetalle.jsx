@@ -430,9 +430,10 @@ export default function NegocioDetalle() {
       {galeriaAbierta && (
         <div
           role="presentation"
+          className="ventana-velo"
           onClick={() => setGaleriaAbierta(false)}
           style={{
-            position: 'fixed', inset: 0, background: 'oklch(20% 0.01 0 / 0.6)', zIndex: 60,
+            position: 'fixed', inset: 0, background: 'oklch(20% 0.01 0 / 0.6)', zIndex: 1300,
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
           }}
         >

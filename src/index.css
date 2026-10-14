@@ -3066,3 +3066,23 @@ option:disabled { color: var(--text-faint); }
   top: calc(16px + env(safe-area-inset-top));
   right: calc(14px + env(safe-area-inset-right));
 }
+
+/* Velo de las ventanas emergentes (PQRS, Contáctanos, calificar, etc.):
+   desplazable, y la ventana centrada solo si cabe ("margin: auto"); si es
+   más alta que la pantalla arranca arriba en vez de cortarse por arriba. */
+.ventana-velo {
+  overflow-y: auto;
+  align-items: flex-start !important;
+}
+.ventana-velo > * { margin-top: auto; margin-bottom: auto; }
+@media (max-width: 768px) {
+  /* Celular: menos margen y la ventana sólida, sin transparencias. */
+  .ventana-velo {
+    padding: calc(16px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+  .ventana-velo > .card.ventana-vidrio {
+    background: var(--surface);
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}

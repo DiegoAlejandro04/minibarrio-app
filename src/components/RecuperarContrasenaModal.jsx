@@ -61,10 +61,11 @@ export default function RecuperarContrasenaModal({ correoInicial = '', onClose }
   return (
     <div
       role="presentation"
+      className="ventana-velo"
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: 'oklch(20% 0.01 0 / 0.45)', display: 'flex',
-        alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20,
+        alignItems: 'center', justifyContent: 'center', zIndex: 1300, padding: 20,
       }}
     >
       <form

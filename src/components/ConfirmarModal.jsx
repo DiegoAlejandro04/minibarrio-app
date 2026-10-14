@@ -21,10 +21,11 @@ export default function ConfirmarModal({
   return (
     <div
       role="presentation"
+      className="ventana-velo"
       onClick={cargando ? undefined : onCerrar}
       style={{
         position: 'fixed', inset: 0, background: 'oklch(20% 0.01 0 / 0.45)', display: 'flex',
-        alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 20,
+        alignItems: 'center', justifyContent: 'center', zIndex: 1300, padding: 20,
       }}
     >
       <div
