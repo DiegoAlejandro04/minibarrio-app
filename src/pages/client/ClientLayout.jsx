@@ -61,7 +61,7 @@ export default function ClientLayout() {
   const [serviciosPorId, setServiciosPorId] = useState({})
   const [ratings, setRatings] = useState({}) // negocioId -> { suma, total } (de TODOS los clientes, para mostrar el rating de cada negocio)
   const [loading, setLoading] = useState(true)
-  const { notificaciones, sinLeer, cargadas } = useNotificaciones(uid)
+  const { notificaciones, idsExistentes, sinLeer, cargadas } = useNotificaciones(uid)
   // Cada 5 minutos se revisan de nuevo los recordatorios (ver abajo).
   const [reloj, setReloj] = useState(() => Date.now())
   useEffect(() => {
@@ -152,7 +152,8 @@ export default function ClientLayout() {
   // id fijo por cita para no repetirlos (ver notificaciones.js).
   useEffect(() => {
     if (!uid || !cargadas) return
-    const existentes = new Set(notificaciones.map((n) => n.id))
+    // Incluye las ocultas, para no volver a crear las que se eliminaron.
+    const existentes = idsExistentes
     citas.forEach((c) => {
       const fecha = c.fechaHora?.toDate?.()
       if (!fecha || c.estado === 'cancelada' || c.estado === 'completada') return
@@ -179,7 +180,7 @@ export default function ClientLayout() {
         }, existentes)
       }
     })
-  }, [uid, cargadas, notificaciones, citas, negociosPorId, serviciosPorId, reloj])
+  }, [uid, cargadas, idsExistentes, citas, negociosPorId, serviciosPorId, reloj])
 
   async function toggleFavorito(negocioId) {
     const ref = doc(db, 'usuarios', uid, 'favoritos', negocioId)

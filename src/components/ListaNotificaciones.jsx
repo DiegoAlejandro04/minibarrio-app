@@ -4,8 +4,8 @@ import { TIPOS_NOTIFICACION, haceCuanto } from '../notificaciones.js'
 // Lista de notificaciones (panel del cliente y campana del negocio): ícono
 // según el tipo, título, texto y hace cuánto llegó. Las no leídas van
 // resaltadas y con un punto naranja. Al tocar una se llama onAbrir(n) (que
-// la marca como leída y lleva a su enlace); la ✕ de la esquina llama
-// onEliminar(n). Estilos .notif-* en index.css.
+// la marca como leída y lleva a su enlace); el botón de papelera de la
+// esquina llama onEliminar(n). Estilos .notif-* en index.css.
 
 export default function ListaNotificaciones({ notificaciones, onAbrir, onEliminar }) {
   if (notificaciones.length === 0) {
@@ -39,10 +39,11 @@ export default function ListaNotificaciones({ notificaciones, onAbrir, onElimina
               {!n.leida && <span className="notif-punto" aria-label="Sin leer" />}
             </button>
             {/* Botón aparte, no dentro del de la notificación (un botón no
-                puede ir dentro de otro): así la ✕ no abre la notificación. */}
+                puede ir dentro de otro): así la papelera no abre la
+                notificación. */}
             {onEliminar && (
               <button type="button" className="notif-eliminar" onClick={() => onEliminar(n)} aria-label={`Eliminar notificación: ${n.titulo}`} title="Eliminar">
-                <Icon name="x" size={14} />
+                <Icon name="trash" size={18} />
               </button>
             )}
           </li>

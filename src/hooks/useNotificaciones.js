@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { db } from '../firebase/config'
 
@@ -28,12 +28,15 @@ export default function useNotificaciones(uid) {
     )
   }, [uid])
 
-  // Las ocultas (avisos propios que la persona quitó con la ✕, ver
+  // Las ocultas (avisos propios que la persona quitó con la papelera, ver
   // eliminarNotificacion) no se muestran, pero siguen existiendo para que no
-  // se vuelvan a crear.
+  // se vuelvan a crear: por eso `idsExistentes` las incluye — es lo que deben
+  // revisar los paneles antes de crear un aviso propio (crearAvisoPropio).
+  const idsExistentes = useMemo(() => new Set(notificaciones.map((n) => n.id)), [notificaciones])
   const visibles = notificaciones.filter((n) => !n.oculta)
   return {
     notificaciones: visibles,
+    idsExistentes,
     sinLeer: visibles.filter((n) => !n.leida).length,
     cargadas,
   }

@@ -54,7 +54,7 @@ export default function OwnerLayout() {
   const [portada, setPortada] = useState(null) // data URL de la foto de portada, ver OwnerIdentidad.jsx
   const [loading, setLoading] = useState(true)
   const [citas, setCitas] = useState([])
-  const { notificaciones, sinLeer, cargadas } = useNotificaciones(uid)
+  const { notificaciones, idsExistentes, sinLeer, cargadas } = useNotificaciones(uid)
 
   useEffect(() => {
     if (!uid) return
@@ -88,7 +88,8 @@ export default function OwnerLayout() {
   // sin cerrar (uno por día), y el siguiente paso para completar el perfil.
   useEffect(() => {
     if (!uid || !cargadas || !negocio) return
-    const existentes = new Set(notificaciones.map((n) => n.id))
+    // Incluye las ocultas, para no volver a crear las que se eliminaron.
+    const existentes = idsExistentes
     const ahora = new Date()
     const hoy = claveDia(ahora)
     const conFecha = citas
@@ -125,7 +126,7 @@ export default function OwnerLayout() {
         enlace: siguientePaso.ruta,
       }, existentes)
     }
-  }, [uid, cargadas, notificaciones, negocio, citas, siguientePaso, perfilCompletado])
+  }, [uid, cargadas, idsExistentes, negocio, citas, siguientePaso, perfilCompletado])
 
   async function handleLogout() {
     await logout()
