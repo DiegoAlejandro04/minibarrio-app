@@ -43,6 +43,15 @@ const PRESUPUESTO_MAXIMO = 200000
 // un par de cuadras sin contexto; 17 deja ver los nombres de calles alrededor.
 const ZOOM_MAX_ENCUADRE = 17
 
+// "a 350 m" / "a 1,2 km" (HU-03: cada negocio muestra su distancia). Es la
+// misma distancia (Haversine) con la que el recomendador calcula la cercanía.
+const KM = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 })
+function textoDistancia(km) {
+  if (km == null) return null
+  if (km < 1) return `a ${Math.max(10, Math.round((km * 1000) / 10) * 10)} m`
+  return `a ${KM.format(km)} km`
+}
+
 // Datos de mentira para ver la vitrina con más negocios (?demo en localhost,
 // ver src/demo.js). Solo existen en desarrollo.
 const DEMO = import.meta.env.DEV ? datosDemo : null
@@ -467,6 +476,12 @@ export default function ClientHome() {
   // sigue mostrando (su pin sigue en el mapa), solo que sin razones.
   const [seleccionadoId, setSeleccionadoId] = useState(null)
   const tarjetasHorizontales = !isMobile && recomendaciones.length <= 2
+
+  // Distancia del cliente a cada negocio, solo con una ubicación que sirve
+  // (la misma que usa el recomendador: ni lejana ni muy imprecisa).
+  const distanciaDe = (n) => (consulta.ubicacion && n?.ubicacion
+    ? textoDistancia(distanciaKm(consulta.ubicacion, n.ubicacion))
+    : null)
 
   const destacado = useMemo(() => {
     if (seleccionadoId) {
@@ -962,6 +977,9 @@ export default function ClientHome() {
                       'Sin reseñas aún · '
                     )}
                     {destacado.precioDesde != null && <>Desde {COP.format(destacado.precioDesde)} · </>}
+                    {/* La distancia antes de la dirección: si la línea no cabe
+                        se recorta con "…" por el final, y así nunca se pierde. */}
+                    {distanciaDe(destacado) && <><strong style={{ color: 'var(--text)' }}>{distanciaDe(destacado)}</strong> · </>}
                     {destacado.direccion ? acortarDireccion(destacado.direccion) : ''}
                   </div>
                   {destacado.razones[0] && (
@@ -1071,6 +1089,7 @@ export default function ClientHome() {
                     }}
                     title={n.direccion}
                   >
+                    {distanciaDe(n) && <><strong style={{ color: 'var(--text)' }}>{distanciaDe(n)}</strong> · </>}
                     {n.direccion ? acortarDireccion(n.direccion) : ''}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>

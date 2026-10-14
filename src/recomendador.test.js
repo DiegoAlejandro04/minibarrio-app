@@ -5,7 +5,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { recomendar, coincideTermino } from './recomendador.js'
+import { recomendar, coincideTermino, PESOS } from './recomendador.js'
 
 const FECHA = new Date(2026, 9, 8) // fija la rotación de empates
 const CERCA = { lat: 4.628, lng: -74.172 }
@@ -108,4 +108,41 @@ test('la rotación nunca cruza diferencias reales de puntaje', () => {
     { fecha: FECHA }
   )
   assert.deepEqual(ids(resultado), ['bueno', 'malo'])
+})
+
+test('los pesos son los de la Tabla 16 del documento y suman 1', () => {
+  assert.deepEqual(PESOS, { precio: 0.245, historial: 0.214, calificacion: 0.182, cercania: 0.182, servicio: 0.177 })
+  const suma = Object.values(PESOS).reduce((a, b) => a + b, 0)
+  assert.ok(Math.abs(suma - 1) < 1e-9)
+})
+
+test('sin presupuesto, el precio se compara con el rango del barrio', () => {
+  const resultado = recomendar(
+    [
+      negocio('costoso', { servicios: [{ nombre: 'Corte', precio: 30000 }] }),
+      negocio('economico', { servicios: [{ nombre: 'Corte', precio: 10000 }] }),
+    ],
+    {},
+    {},
+    { fecha: FECHA }
+  )
+  assert.equal(resultado[0].id, 'economico')
+  assert.equal(resultado[0].componentes.precio, 1)
+  assert.equal(resultado[1].componentes.precio, 0)
+  assert.ok(resultado[0].razones.includes('De los más económicos'))
+})
+
+test('el rango de precios solo compara negocios que ofrecen lo buscado', () => {
+  const resultado = recomendar(
+    [
+      negocio('solo-cortes', { servicios: [{ nombre: 'Corte clásico', precio: 10000 }] }),
+      negocio('color', { servicios: [{ nombre: 'Tinte', precio: 40000 }] }),
+    ],
+    { servicios: ['tinte'] },
+    {},
+    { fecha: FECHA }
+  )
+  // Es el único que ofrece tinte: no se castiga por costar más que un corte.
+  assert.deepEqual(ids(resultado), ['color'])
+  assert.equal(resultado[0].componentes.precio, null)
 })

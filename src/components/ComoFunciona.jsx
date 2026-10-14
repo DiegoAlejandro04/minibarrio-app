@@ -2,10 +2,12 @@ import useIsMobile from '../hooks/useIsMobile.js'
 
 // "Cómo funciona" de la vitrina (ClientHome.jsx): el recorrido del cliente en
 // tres pasos, cada uno con una ilustración propia en SVG (no íconos de
-// línea: estos cuentan el paso en miniatura). Estáticas a propósito. Los
-// colores de las ilustraciones son fijos (no tokens del tema) porque son
-// objetos con color propio — un mapa, una foto, un calendario — y se ven
-// bien igual sobre el fondo claro y sobre el verde noche.
+// línea: estos cuentan el paso en miniatura). Estilo plano a propósito:
+// colores sólidos, sin degradados, sin brillos ni resplandor detrás — con
+// esos efectos se veían como ilustraciones genéricas "de IA". Estáticas.
+// Los colores son fijos (no tokens del tema) porque son objetos con color
+// propio — un mapa, una foto, un calendario — y se ven bien igual sobre el
+// fondo claro y sobre el verde noche.
 
 const PASOS = [
   { titulo: 'Busca', detalle: 'Por servicio, presupuesto o cercanía en el mapa.', Ilustracion: IlustracionBusca },
@@ -42,39 +44,40 @@ export default function ComoFunciona() {
 
 const tamanoIlustracion = { width: 168, height: 142, display: 'block', margin: '0 auto 14px' }
 
+// Paleta plana compartida por las tres ilustraciones. Las piezas crema llevan
+// un borde arena fino: sin él se perdían sobre el fondo crema del modo claro.
+const C = {
+  verdeOscuro: '#2F5A47',
+  verdeCalle: '#3E6E58',
+  verdeParque: '#5C9B76',
+  verdeManzana: '#24463A',
+  naranja: '#E8833A',
+  terracota: '#C8693A',
+  crema: '#FDF6EE',
+  arena: '#E6DACB',
+  arenaOscura: '#D2C3B1',
+  piel: '#F1C9A5',
+  verdeOk: '#2F7A55',
+  blanco: '#FFFFFF',
+}
+
 function IlustracionBusca() {
   return (
     <svg viewBox="0 0 132 112" style={tamanoIlustracion} role="img" aria-label="Mapa del barrio con un pin y una lupa">
-      <defs>
-        <radialGradient id="cf-brillo-1" cx="50%" cy="55%" r="55%">
-          <stop offset="0" stopColor="oklch(72% .16 48)" stopOpacity=".26" />
-          <stop offset="1" stopColor="oklch(72% .16 48)" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="cf-mapa" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="oklch(34% .05 165)" />
-          <stop offset="1" stopColor="oklch(25% .035 168)" />
-        </linearGradient>
-        <linearGradient id="cf-pin" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="oklch(80% .15 55)" />
-          <stop offset="1" stopColor="oklch(64% .17 42)" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="66" cy="62" rx="62" ry="46" fill="url(#cf-brillo-1)" />
-      <g transform="rotate(-8 60 64)">
-        <rect x="22" y="34" width="78" height="58" rx="12" fill="url(#cf-mapa)" stroke="oklch(45% .05 165)" />
-        <rect x="22" y="58" width="78" height="7" fill="oklch(40% .04 168)" />
-        <rect x="52" y="34" width="7" height="58" fill="oklch(40% .04 168)" />
-        <rect x="30" y="40" width="16" height="12" rx="3" fill="oklch(48% .09 152)" />
-        <rect x="66" y="71" width="24" height="14" rx="3" fill="oklch(48% .09 152)" />
-        <rect x="66" y="40" width="12" height="10" rx="2" fill="oklch(32% .03 168)" />
-        <rect x="30" y="72" width="14" height="12" rx="2" fill="oklch(32% .03 168)" />
+      <g transform="rotate(-6 62 64)">
+        <rect x="18" y="34" width="86" height="62" rx="12" fill={C.verdeOscuro} />
+        <rect x="18" y="60" width="86" height="8" fill={C.verdeCalle} />
+        <rect x="50" y="34" width="8" height="62" fill={C.verdeCalle} />
+        <rect x="27" y="41" width="17" height="13" rx="3" fill={C.verdeParque} />
+        <rect x="65" y="74" width="28" height="14" rx="3" fill={C.verdeParque} />
+        <rect x="65" y="41" width="14" height="12" rx="2" fill={C.verdeManzana} />
+        <rect x="27" y="74" width="16" height="13" rx="2" fill={C.verdeManzana} />
       </g>
-      <path d="M62 22c-9 0-16 7-16 16 0 12 16 26 16 26s16-14 16-26c0-9-7-16-16-16z" fill="url(#cf-pin)" />
-      <circle cx="62" cy="38" r="6" fill="#fff" />
-      <ellipse cx="57" cy="29" rx="4" ry="2.5" fill="#fff" opacity=".35" />
-      <circle cx="94" cy="74" r="15" fill="oklch(85% .03 200 / .18)" stroke="#fff" strokeWidth="4" />
-      <path d="M88 69a8 8 0 0 1 7-4" stroke="#fff" strokeWidth="2" fill="none" opacity=".6" strokeLinecap="round" />
-      <rect x="104" y="84" width="8" height="20" rx="4" transform="rotate(-45 108 94)" fill="oklch(78% .15 50)" />
+      <path d="M60 18c-9 0-16 7-16 16 0 12 16 27 16 27s16-15 16-27c0-9-7-16-16-16z" fill={C.naranja} />
+      <circle cx="60" cy="34" r="6.5" fill={C.crema} />
+      <circle cx="95" cy="73" r="15" fill={C.crema} stroke={C.arena} strokeWidth="1.5" />
+      <circle cx="95" cy="73" r="10" fill="#CFE3D8" />
+      <rect x="105" y="84" width="9" height="20" rx="4.5" transform="rotate(-45 109.5 94)" fill={C.terracota} />
     </svg>
   )
 }
@@ -82,39 +85,25 @@ function IlustracionBusca() {
 function IlustracionCompara() {
   return (
     <svg viewBox="0 0 132 112" style={tamanoIlustracion} role="img" aria-label="Tarjetas de fotos con estrellas y precio">
-      <defs>
-        <radialGradient id="cf-brillo-2" cx="50%" cy="55%" r="55%">
-          <stop offset="0" stopColor="oklch(70% .12 170)" stopOpacity=".24" />
-          <stop offset="1" stopColor="oklch(70% .12 170)" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="cf-foto-frente" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="oklch(62% .12 52)" />
-          <stop offset="1" stopColor="oklch(42% .08 40)" />
-        </linearGradient>
-        <linearGradient id="cf-foto-atras" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="oklch(50% .07 170)" />
-          <stop offset="1" stopColor="oklch(32% .04 170)" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="66" cy="62" rx="62" ry="46" fill="url(#cf-brillo-2)" />
-      <g transform="rotate(-12 50 60)">
-        <rect x="24" y="24" width="56" height="70" rx="10" fill="oklch(28% .03 168)" stroke="oklch(40% .04 168)" />
-        <rect x="30" y="30" width="44" height="34" rx="6" fill="url(#cf-foto-atras)" />
+      <g transform="rotate(-11 48 60)">
+        <rect x="20" y="24" width="56" height="70" rx="10" fill={C.verdeOscuro} />
+        <rect x="27" y="31" width="42" height="32" rx="6" fill={C.verdeCalle} />
       </g>
-      <g transform="rotate(7 76 60)">
-        <rect x="48" y="20" width="62" height="78" rx="11" fill="oklch(96% .01 80)" stroke="oklch(88% .015 80)" />
-        <rect x="54" y="26" width="50" height="38" rx="7" fill="url(#cf-foto-frente)" />
-        <circle cx="79" cy="40" r="8" fill="oklch(85% .05 60)" />
-        <path d="M66 64c2-9 8-13 13-13s11 4 13 13z" fill="oklch(85% .05 60)" />
-        <g fill="oklch(72% .16 48)">
-          <circle cx="58" cy="74" r="3.2" /><circle cx="67" cy="74" r="3.2" /><circle cx="76" cy="74" r="3.2" />
-          <circle cx="85" cy="74" r="3.2" /><circle cx="94" cy="74" r="3.2" opacity=".35" />
+      <g transform="rotate(6 78 60)">
+        <rect x="48" y="18" width="62" height="80" rx="11" fill={C.crema} stroke={C.arena} strokeWidth="1.5" />
+        <rect x="55" y="25" width="48" height="38" rx="7" fill={C.terracota} />
+        <circle cx="79" cy="39" r="8" fill={C.piel} />
+        <path d="M66 63c2-9 7-13 13-13s11 4 13 13z" fill={C.piel} />
+        <g fill={C.naranja}>
+          <circle cx="59" cy="73" r="3.3" /><circle cx="68" cy="73" r="3.3" /><circle cx="77" cy="73" r="3.3" />
+          <circle cx="86" cy="73" r="3.3" />
         </g>
-        <rect x="55" y="83" width="30" height="5" rx="2.5" fill="oklch(80% .01 80)" />
+        <circle cx="95" cy="73" r="3.3" fill={C.arenaOscura} />
+        <rect x="56" y="83" width="30" height="5" rx="2.5" fill={C.arena} />
       </g>
-      <g transform="rotate(-10 104 88)">
-        <rect x="88" y="80" width="34" height="18" rx="9" fill="oklch(48% .1 152)" />
-        <text x="105" y="93" textAnchor="middle" fontSize="10" fontWeight="700" fill="#fff" fontFamily="inherit">$15k</text>
+      <g transform="rotate(-8 104 89)">
+        <rect x="86" y="80" width="36" height="19" rx="9.5" fill={C.verdeOk} />
+        <text x="104" y="93.5" textAnchor="middle" fontSize="10" fontWeight="800" fill={C.blanco} fontFamily="inherit">$15k</text>
       </g>
     </svg>
   )
@@ -123,39 +112,22 @@ function IlustracionCompara() {
 function IlustracionReserva() {
   return (
     <svg viewBox="0 0 132 112" style={tamanoIlustracion} role="img" aria-label="Calendario con el día elegido y un check">
-      <defs>
-        <radialGradient id="cf-brillo-3" cx="50%" cy="55%" r="55%">
-          <stop offset="0" stopColor="oklch(72% .16 48)" stopOpacity=".32" />
-          <stop offset="1" stopColor="oklch(72% .16 48)" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="cf-calendario" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="oklch(80% .15 55)" />
-          <stop offset="1" stopColor="oklch(66% .17 44)" />
-        </linearGradient>
-        <linearGradient id="cf-check" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="oklch(76% .15 150)" />
-          <stop offset="1" stopColor="oklch(56% .13 155)" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="66" cy="62" rx="62" ry="46" fill="url(#cf-brillo-3)" />
-      <g transform="rotate(-6 62 62)">
-        <rect x="28" y="24" width="68" height="70" rx="12" fill="oklch(96% .01 80)" stroke="oklch(88% .015 80)" />
-        <path d="M28 36a12 12 0 0 1 12-12h44a12 12 0 0 1 12 12v8H28z" fill="url(#cf-calendario)" />
-        <rect x="42" y="17" width="6" height="14" rx="3" fill="oklch(45% .03 168)" />
-        <rect x="76" y="17" width="6" height="14" rx="3" fill="oklch(45% .03 168)" />
-        <g fill="oklch(82% .01 80)">
-          <rect x="36" y="52" width="9" height="8" rx="2" /><rect x="50" y="52" width="9" height="8" rx="2" />
-          <rect x="64" y="52" width="9" height="8" rx="2" /><rect x="78" y="52" width="9" height="8" rx="2" />
-          <rect x="36" y="65" width="9" height="8" rx="2" /><rect x="64" y="65" width="9" height="8" rx="2" />
-          <rect x="78" y="65" width="9" height="8" rx="2" />
-          <rect x="36" y="78" width="9" height="8" rx="2" /><rect x="50" y="78" width="9" height="8" rx="2" />
+      <g transform="rotate(-5 62 62)">
+        <rect x="26" y="24" width="72" height="72" rx="12" fill={C.crema} stroke={C.arena} strokeWidth="1.5" />
+        <path d="M26 36a12 12 0 0 1 12-12h48a12 12 0 0 1 12 12v9H26z" fill={C.naranja} />
+        <rect x="41" y="16" width="7" height="15" rx="3.5" fill={C.verdeOscuro} />
+        <rect x="76" y="16" width="7" height="15" rx="3.5" fill={C.verdeOscuro} />
+        <g fill={C.arena}>
+          <rect x="35" y="53" width="10" height="9" rx="2" /><rect x="50" y="53" width="10" height="9" rx="2" />
+          <rect x="65" y="53" width="10" height="9" rx="2" /><rect x="80" y="53" width="10" height="9" rx="2" />
+          <rect x="35" y="67" width="10" height="9" rx="2" /><rect x="65" y="67" width="10" height="9" rx="2" />
+          <rect x="80" y="67" width="10" height="9" rx="2" />
+          <rect x="35" y="81" width="10" height="9" rx="2" /><rect x="50" y="81" width="10" height="9" rx="2" />
         </g>
-        <rect x="49" y="64" width="11" height="10" rx="3" fill="oklch(72% .16 48)" />
+        <rect x="50" y="67" width="10" height="9" rx="2" fill={C.naranja} />
       </g>
-      <circle cx="98" cy="80" r="17" fill="url(#cf-check)" stroke="var(--bg)" strokeWidth="4" />
-      <path d="M90 80l5.5 5.5L107 74" stroke="#fff" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M108 30l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="oklch(85% .12 70)" />
-      <circle cx="22" cy="40" r="2.2" fill="oklch(85% .12 70)" />
+      <circle cx="98" cy="80" r="18" fill={C.verdeOk} />
+      <path d="M90 80l5.5 5.5L107 74" stroke={C.blanco} strokeWidth="4.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

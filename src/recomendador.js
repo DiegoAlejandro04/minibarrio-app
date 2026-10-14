@@ -5,13 +5,15 @@
 // y los servicios no tienen un campo "tipo" de catálogo fijo, solo "nombre"
 // libre — por eso el emparejamiento de servicio es por texto, no por enum.
 
-// Pesos derivados de la Tabla 14 de la encuesta (porcentajes normalizados a 1).
+// Pesos de la Tabla 16 del documento: menciones de cada variable en la
+// encuesta (Tabla 13) sobre el total de 192, redondeadas a tres decimales.
+// Suman 1,000.
 export const PESOS = {
-  precio: 0.24,
-  historial: 0.21,
-  cercania: 0.19,
-  servicio: 0.18,
-  calificacion: 0.18,
+  precio: 0.245, // 47 menciones
+  historial: 0.214, // 41 — "experiencias previas"
+  calificacion: 0.182, // 35 — "calificación de otros usuarios"
+  cercania: 0.182, // 35 — "ubicación"
+  servicio: 0.177, // 34 — "tipo de servicio"
 }
 
 const DISTANCIA_MAXIMA_KM = 2 // más lejos que esto puntúa 0 en cercanía
@@ -155,22 +157,51 @@ function puntajeServicio(negocio, consulta) {
   return coinciden / terminos.length
 }
 
-// 1 si el precio cabe en el presupuesto; baja en línea recta hasta 0 al doble.
-// Sin servicios con precio publicados, PUNTAJE_SIN_DATOS (ver arriba).
-function puntajePrecio(negocio, consulta) {
-  if (!consulta.presupuesto) return null
+// Precio con el que se compara un negocio: el más barato de los servicios que
+// coinciden con lo buscado (o de todos, si no se buscó nada). null si no
+// tiene servicios con precio publicados. Con soloCoincidentes, también null
+// si ninguno de sus servicios coincide con lo buscado (para el rango del
+// barrio: el precio de un tinte no se compara con el de un corte).
+function precioReferencia(negocio, consulta, { soloCoincidentes = false } = {}) {
   const visibles = serviciosVisibles(negocio)
-  if (!visibles.length) return PUNTAJE_SIN_DATOS
+  if (!visibles.length) return null
   const terminos = consulta.servicios?.map(normalizar).filter(Boolean) ?? []
   const relevantes = terminos.length
     ? visibles.filter((s) => terminos.some((t) => coincideTermino(t, bolsaBusqueda({ servicios: [s] }))))
     : visibles
+  if (soloCoincidentes && !relevantes.length) return null
   const base = relevantes.length ? relevantes : visibles
   const precios = base.map((s) => s.precio).filter((p) => typeof p === 'number')
-  if (!precios.length) return PUNTAJE_SIN_DATOS
-  const precio = Math.min(...precios)
-  if (precio <= consulta.presupuesto) return 1
-  return limitar(2 - precio / consulta.presupuesto)
+  return precios.length ? Math.min(...precios) : null
+}
+
+// Precio (Tabla 16: "precio del servicio frente al rango de precios del
+// barrio"):
+//   - Con presupuesto del cliente: 1 si cabe; baja en línea recta hasta 0 al
+//     doble del presupuesto.
+//   - Sin presupuesto: posición dentro del rango de precios del barrio para
+//     ese servicio — 1 el más económico, 0 el más costoso. Si todos cobran lo
+//     mismo (o hay uno solo), no hay rango con qué comparar y se omite.
+// Sin precios publicados, PUNTAJE_SIN_DATOS (ver arriba).
+function puntajePrecio(negocio, consulta, rangoBarrio) {
+  if (!consulta.presupuesto && !rangoBarrio) return null
+  const precio = precioReferencia(negocio, consulta)
+  if (precio == null) return PUNTAJE_SIN_DATOS
+  if (consulta.presupuesto) {
+    if (precio <= consulta.presupuesto) return 1
+    return limitar(2 - precio / consulta.presupuesto)
+  }
+  return limitar(1 - (precio - rangoBarrio.min) / (rangoBarrio.max - rangoBarrio.min))
+}
+
+// Rango de precios del barrio para lo buscado (mínimo y máximo entre los
+// negocios que lo ofrecen), o null si no hay al menos dos precios distintos.
+function rangoDePrecios(negocios, consulta) {
+  const precios = negocios.map((n) => precioReferencia(n, consulta, { soloCoincidentes: true })).filter((p) => p != null)
+  if (precios.length < 2) return null
+  const min = Math.min(...precios)
+  const max = Math.max(...precios)
+  return max > min ? { min, max } : null
 }
 
 // Más cerca, más puntaje. Solo si el cliente compartió su ubicación; si el
@@ -222,13 +253,14 @@ function senalDirecta({ esFavorito, notaPropia, yaReservo }) {
 }
 
 // Texto corto para explicarle al cliente por qué le aparece cada tarjeta.
-function razonesDe(componentes, negocio, { esFavorito, yaReservo }) {
+function razonesDe(componentes, negocio, { esFavorito, yaReservo, consulta }) {
   const razones = []
   if (esFavorito) razones.push('En tus favoritos')
   else if (yaReservo) razones.push('Ya reservaste aquí')
   if (componentes.servicio != null && componentes.servicio >= 0.999) razones.push('Tiene lo que buscas')
   else if (componentes.servicio > 0) razones.push('Tiene parte de lo que buscas')
-  if (componentes.precio != null && componentes.precio >= 0.999) razones.push('Dentro de tu presupuesto')
+  if (componentes.precio != null && componentes.precio >= 0.999 && consulta.presupuesto) razones.push('Dentro de tu presupuesto')
+  else if (componentes.precio != null && componentes.precio >= 0.8 && !consulta.presupuesto) razones.push('De los más económicos')
   if (componentes.cercania != null && componentes.cercania >= 0.6) razones.push('Cerca de ti')
   if (!esFavorito && !yaReservo && componentes.historial != null && componentes.historial >= 0.4) {
     razones.push('Parecido a tus favoritos')
@@ -287,6 +319,7 @@ function ordenEquitativo(lista, semilla) {
 //   hoy; las pruebas pasan uno fijo)
 export function recomendar(negocios, consulta = {}, contextoCliente = {}, opciones = {}) {
   const conResenas = negocios.filter((n) => n.ratingCount > 0)
+  const rangoBarrio = rangoDePrecios(negocios, consulta)
   const promedioBarrio = conResenas.length
     ? conResenas.reduce((s, n) => s + n.ratingProm, 0) / conResenas.length
     : 3.5
@@ -317,7 +350,7 @@ export function recomendar(negocios, consulta = {}, contextoCliente = {}, opcion
       const parecido = puntajeHistorial(negocio, gustados)
 
       const componentes = {
-        precio: puntajePrecio(negocio, consulta),
+        precio: puntajePrecio(negocio, consulta, rangoBarrio),
         // La señal directa (favorito/calificación/visita) manda, pero si el
         // parecido con otros favoritos es aún mayor, se queda con ese.
         historial: directa != null ? Math.max(directa, parecido ?? 0) : parecido,
@@ -343,7 +376,7 @@ export function recomendar(negocios, consulta = {}, contextoCliente = {}, opcion
         puntaje: Math.round(puntaje * 100),
         componentes,
         esFavorito,
-        razones: razonesDe(componentes, negocio, { esFavorito, yaReservo }),
+        razones: razonesDe(componentes, negocio, { esFavorito, yaReservo, consulta }),
       }
     })
     // Si se pidió un servicio, se descartan los negocios que no ofrecen ninguno.
