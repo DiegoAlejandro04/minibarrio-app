@@ -1770,17 +1770,24 @@ input:focus, select:focus, textarea:focus {
   --mancha-opacidad: 0.28;
 }
 
-/* Manchas de color detrás del cristal */
-.panel-mancha {
-  position: fixed;
+/* Manchas de color detrás del cristal. No son position: fixed a propósito:
+   Safari en iOS pinta su barra de abajo con el color de los elementos fijos
+   que tocan el borde de la pantalla, y la mancha verde la teñía. */
+.panel-manchas {
+  position: absolute;
+  inset: 0;
   z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.panel-mancha {
+  position: absolute;
   border-radius: 50%;
   filter: blur(60px);
   opacity: var(--mancha-opacidad);
-  pointer-events: none;
 }
 .panel-mancha-1 { width: 340px; height: 340px; top: -90px; left: -80px; background: var(--accent); }
-.panel-mancha-2 { width: 380px; height: 380px; bottom: -120px; left: 60px; background: var(--sage); }
+.panel-mancha-2 { width: 380px; height: 380px; top: 45vh; left: 60px; background: var(--sage); }
 
 /* Cristal */
 .panel-vidrio {

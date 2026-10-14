@@ -142,8 +142,10 @@ export default function OwnerLayout() {
     <div className={`panel-negocio${isMobile ? ' es-movil' : ''}${colapsado ? ' colapsado' : ''}`}>
       {/* Manchas de color de la marca detrás del cristal: sin algo detrás,
           el desenfoque no se nota. */}
-      <div className="panel-mancha panel-mancha-1" aria-hidden="true" />
-      <div className="panel-mancha panel-mancha-2" aria-hidden="true" />
+      <div className="panel-manchas" aria-hidden="true">
+        <div className="panel-mancha panel-mancha-1" />
+        <div className="panel-mancha panel-mancha-2" />
+      </div>
 
       {isMobile && abiertoMovil && (
         <div role="presentation" className="panel-velo" onClick={() => setAbiertoMovil(false)} />
