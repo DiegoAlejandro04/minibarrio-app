@@ -5,6 +5,7 @@ import Captcha from '../components/Captcha.jsx'
 import Icon from '../components/Icon.jsx'
 import GoogleIcon from '../components/GoogleIcon.jsx'
 import RecuperarContrasenaModal from '../components/RecuperarContrasenaModal.jsx'
+import { avisoDominioCorreo, correoPermitido } from '../correos.js'
 
 // Inicio de sesión y registro de cliente en una sola tarjeta que gira en 3D
 // entre sus dos caras (estilo "neumórfico": sombras suaves en relieve y
@@ -228,10 +229,17 @@ function CaraRegistro({ onGirar }) {
   const navigate = useNavigate()
 
   const cambiar = (campo) => (valor) => setForm((f) => ({ ...f, [campo]: valor }))
+  const [revisarCorreo, setRevisarCorreo] = useState(false) // se intentó enviar
+  const avisoCorreo = avisoDominioCorreo(form.correo, revisarCorreo)
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (!correoPermitido(form.correo)) {
+      setRevisarCorreo(true)
+      document.getElementById('registro-correo')?.focus()
+      return
+    }
     if (form.contrasena !== form.confirmar) {
       setError('Las contraseñas no coinciden.')
       return
@@ -294,7 +302,7 @@ function CaraRegistro({ onGirar }) {
 
       <form onSubmit={handleSubmit}>
         <Campo id="registro-nombre" label="Nombre completo" autoComplete="name" maxLength={80} value={form.nombre} onChange={cambiar('nombre')} />
-        <Campo id="registro-correo" label="Correo electrónico" type="email" autoComplete="email" maxLength={120} value={form.correo} onChange={cambiar('correo')} />
+        <Campo id="registro-correo" label="Correo electrónico" type="email" autoComplete="email" maxLength={120} value={form.correo} onChange={cambiar('correo')} aviso={avisoCorreo} />
         <Campo id="registro-telefono" label="Teléfono / WhatsApp" type="tel" autoComplete="tel" maxLength={20} value={form.telefono} onChange={cambiar('telefono')} />
         <Campo
           id="registro-contrasena"
@@ -350,9 +358,10 @@ function CaraRegistro({ onGirar }) {
 // Campo con etiqueta flotante y borde "eléctrico" naranja al enfocarlo. El
 // placeholder=" " es lo que permite saber con CSS (:placeholder-shown) si el
 // campo tiene texto, para dejar la etiqueta arriba.
-export function Campo({ id, label, type = 'text', value, onChange, autoComplete, maxLength, derecha, disabled = false }) {
-  return (
-    <div className={`acceso-campo${derecha ? ' con-boton' : ''}`}>
+// `aviso` es un mensaje de error del propio campo, que se muestra debajo.
+export function Campo({ id, label, type = 'text', value, onChange, autoComplete, maxLength, derecha, disabled = false, aviso }) {
+  const campo = (
+    <div className={`acceso-campo${derecha ? ' con-boton' : ''}${aviso ? ' con-aviso' : ''}`}>
       <div className="acceso-campo-brillo" aria-hidden="true" />
       <div className="acceso-campo-borde" aria-hidden="true" />
       <input
@@ -366,10 +375,19 @@ export function Campo({ id, label, type = 'text', value, onChange, autoComplete,
         required={!disabled}
         disabled={disabled}
         readOnly={!onChange}
+        aria-invalid={aviso ? true : undefined}
+        aria-describedby={aviso ? `${id}-aviso` : undefined}
       />
       <label htmlFor={id}>{label}</label>
       {derecha}
     </div>
+  )
+  if (!aviso) return campo
+  return (
+    <>
+      {campo}
+      <div id={`${id}-aviso`} className="acceso-aviso-campo" role="alert">{aviso}</div>
+    </>
   )
 }
 

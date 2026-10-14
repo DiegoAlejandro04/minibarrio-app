@@ -98,6 +98,12 @@ service cloud.firestore {
         && textoMax(datos, 'telefono', 20);
     }
 
+    function correoDeRegistroPermitido() {
+      return request.auth.token.firebase.sign_in_provider == 'google.com'
+        || (request.auth.token.email is string
+            && request.auth.token.email.lower().matches('^[^@]+@(gmail[.]com|googlemail[.]com|outlook[.]com|outlook[.]es|hotmail[.]com|hotmail[.]es|live[.]com|msn[.]com|yahoo[.]com|yahoo[.]es|ymail[.]com|icloud[.]com|me[.]com|mac[.]com)$'));
+    }
+
     function negocioValido() {
       let datos = request.resource.data;
       return textoMax(datos, 'nombre', 80)
@@ -174,7 +180,8 @@ service cloud.firestore {
       allow create: if esDueno(uid)
                     && request.resource.data.rol in ['cliente', 'propietario']
                     && request.resource.data.keys().hasOnly(['rol', 'nombre', 'correo', 'telefono', 'consentimientoDatos', 'creadoEn', 'modoOscuro', 'modoOscuroPanel'])
-                    && perfilValido();
+                    && perfilValido()
+                    && correoDeRegistroPermitido();
       allow update: if esDueno(uid)
                     && request.resource.data.rol == resource.data.rol
                     && camposCambiados().hasOnly(['nombre', 'correo', 'telefono', 'modoOscuro', 'modoOscuroPanel'])

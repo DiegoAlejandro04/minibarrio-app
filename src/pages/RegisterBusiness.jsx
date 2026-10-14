@@ -7,6 +7,7 @@ import CampoDireccion from '../components/CampoDireccion.jsx'
 import MapaUbicacion from '../components/MapaUbicacion.jsx'
 import Icon from '../components/Icon.jsx'
 import { BotonOjo, Campo } from './Acceso.jsx'
+import { avisoDominioCorreo, correoPermitido } from '../correos.js'
 
 const initialForm = {
   nombrePropietario: '',
@@ -37,12 +38,18 @@ export default function RegisterBusiness() {
   const navigate = useNavigate()
 
   const [mostrar, setMostrar] = useState(false) // ver/ocultar contraseñas
+  const [revisarCorreo, setRevisarCorreo] = useState(false) // se intentó enviar
   const cambiar = (campo) => (valor) => setForm((f) => ({ ...f, [campo]: valor }))
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
+    if (!correoPermitido(form.correo)) {
+      setRevisarCorreo(true)
+      document.getElementById('negocio-correo')?.focus()
+      return
+    }
     if (form.contrasena !== form.confirmar) {
       setError('Las contraseñas no coinciden.')
       return
@@ -107,7 +114,7 @@ export default function RegisterBusiness() {
           <form onSubmit={handleSubmit}>
             <div className="acceso-seccion">Datos del propietario</div>
             <Campo id="negocio-propietario" label="Nombre completo" autoComplete="name" maxLength={80} value={form.nombrePropietario} onChange={cambiar('nombrePropietario')} />
-            <Campo id="negocio-correo" label="Correo electrónico" type="email" autoComplete="email" maxLength={120} value={form.correo} onChange={cambiar('correo')} />
+            <Campo id="negocio-correo" label="Correo electrónico" type="email" autoComplete="email" maxLength={120} value={form.correo} onChange={cambiar('correo')} aviso={avisoDominioCorreo(form.correo, revisarCorreo)} />
             <div className="acceso-fila">
               <Campo
                 id="negocio-contrasena"
