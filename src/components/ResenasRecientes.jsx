@@ -5,9 +5,9 @@ import useIsMobile from '../hooks/useIsMobile.js'
 // recientes. Solo se muestra con MINIMO_RESENAS o más — una sección con una
 // sola reseña se ve peor que no tenerla.
 //
-// Cada reseña se firma con el nombre corto que guardó el cliente al
-// escribirla ("Laura M.", ver CalificarModal.jsx); las viejas, que no lo
-// tienen, como "Cliente de MiniBarrio". La insignia "Verificada" solo va en
+// Por privacidad no se muestra quién escribió cada reseña, solo el negocio y
+// la fecha (el nombre corto sigue guardado, ver CalificarModal.jsx). La
+// insignia "Verificada" solo va en
 // las que se escribieron con una cita real ya pasada (citaId, comprobado por
 // firestore.rules) — las anteriores a esa regla no la llevan.
 
@@ -44,10 +44,10 @@ export default function ResenasRecientes({ resenas, nombresNegocios }) {
       <p className="resena-texto">{r.comentario}</p>
       <div className="resena-pie" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>{r.nombreCliente || 'Cliente de MiniBarrio'}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>
-            {nombresNegocios[r.negocioId] || 'Barbería'}{r.fecha ? ` · ${FECHA.format(r.fecha)}` : ''}
-          </div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>{nombresNegocios[r.negocioId] || 'Barbería'}</div>
+          {r.fecha && (
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>{FECHA.format(r.fecha)}</div>
+          )}
         </div>
         {r.verificada && <span className="resena-verificada">✓ Verificada</span>}
       </div>

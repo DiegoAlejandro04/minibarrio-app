@@ -687,7 +687,7 @@ export default function NegocioDetalle() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: 700, fontSize: 13.5 }}>★ {r.calificacion || 0}</span>
-                          {r.nombreCliente && <span style={{ fontSize: 13, fontWeight: 700 }}>{r.nombreCliente}</span>}
+                          {/* Por privacidad no se muestra quién escribió la reseña. */}
                           {r.citaId && <span className="resena-verificada">✓ Verificada</span>}
                         </span>
                         {r.creadoEn?.toDate && (
