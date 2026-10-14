@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import useIsMobile from '../hooks/useIsMobile.js'
 import ContactoModal from './ContactoModal.jsx'
 import PqrsModal from './PqrsModal.jsx'
@@ -15,11 +15,16 @@ const ENLACES_EXPLORAR = [
   { to: '/#como-funciona', label: 'Cómo funciona' },
 ]
 
-// "Categorías" todavía no tiene página propia — en el header (ClientHome.jsx)
-// aparece igual de deshabilitada con el mismo tooltip "Próximamente", así que
-// aquí se muestra del mismo modo en vez de simular un enlace que no lleva a
-// ningún lado.
-const PROXIMAMENTE_EXPLORAR = ['Categorías']
+// Los enlaces a la propia página principal no cambian de ruta, así que React
+// Router no se mueve: se desplaza a mano, suave, hasta arriba ("/") o hasta
+// la sección del "#". Desde otra página navega normal.
+function irEnLaPagina(e, to, pathname) {
+  const [ruta, seccion] = to.split('#')
+  if ((ruta || '/') !== pathname) return
+  e.preventDefault()
+  if (seccion) document.getElementById(seccion)?.scrollIntoView({ behavior: 'smooth' })
+  else window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 
 const ENLACES_CUENTA = [
   { to: '/registro/cliente', label: 'Crear cuenta de cliente' },
@@ -36,6 +41,7 @@ const ESTILO_BOTON_AYUDA = {
 
 export default function Footer() {
   const isMobile = useIsMobile()
+  const { pathname } = useLocation()
   const anio = new Date().getFullYear()
   const [formularioAbierto, setFormularioAbierto] = useState(null) // null | 'contacto' | 'pqrs'
 
@@ -78,7 +84,7 @@ export default function Footer() {
           }}
         >
           <div style={{ flex: '1 1 220px', maxWidth: 280 }}>
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 18, fontWeight: 800 }}>
+            <Link to="/" onClick={(ev) => irEnLaPagina(ev, '/', pathname)} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 18, fontWeight: 800 }}>
               <span
                 style={{
                   width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', color: '#fff',
@@ -102,18 +108,14 @@ export default function Footer() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
               {ENLACES_EXPLORAR.map((e) => (
-                <Link key={e.label} to={e.to} style={{ fontSize: 13.5, color: 'var(--text-muted)', fontWeight: 600 }}>
+                <Link
+                  key={e.label}
+                  to={e.to}
+                  onClick={(ev) => irEnLaPagina(ev, e.to, pathname)}
+                  style={{ fontSize: 13.5, color: 'var(--text-muted)', fontWeight: 600 }}
+                >
                   {e.label}
                 </Link>
-              ))}
-              {PROXIMAMENTE_EXPLORAR.map((label) => (
-                <span
-                  key={label}
-                  title="Próximamente"
-                  style={{ fontSize: 13.5, color: 'var(--text-faint)', fontWeight: 600, cursor: 'not-allowed' }}
-                >
-                  {label}
-                </span>
               ))}
             </div>
           </div>
