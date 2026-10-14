@@ -1294,6 +1294,14 @@ input:focus, select:focus, textarea:focus {
   -webkit-backface-visibility: hidden;
 }
 .acceso-cara-registro { transform: rotateY(180deg); }
+/* Safari (iOS) ignora backface-visibility cuando la cara tiene hijos con
+   capa propia (animaciones, bordes eléctricos) y deja ver la otra cara al
+   revés. Por eso se oculta la cara de atrás con visibility justo a mitad del
+   giro, cuando la tarjeta queda de canto. */
+.acceso-tarjeta > .acceso-cara { transition: visibility 0s linear .5s; }
+.acceso-tarjeta > .acceso-cara-registro,
+.acceso-tarjeta.girada > .acceso-cara:not(.acceso-cara-registro) { visibility: hidden; }
+.acceso-tarjeta.girada > .acceso-cara-registro { visibility: visible; }
 
 .acceso-logo {
   width: 82px;
@@ -1628,7 +1636,8 @@ input:focus, select:focus, textarea:focus {
 
 @media (prefers-reduced-motion: reduce) {
   .acceso-tarjeta,
-  .acceso-pestana-indicador { transition: none; }
+  .acceso-pestana-indicador,
+  .acceso-tarjeta > .acceso-cara { transition: none; }
   .acceso-burbuja,
   .acceso-campo-borde::before,
   .acceso-campo-brillo::before,
@@ -1710,4 +1719,10 @@ input:focus, select:focus, textarea:focus {
 
 @media (max-width: 480px) {
   .acceso-fila { grid-template-columns: 1fr; }
+}
+
+/* iOS hace zoom automático al enfocar un campo con letra menor a 16px y no
+   vuelve a su tamaño; solo en iOS (-webkit-touch-callout) se fuerza 16px. */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea { font-size: 16px !important; }
 }
