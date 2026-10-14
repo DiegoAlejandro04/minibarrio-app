@@ -1203,3 +1203,511 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 4px 12px -4px var(--accent);
 }
 .dia-circulo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Inicio de sesión y registro de cliente (pages/Acceso.jsx) ──────────────
+   Estilo neumórfico (relieve y hundido con dos sombras: una oscura abajo a
+   la derecha y una clara arriba a la izquierda) sobre el fondo del tema, con
+   el naranja de acento. Adaptado del "Login & Sign Up Form UI" de
+   CodeByGaurav. Para que el relieve funcione, tarjeta, campos y botones
+   tienen el MISMO color que el fondo (--neu-base). */
+.acceso {
+  --neu-base: var(--bg);
+  --neu-osc: oklch(78% 0.035 70 / 0.6);
+  --neu-luz: oklch(100% 0 0 / 0.95);
+  --neu-electrico: conic-gradient(from 0deg, transparent 0deg, transparent 30deg,
+    oklch(86% 0.12 75) 45deg, var(--accent) 65deg, oklch(58% 0.17 38) 80deg,
+    transparent 105deg, transparent 360deg);
+  --neu-relieve: 14px 14px 28px var(--neu-osc), -14px -14px 28px var(--neu-luz);
+  --neu-relieve-sm: 7px 7px 14px var(--neu-osc), -7px -7px 14px var(--neu-luz);
+  --neu-hundido: inset 6px 6px 12px var(--neu-osc), inset -6px -6px 12px var(--neu-luz);
+
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 16px 48px;
+  background: var(--neu-base);
+  overflow-x: hidden;
+}
+[data-theme="dark"] .acceso {
+  --neu-osc: oklch(9% 0.012 170 / 0.85);
+  --neu-luz: oklch(29% 0.022 168 / 0.6);
+}
+
+.acceso-volver {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.acceso-volver:hover { color: var(--accent); }
+
+/* Círculos decorativos que flotan en el fondo */
+.acceso-burbuja {
+  position: fixed;
+  z-index: 0;
+  border-radius: 50%;
+  background: var(--neu-base);
+  box-shadow: var(--neu-relieve);
+  pointer-events: none;
+  animation: acceso-flotar 6s ease-in-out infinite;
+}
+.acceso-burbuja-1 { width: 190px; height: 190px; top: 8%; left: 6%; }
+.acceso-burbuja-2 { width: 130px; height: 130px; right: 7%; bottom: 8%; animation-delay: 1.5s; }
+.acceso-burbuja-3 { width: 56px; height: 56px; right: 20%; top: 20%; animation-delay: 3s; }
+@keyframes acceso-flotar {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-18px); }
+}
+
+/* Tarjeta que gira: las dos caras superpuestas, la de atrás ya volteada */
+.acceso-escena {
+  position: relative;
+  z-index: 1;
+  width: 420px;
+  max-width: 100%;
+  perspective: 1600px;
+}
+.acceso-tarjeta {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 1s cubic-bezier(.68, -0.55, .27, 1.55), height .6s ease;
+}
+.acceso-tarjeta.girada { transform: rotateY(180deg); }
+.acceso-cara {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 36px 34px 28px;
+  border-radius: 32px;
+  background: var(--neu-base);
+  box-shadow: var(--neu-relieve);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.acceso-cara-registro { transform: rotateY(180deg); }
+
+.acceso-logo {
+  width: 82px;
+  height: 82px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--accent);
+  background: var(--neu-base);
+  box-shadow: 9px 9px 18px var(--neu-osc), -9px -9px 18px var(--neu-luz);
+  transition: transform .4s ease;
+}
+.acceso-logo:hover { transform: translateY(-5px) rotate(8deg); }
+.acceso-titulo {
+  text-align: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+.acceso-subtitulo {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 22px;
+}
+/* Al cambiar entre Cliente y Propietario el ícono y el subtítulo entran de
+   nuevo (Acceso.jsx los vuelve a montar con key={tab}). */
+.acceso-logo.acceso-entra { animation: acceso-logo-entra .55s cubic-bezier(.34, 1.56, .64, 1); }
+.acceso-subtitulo.acceso-entra { animation: acceso-texto-entra .35s ease; }
+@keyframes acceso-logo-entra {
+  from { opacity: 0; transform: scale(.55) rotate(-25deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes acceso-texto-entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Selector Cliente / Propietario: canal hundido con una pastilla en relieve
+   que se desliza al lado elegido. */
+.acceso-pestanas {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 5px;
+  margin-bottom: 24px;
+  border-radius: 16px;
+  background: var(--neu-base);
+  box-shadow: inset 5px 5px 10px var(--neu-osc), inset -5px -5px 10px var(--neu-luz);
+}
+.acceso-pestana-indicador {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 5px;
+  width: calc(50% - 5px);
+  border-radius: 12px;
+  background: var(--neu-base);
+  box-shadow: 4px 4px 9px var(--neu-osc), -4px -4px 9px var(--neu-luz);
+  transition: transform .55s cubic-bezier(.68, -0.55, .27, 1.55);
+}
+.acceso-pestana-indicador.derecha { transform: translateX(100%); }
+.acceso-pestanas button {
+  position: relative;
+  z-index: 1;
+  border: none;
+  background: none;
+  padding: 10px 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color .3s ease;
+}
+.acceso-pestanas button.activa { color: var(--accent); }
+
+/* Campos hundidos con etiqueta flotante y borde "eléctrico" al enfocar */
+.acceso-campo {
+  position: relative;
+  height: 56px;
+  margin-bottom: 18px;
+}
+.acceso-campo input {
+  position: absolute;
+  inset: 2px;
+  z-index: 2;
+  width: calc(100% - 4px);
+  height: 52px;
+  margin: 0;
+  border: none;
+  outline: none;
+  border-radius: 16px;
+  background: var(--neu-base);
+  color: var(--text);
+  font-size: 15px;
+  padding: 0 18px;
+  box-shadow: var(--neu-hundido);
+  transition: box-shadow .25s ease;
+}
+.acceso-campo.con-boton input { padding-right: 48px; }
+.acceso-campo input:focus {
+  border: none;
+  box-shadow: inset 3px 3px 7px var(--neu-osc), inset -3px -3px 7px var(--neu-luz);
+}
+.acceso-campo label {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 3;
+  font-size: 15px;
+  color: var(--text-faint);
+  pointer-events: none;
+  transition: all .25s ease;
+}
+.acceso-campo input:focus + label,
+.acceso-campo input:not(:placeholder-shown) + label {
+  top: -9px;
+  left: 14px;
+  padding: 1px 8px;
+  border-radius: 7px;
+  background: var(--neu-base);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 15px;
+  white-space: nowrap;
+}
+.acceso-campo-borde,
+.acceso-campo-brillo {
+  position: absolute;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.acceso-campo-borde { inset: -2px; border-radius: 19px; }
+.acceso-campo-brillo { inset: -4px; border-radius: 21px; filter: blur(8px); }
+.acceso-campo-borde::before,
+.acceso-campo-brillo::before {
+  content: "";
+  position: absolute;
+  width: 170%;
+  height: 170%;
+  left: -35%;
+  top: -35%;
+  background: var(--neu-electrico);
+  animation: acceso-electrico 1.1s linear infinite;
+}
+.acceso-campo-borde::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 17px;
+  background: var(--neu-base);
+}
+.acceso-campo:focus-within .acceso-campo-borde { opacity: 1; }
+.acceso-campo:focus-within .acceso-campo-brillo { opacity: .5; }
+@keyframes acceso-electrico { to { transform: rotate(360deg); } }
+
+.acceso-ojo {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  z-index: 4;
+  transform: translateY(-50%);
+  display: flex;
+  padding: 5px;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color .2s ease, transform .2s ease;
+}
+.acceso-ojo:hover { color: var(--accent); transform: translateY(-50%) scale(1.1); }
+
+.acceso-opciones {
+  display: flex;
+  justify-content: flex-end;
+  margin: -6px 2px 16px;
+}
+.acceso-enlace {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+}
+.acceso-enlace:hover { text-decoration: underline; }
+
+.acceso-consentimiento {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: -4px 2px 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.acceso-consentimiento input { width: auto; margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; }
+
+.acceso-captcha { margin-bottom: 14px; }
+.acceso-error { margin: -4px 0 12px; }
+
+/* Botón principal: en relieve; al pasar el mouse se llena de naranja */
+.acceso-boton {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  height: 52px;
+  border: none;
+  border-radius: 16px;
+  background: var(--neu-base);
+  color: var(--accent);
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  cursor: pointer;
+  box-shadow: 8px 8px 16px var(--neu-osc), -8px -8px 16px var(--neu-luz);
+  transition: color .3s ease, transform .3s ease, box-shadow .3s ease;
+}
+.acceso-boton::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, var(--accent-hover), oklch(80% 0.14 62), var(--accent-hover));
+  background-size: 200% 100%;
+  transform: translateY(100%);
+  transition: transform .35s ease;
+}
+.acceso-boton:not(:disabled):hover { color: #fff; transform: translateY(-3px); box-shadow: 0 10px 25px oklch(68% 0.15 48 / 0.4); }
+.acceso-boton:not(:disabled):hover::before { transform: translateY(0); animation: acceso-boton-mover 1.5s linear infinite; }
+.acceso-boton:not(:disabled):active { transform: scale(.97); }
+.acceso-boton:disabled { opacity: .6; cursor: not-allowed; }
+@keyframes acceso-boton-mover {
+  from { background-position: 0 50%; }
+  to { background-position: 200% 50%; }
+}
+
+.acceso-separador {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 16px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.acceso-separador::before,
+.acceso-separador::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+.acceso-google {
+  width: 100%;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: none;
+  border-radius: 16px;
+  background: #fff;
+  color: #1f1f1f;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--neu-relieve-sm);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.acceso-google:not(:disabled):hover { transform: translateY(-2px); }
+.acceso-google:not(:disabled):active { transform: scale(.97); }
+.acceso-google:disabled { opacity: .6; cursor: not-allowed; }
+
+.acceso-nota {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+.acceso-nota a { font-weight: 700; color: var(--accent); }
+
+/* Pie de cada cara: botón redondo que gira la tarjeta */
+.acceso-cambio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.acceso-circulo {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--neu-base);
+  color: var(--accent);
+  cursor: pointer;
+  box-shadow: var(--neu-relieve-sm);
+  transition: color .35s ease, background .35s ease, transform .35s ease, box-shadow .35s ease;
+}
+.acceso-circulo:hover {
+  color: #fff;
+  background: var(--accent);
+  transform: rotate(180deg) scale(1.08);
+  box-shadow: 0 8px 25px oklch(68% 0.15 48 / 0.4);
+}
+.acceso-circulo:active { transform: scale(.9); }
+
+@media (max-width: 480px) {
+  .acceso {
+    padding-top: 64px;
+    --neu-relieve: 9px 9px 18px var(--neu-osc), -9px -9px 18px var(--neu-luz);
+  }
+  .acceso-cara { padding: 30px 20px 24px; border-radius: 26px; }
+  .acceso-burbuja-1 { width: 120px; height: 120px; }
+  .acceso-burbuja-3 { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acceso-tarjeta,
+  .acceso-pestana-indicador { transition: none; }
+  .acceso-burbuja,
+  .acceso-campo-borde::before,
+  .acceso-campo-brillo::before,
+  .acceso-logo.acceso-entra,
+  .acceso-subtitulo.acceso-entra { animation: none; }
+}
+
+/* Registro de negocio (RegisterBusiness.jsx): mismo estilo, tarjeta fija y
+   más ancha (no gira) con campos que no usan la etiqueta flotante. */
+.acceso-escena-ancha { width: 560px; }
+.acceso-cara-fija {
+  position: relative;
+  transform: none;
+}
+.acceso-seccion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 2px 18px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.acceso-seccion::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.acceso-fila {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+}
+.acceso-ayuda {
+  margin: -10px 4px 18px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+.acceso-campo input:disabled { color: var(--text-muted); cursor: default; }
+
+/* Campos con etiqueta fija arriba (dirección con autocompletado y
+   descripción), hundidos igual que los demás. */
+.acceso-libre { margin-bottom: 18px; }
+.acceso-libre > label {
+  display: block;
+  margin: 0 0 8px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.acceso-libre input,
+.acceso-libre textarea {
+  width: 100%;
+  border: none;
+  outline: none;
+  border-radius: 16px;
+  background: var(--neu-base);
+  color: var(--text);
+  font-size: 15px;
+  padding: 15px 18px;
+  box-shadow: var(--neu-hundido);
+  transition: box-shadow .25s ease;
+}
+.acceso-libre textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+.acceso-libre input:focus,
+.acceso-libre textarea:focus {
+  border: none;
+  box-shadow: var(--neu-hundido), 0 0 0 2px var(--accent);
+}
+
+/* Mapa de ubicación metido en un marco hundido */
+.acceso-mapa {
+  margin: -4px 0 20px;
+  padding: 6px;
+  border-radius: 20px;
+  background: var(--neu-base);
+  box-shadow: var(--neu-hundido);
+}
+.acceso-mapa > * { border-radius: 15px; overflow: hidden; }
+
+@media (max-width: 480px) {
+  .acceso-fila { grid-template-columns: 1fr; }
+}

@@ -6,7 +6,7 @@ import { buscarSugerenciasDireccion } from '../maps/osm.js'
 // solo geocodificar el texto libre al guardar (ver RegisterBusiness.jsx y
 // EditarNegocioModal.jsx, que llaman a onSeleccion con las coordenadas de la
 // sugerencia elegida).
-export default function CampoDireccion({ value, onChange, onSeleccion, required, placeholder, style }) {
+export default function CampoDireccion({ id, value, onChange, onSeleccion, required, placeholder, style }) {
   const [sugerencias, setSugerencias] = useState([])
   const [abierto, setAbierto] = useState(false)
   const [cargando, setCargando] = useState(false)
@@ -49,6 +49,7 @@ export default function CampoDireccion({ value, onChange, onSeleccion, required,
   return (
     <div ref={contenedorRef} style={{ position: 'relative' }}>
       <input
+        id={id}
         maxLength={200}
         required={required}
         value={value}

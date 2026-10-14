@@ -3,8 +3,7 @@ import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import Splash from './components/Splash.jsx'
-import Login from './pages/Login.jsx'
-import RegisterClient from './pages/RegisterClient.jsx'
+import Acceso from './pages/Acceso.jsx'
 import RegisterBusiness from './pages/RegisterBusiness.jsx'
 import ClientHome from './pages/client/ClientHome.jsx'
 import NegocioDetalle from './pages/client/NegocioDetalle.jsx'
@@ -108,9 +107,10 @@ export default function App() {
     <>
       <Routes>
         {/* Rutas públicas */}
-        <Route path="/login" element={<Login />} />
+        {/* Inicio de sesión y registro de cliente: la misma tarjeta que gira (ver Acceso.jsx) */}
+        <Route path="/login" element={<Acceso />} />
         {/* <Route path="/cuenta/accion" element={<AccionCuenta />} /> — inactiva, ver AccionCuenta.jsx */}
-        <Route path="/registro/cliente" element={<RegisterClient />} />
+        <Route path="/registro/cliente" element={<Acceso />} />
         <Route path="/registro/negocio" element={<RegisterBusiness />} />
 
         {/* Vitrina pública de negocios (RF-05, RF-06, RF-09, RF-12): visible sin sesión */}

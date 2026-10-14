@@ -5,6 +5,8 @@ import Captcha from '../components/Captcha.jsx'
 import { geocodeDireccion } from '../maps/osm.js'
 import CampoDireccion from '../components/CampoDireccion.jsx'
 import MapaUbicacion from '../components/MapaUbicacion.jsx'
+import Icon from '../components/Icon.jsx'
+import { BotonOjo, Campo } from './Acceso.jsx'
 
 const initialForm = {
   nombrePropietario: '',
@@ -34,9 +36,8 @@ export default function RegisterBusiness() {
   const { registerBusinessOwner } = useAuth()
   const navigate = useNavigate()
 
-  function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
-  }
+  const [mostrar, setMostrar] = useState(false) // ver/ocultar contraseñas
+  const cambiar = (campo) => (valor) => setForm((f) => ({ ...f, [campo]: valor }))
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -82,116 +83,127 @@ export default function RegisterBusiness() {
     }
   }
 
+  // Mismo estilo neumórfico que el inicio de sesión (ver Acceso.jsx y
+  // ".acceso" en index.css), pero en una tarjeta fija y más ancha: este
+  // formulario es demasiado largo para la tarjeta que gira.
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '48px 24px', position: 'relative' }}>
-      <Link
-        to="/"
-        style={{
-          position: 'absolute', top: 24, left: 24, fontSize: 13.5, fontWeight: 700, color: 'var(--text-muted)',
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}
-      >
-        ← Volver al inicio
+    <div className="acceso">
+      <div className="acceso-burbuja acceso-burbuja-1" aria-hidden="true" />
+      <div className="acceso-burbuja acceso-burbuja-2" aria-hidden="true" />
+      <div className="acceso-burbuja acceso-burbuja-3" aria-hidden="true" />
+
+      <Link to="/" className="acceso-volver">
+        <Icon name="arrowLeft" size={15} /> Volver al inicio
       </Link>
-      <div className="card" style={{ width: '100%', maxWidth: 480, padding: 32, height: 'fit-content' }}>
-        <div style={{ fontSize: 22, fontWeight: 800 }}>Registra tu barbería en MiniBarrio</div>
-        <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 6 }}>
-          Crea tu portafolio digital gratis y llega a más clientes del barrio.
-        </div>
 
-        <form onSubmit={handleSubmit} style={{ marginTop: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Datos del propietario</div>
-          <div>
-            <label style={{ fontSize: 12.5, fontWeight: 700 }}>Nombre completo</label>
-            <input maxLength={80} required value={form.nombrePropietario} onChange={update('nombrePropietario')} placeholder="Álvaro Gómez" style={{ marginTop: 6 }} />
+      <div className="acceso-escena acceso-escena-ancha">
+        <div className="acceso-cara acceso-cara-fija">
+          <div className="acceso-logo">
+            <Icon name="store" size={30} />
           </div>
-          <div>
-            <label style={{ fontSize: 12.5, fontWeight: 700 }}>Correo electrónico</label>
-            <input maxLength={120} type="email" required value={form.correo} onChange={update('correo')} placeholder="negocio@ejemplo.com" style={{ marginTop: 6 }} />
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ flex: '1 1 140px' }}>
-              <label style={{ fontSize: 12.5, fontWeight: 700 }}>Contraseña</label>
-              <input type="password" required value={form.contrasena} onChange={update('contrasena')} placeholder="••••••••" style={{ marginTop: 6 }} />
-            </div>
-            <div style={{ flex: '1 1 140px' }}>
-              <label style={{ fontSize: 12.5, fontWeight: 700 }}>Confirmar</label>
-              <input type="password" required value={form.confirmar} onChange={update('confirmar')} placeholder="••••••••" style={{ marginTop: 6 }} />
-            </div>
-          </div>
+          <h1 className="acceso-titulo">Registra tu barbería</h1>
+          <p className="acceso-subtitulo">Crea tu portafolio digital gratis y llega a más clientes del barrio</p>
 
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', marginTop: 8 }}>Datos del negocio</div>
-          <div>
-            <label style={{ fontSize: 12.5, fontWeight: 700 }}>Nombre del negocio</label>
-            <input maxLength={80} required value={form.nombreNegocio} onChange={update('nombreNegocio')} placeholder="Barbería El Britalia" style={{ marginTop: 6 }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 12.5, fontWeight: 700 }}>Categoría de servicio</label>
-            <input disabled value="Barbería y estética" style={{ marginTop: 6, background: 'var(--surface-2)', color: 'var(--text-muted)' }} />
-            <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 5 }}>
+          <form onSubmit={handleSubmit}>
+            <div className="acceso-seccion">Datos del propietario</div>
+            <Campo id="negocio-propietario" label="Nombre completo" autoComplete="name" maxLength={80} value={form.nombrePropietario} onChange={cambiar('nombrePropietario')} />
+            <Campo id="negocio-correo" label="Correo electrónico" type="email" autoComplete="email" maxLength={120} value={form.correo} onChange={cambiar('correo')} />
+            <div className="acceso-fila">
+              <Campo
+                id="negocio-contrasena"
+                label="Contraseña"
+                type={mostrar ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={form.contrasena}
+                onChange={cambiar('contrasena')}
+                derecha={<BotonOjo mostrar={mostrar} onClick={() => setMostrar((v) => !v)} />}
+              />
+              <Campo
+                id="negocio-confirmar"
+                label="Confirmar contraseña"
+                type={mostrar ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={form.confirmar}
+                onChange={cambiar('confirmar')}
+              />
+            </div>
+
+            <div className="acceso-seccion">Datos del negocio</div>
+            <Campo id="negocio-nombre" label="Nombre del negocio" autoComplete="organization" maxLength={80} value={form.nombreNegocio} onChange={cambiar('nombreNegocio')} />
+            <Campo id="negocio-categoria" label="Categoría de servicio" value="Barbería y estética" disabled />
+            <p className="acceso-ayuda">
               Este prototipo está enfocado exclusivamente en barberías y estética del barrio Britalia.
-            </div>
-          </div>
-          <div>
-            <label style={{ fontSize: 12.5, fontWeight: 700 }}>Dirección</label>
-            <CampoDireccion
-              required
-              value={form.direccion}
-              onChange={(direccion) => setForm((f) => ({ ...f, direccion }))}
-              onSeleccion={({ direccion, ubicacion: nuevaUbicacion }) => {
-                setForm((f) => ({ ...f, direccion }))
-                setUbicacion(nuevaUbicacion)
-                setDireccionDeUbicacion(direccion)
-              }}
-              placeholder="Cra. 104 #146-22, Britalia"
-              style={{ marginTop: 6 }}
-            />
-          </div>
-          <div>
-            <MapaUbicacion
-              ubicacion={ubicacion}
-              onCambiar={({ direccion, ubicacion: nuevaUbicacion }) => {
-                setUbicacion(nuevaUbicacion)
-                if (direccion) {
+            </p>
+
+            <div className="acceso-libre">
+              <label htmlFor="negocio-direccion">Dirección</label>
+              <CampoDireccion
+                id="negocio-direccion"
+                required
+                value={form.direccion}
+                onChange={(direccion) => setForm((f) => ({ ...f, direccion }))}
+                onSeleccion={({ direccion, ubicacion: nuevaUbicacion }) => {
                   setForm((f) => ({ ...f, direccion }))
+                  setUbicacion(nuevaUbicacion)
                   setDireccionDeUbicacion(direccion)
-                } else {
-                  setDireccionDeUbicacion(form.direccion)
-                }
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ fontSize: 12.5, fontWeight: 700 }}>Descripción breve</label>
-            <textarea maxLength={600} rows={2} value={form.descripcion} onChange={update('descripcion')} placeholder="Fades, diseño y afeitado clásico en el corazón de Britalia." style={{ marginTop: 6, resize: 'vertical' }} />
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ flex: '1 1 140px' }}>
-              <label style={{ fontSize: 12.5, fontWeight: 700 }}>WhatsApp</label>
-              <input maxLength={20} required value={form.whatsapp} onChange={update('whatsapp')} placeholder="300 000 0000" style={{ marginTop: 6 }} />
+                }}
+                placeholder="Cra. 104 #146-22, Britalia"
+              />
             </div>
-            <div style={{ flex: '1 1 140px' }}>
-              <label style={{ fontSize: 12.5, fontWeight: 700 }}>Teléfono</label>
-              <input maxLength={20} required value={form.telefono} onChange={update('telefono')} placeholder="601 000 0000" style={{ marginTop: 6 }} />
+            <div className="acceso-mapa">
+              <MapaUbicacion
+                ubicacion={ubicacion}
+                onCambiar={({ direccion, ubicacion: nuevaUbicacion }) => {
+                  setUbicacion(nuevaUbicacion)
+                  if (direccion) {
+                    setForm((f) => ({ ...f, direccion }))
+                    setDireccionDeUbicacion(direccion)
+                  } else {
+                    setDireccionDeUbicacion(form.direccion)
+                  }
+                }}
+              />
             </div>
+
+            <div className="acceso-libre">
+              <label htmlFor="negocio-descripcion">Descripción breve</label>
+              <textarea
+                id="negocio-descripcion"
+                maxLength={600}
+                rows={3}
+                value={form.descripcion}
+                onChange={(e) => cambiar('descripcion')(e.target.value)}
+                placeholder="Fades, diseño y afeitado clásico en el corazón de Britalia."
+              />
+            </div>
+
+            <div className="acceso-fila">
+              <Campo id="negocio-whatsapp" label="WhatsApp" type="tel" autoComplete="tel" maxLength={20} value={form.whatsapp} onChange={cambiar('whatsapp')} />
+              <Campo id="negocio-telefono" label="Teléfono" type="tel" maxLength={20} value={form.telefono} onChange={cambiar('telefono')} />
+            </div>
+
+            <label className="acceso-consentimiento">
+              <input type="checkbox" checked={acepta} onChange={(e) => setAcepta(e.target.checked)} />
+              <span>Autorizo el tratamiento de los datos personales y del negocio conforme a la Ley 1581 de 2012.</span>
+            </label>
+
+            <div className="acceso-captcha">
+              <Captcha ref={captchaRef} onChange={setCaptcha} />
+            </div>
+
+            {error && <div className="error-text acceso-error">{error}</div>}
+
+            <button type="submit" className="acceso-boton" disabled={loading}>
+              {loading ? 'Creando cuenta…' : 'Crear cuenta de negocio'}
+            </button>
+          </form>
+
+          <div className="acceso-cambio">
+            <span>¿Ya tienes cuenta?</span>
+            <Link to="/login" className="acceso-circulo" title="Iniciar sesión" aria-label="Iniciar sesión">
+              <Icon name="arrowLeft" size={20} />
+            </Link>
           </div>
-
-          <label style={{ display: 'flex', gap: 10, fontSize: 12.5, color: 'var(--text-muted)', alignItems: 'flex-start' }}>
-            <input type="checkbox" checked={acepta} onChange={(e) => setAcepta(e.target.checked)} style={{ width: 'auto', marginTop: 2 }} />
-            Autorizo el tratamiento de los datos personales y del negocio conforme a la Ley 1581 de 2012.
-          </label>
-
-          <Captcha ref={captchaRef} onChange={setCaptcha} />
-
-          {error && <div className="error-text">{error}</div>}
-
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ marginTop: 4 }}>
-            {loading ? 'Creando cuenta…' : 'Crear cuenta de negocio'}
-          </button>
-        </form>
-
-        <div style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--text-muted)', marginTop: 18 }}>
-          ¿Ya tienes cuenta? <Link to="/login" style={{ fontWeight: 700 }}>Inicia sesión</Link>
         </div>
       </div>
     </div>
