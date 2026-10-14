@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import {
   L, geocodeDireccion, acortarDireccion, CENTRO_BRITALIA, crearCapaTiles,
-  crearIconoNegocio, crearIconoGrupo, crearIconoUsuario,
+  crearIconoNegocio, crearIconoGrupo, crearIconoUsuario, crearMapa,
 } from '../../maps/osm.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { recomendar, distanciaKm } from '../../recomendador.js'
@@ -275,7 +275,7 @@ export default function ClientHome() {
         // negocios de Firestore el cliente ve su barrio (y se descargan los
         // tiles del zoom correcto), en vez de una ciudad entera que luego
         // salta de golpe al encuadre real.
-        mapRef.current = L.map(mapDivRef.current, { zoomControl: true })
+        mapRef.current = crearMapa(mapDivRef.current)
           .setView([CENTRO_BRITALIA.lat, CENTRO_BRITALIA.lng], 16)
         crearCapaTiles().addTo(mapRef.current)
         // Tocar el mapa vacío devuelve la tarjeta al recomendado (los clics

@@ -294,15 +294,25 @@ input:focus, select:focus, textarea:focus {
 }
 .leaflet-control-zoom a:hover { background: var(--surface-2) !important; }
 .leaflet-control-zoom a:not(:last-child) { border-bottom: 1px solid var(--border) !important; }
+/* Crédito de OpenStreetMap (obligatorio por su licencia), discreto: debajo
+   del zoom, pequeño y sin caja (ver crearMapa en src/maps/osm.js). */
 .leaflet-control-attribution {
-  background: color-mix(in oklch, var(--surface) 80%, transparent) !important;
+  background: none !important;
   color: var(--text-faint) !important;
-  font-size: 10px !important;
-  padding: 1px 6px !important;
-  border-radius: var(--radius-sm) 0 0 0 !important;
+  font-size: 9.5px !important;
+  line-height: 1.2 !important;
+  padding: 0 !important;
+  margin-top: 6px !important;
   box-shadow: none !important;
+  opacity: .7;
+  transition: opacity .15s;
 }
-.leaflet-control-attribution a { color: var(--text-muted) !important; }
+.leaflet-control-attribution:hover { opacity: 1; }
+.leaflet-control-attribution a {
+  color: var(--text-muted) !important;
+  text-decoration: none !important;
+  text-shadow: 0 0 3px var(--bg), 0 0 3px var(--bg);
+}
 
 /* Mapa en modo oscuro: no hay una fuente de tiles oscuros gratis y sin API
    key (CARTO, que antes la ofrecía, ahora la exige — ver git log de

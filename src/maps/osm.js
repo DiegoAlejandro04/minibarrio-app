@@ -105,6 +105,19 @@ export function crearCapaTiles() {
   })
 }
 
+/**
+ * Crea el mapa con el crédito "© OpenStreetMap" que exige la licencia de
+ * OSM (ODbL), pero discreto: sin el prefijo "Leaflet" + bandera (Leaflet no
+ * lo exige) y arriba a la izquierda, debajo del zoom — abajo lo tapaba la
+ * tarjeta del negocio destacado (ClientHome.jsx). Estilo en index.css
+ * (.leaflet-control-attribution).
+ */
+export function crearMapa(div, opciones = {}) {
+  const mapa = L.map(div, { zoomControl: true, attributionControl: false, ...opciones })
+  L.control.attribution({ prefix: false, position: 'topleft' }).addTo(mapa)
+  return mapa
+}
+
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search'
 const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
 
