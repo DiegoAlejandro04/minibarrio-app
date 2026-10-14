@@ -1,5 +1,8 @@
 import { Link, useOutletContext } from 'react-router-dom'
 import Icon from '../../components/Icon.jsx'
+import FotoNegocio from '../../components/FotoNegocio.jsx'
+import { acortarDireccion } from '../../maps/osm.js'
+import { estadoApertura } from '../../horarios.js'
 
 export default function ClientFavoritos() {
   const { favoritos, negociosPorId, ratings, toggleFavorito } = useOutletContext()
@@ -23,13 +26,21 @@ export default function ClientFavoritos() {
             return (
               <div key={f.negocioId} className="card" style={{ overflow: 'hidden' }}>
                 <Link to={`/negocio/${f.negocioId}`} style={{ display: 'block', color: 'inherit' }}>
-                  <div style={{ height: 100, background: 'var(--surface-2)' }} />
+                  {/* Misma foto que su tarjeta en la página principal. */}
+                  {negocio ? (
+                    <FotoNegocio negocio={negocio} estado={estadoApertura(negocio.horarios)} alto={120} />
+                  ) : (
+                    <div className="esqueleto" style={{ height: 120 }} />
+                  )}
                   <div style={{ padding: 14 }}>
                     <div style={{ fontWeight: 800, fontSize: 14.5 }}>{negocio?.nombre || 'Negocio'}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                       {r?.total ? `★ ${(r.suma / r.total).toFixed(1)} (${r.total})` : 'Sin reseñas aún'}
                     </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 4 }}>{negocio?.direccion}</div>
+                    {/* Corta como en la página del negocio (calle + barrio). */}
+                    {negocio?.direccion && (
+                      <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 4 }}>{acortarDireccion(negocio.direccion)}</div>
+                    )}
                   </div>
                 </Link>
                 <button

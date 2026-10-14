@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import Icon from '../../components/Icon.jsx'
 import CalificarModal from '../../components/CalificarModal.jsx'
+import { inicialesDe } from '../../components/FotoNegocio.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva } from '../../reservas.js'
 
@@ -161,7 +162,23 @@ export default function ClientResumen() {
                 const r = ratings[f.negocioId]
                 return (
                   <div key={f.negocioId} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 9, background: 'var(--surface-2)', flexShrink: 0 }} />
+                    {/* Logo del negocio (o su foto principal, o sus iniciales). */}
+                    {negocio?.logo || negocio?.miniatura ? (
+                      <img
+                        src={negocio.logo || negocio.miniatura}
+                        alt=""
+                        style={{ width: 38, height: 38, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          width: 38, height: 38, borderRadius: 9, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'linear-gradient(135deg, oklch(74% 0.15 52), oklch(52% 0.14 36))', color: '#fff', fontSize: 13, fontWeight: 800,
+                        }}
+                      >
+                        {inicialesDe(negocio?.nombre)}
+                      </span>
+                    )}
                     <Link to={`/negocio/${f.negocioId}`} style={{ flex: 1, minWidth: 0, color: 'inherit' }}>
                       <div style={{ fontWeight: 700, fontSize: 13.5 }}>{negocio?.nombre || 'Negocio'}</div>
                       <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>

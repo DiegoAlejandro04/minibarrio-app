@@ -15,6 +15,7 @@ import ComoFunciona from '../../components/ComoFunciona.jsx'
 import ResenasRecientes from '../../components/ResenasRecientes.jsx'
 import * as datosDemo from '../../demo.js'
 import { estadoApertura } from '../../horarios.js'
+import FotoNegocio, { ESTADO_APERTURA, inicialesDe } from '../../components/FotoNegocio.jsx'
 
 // Vitrina pública de negocios (RF-05 búsqueda, RF-06 mapa, RF-09
 // recomendaciones, RF-12 portafolio visible sin sesión). Muestra datos
@@ -75,18 +76,6 @@ const RADIO_BARRIO_KM = 2
 const PRECISION_MAXIMA_M = 1000
 // Por debajo de esto el halo de precisión no aporta (cabe dentro del punto).
 const PRECISION_SIN_HALO_M = 40
-
-const ESTADO_APERTURA = {
-  abierto: { label: 'Abierto', bg: 'var(--sage-soft)', text: 'var(--sage-text)' },
-  'cierra-pronto': { label: 'Cierra pronto', bg: 'var(--warning-soft)', text: 'var(--warning-text)' },
-  cerrado: { label: 'Cerrado', bg: 'var(--surface-2)', text: 'var(--text-faint)' },
-}
-
-function inicialesDe(nombre) {
-  if (!nombre) return '?'
-  const partes = nombre.trim().split(/\s+/)
-  return partes.slice(0, 2).map((p) => p[0]?.toUpperCase()).join('')
-}
 
 export default function ClientHome() {
   const { currentUser, role, logout } = useAuth()
@@ -1097,7 +1086,7 @@ export default function ClientHome() {
                 className={`card tarjeta-negocio${tarjetasHorizontales ? ' tarjeta-negocio--horizontal' : ''}`}
                 style={{ overflow: 'hidden', color: 'inherit' }}
               >
-                <FotoTarjeta negocio={n} horizontal={tarjetasHorizontales} />
+                <FotoNegocio negocio={n} estado={n.estado} alto={tarjetasHorizontales ? '100%' : 130} minAlto={tarjetasHorizontales ? 190 : undefined} />
                 <div className="tarjeta-negocio__cuerpo" style={{ padding: tarjetasHorizontales ? '18px 20px' : 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                     <div style={{ fontWeight: 800, fontSize: 14.5 }}>{n.nombre}</div>
@@ -1170,36 +1159,6 @@ const ICON_PATHS = {
   info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
   chevron: 'M9 18l6-6-6-6',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
-}
-
-// Foto de la tarjeta de un negocio en "Recomendado para ti": la primera del
-// portafolio; sin foto (o si no carga), un fondo de color con sus iniciales —
-// nunca un recuadro gris vacío. El estado (abierto/cerrado) va encima.
-function FotoTarjeta({ negocio, horizontal }) {
-  const [fallo, setFallo] = useState(false)
-  // La miniatura de la foto principal (subida desde el panel) o, si no hay,
-  // la primera foto antigua por enlace.
-  const foto = !fallo && (negocio.miniatura || negocio.fotos?.[0])
-  const estado = negocio.estado && ESTADO_APERTURA[negocio.estado]
-  return (
-    <div className="tarjeta-negocio__foto" style={{ height: horizontal ? '100%' : 130, minHeight: horizontal ? 190 : undefined }}>
-      {/* Foto de trabajos de fondo; el logo va encima, en la esquina. Sin
-          fotos, el logo al centro; sin ninguno de los dos, las iniciales. */}
-      {foto ? (
-        <img src={foto} alt="" loading="lazy" onError={() => setFallo(true)} />
-      ) : negocio.logo ? (
-        <img src={negocio.logo} alt="" className="tarjeta-negocio__logo-centro" />
-      ) : (
-        <span className="tarjeta-negocio__iniciales">{inicialesDe(negocio.nombre)}</span>
-      )}
-      {foto && negocio.logo && <img src={negocio.logo} alt="" className="tarjeta-negocio__logo" />}
-      {estado && (
-        <span className="tarjeta-negocio__estado" style={{ background: estado.bg, color: estado.text }}>
-          ● {estado.label}
-        </span>
-      )}
-    </div>
-  )
 }
 
 // Opción del menú móvil: ícono en círculo, título, detalle corto y flecha.
