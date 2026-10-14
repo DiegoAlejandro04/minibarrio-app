@@ -150,8 +150,8 @@ function CaraLogin({ onGirar, onOlvido }) {
       <h1 className="acceso-titulo">Bienvenido</h1>
       <p key={`sub-${tab}`} className="acceso-subtitulo acceso-entra">
         {esCliente
-          ? 'Inicia sesión para agendar en las barberías de Britalia'
-          : 'Inicia sesión para administrar tu barbería'}
+          ? 'Inicia sesión para agendar en los negocios de Britalia'
+          : 'Inicia sesión para administrar tu negocio'}
       </p>
 
       <div className="acceso-pestanas" role="tablist" aria-label="Tipo de cuenta">
@@ -205,7 +205,7 @@ function CaraLogin({ onGirar, onOlvido }) {
           </>
         ) : (
           <>
-            <span>¿Tu barbería aún no está en MiniBarrio?</span>
+            <span>¿Tu negocio aún no está en MiniBarrio?</span>
             <Link to="/registro/negocio" className="acceso-circulo" title="Registrar mi negocio" aria-label="Registrar mi negocio">
               <Icon name="plus" size={20} />
             </Link>
@@ -301,7 +301,7 @@ function CaraRegistro({ onGirar }) {
         <Icon name="user" size={30} />
       </div>
       <h1 className="acceso-titulo">Crea tu cuenta</h1>
-      <p className="acceso-subtitulo">Agenda y guarda tus barberías favoritas</p>
+      <p className="acceso-subtitulo">Agenda y guarda tus negocios favoritos</p>
 
       <form onSubmit={handleSubmit}>
         <Campo id="registro-nombre" label="Nombre completo" autoComplete="name" maxLength={80} value={form.nombre} onChange={cambiar('nombre')} />
@@ -353,7 +353,7 @@ function CaraRegistro({ onGirar }) {
         </button>
       </div>
       <div className="acceso-nota">
-        ¿Tienes una barbería? <Link to="/registro/negocio">Regístrala aquí</Link>
+        ¿Tienes un negocio? <Link to="/registro/negocio">Regístralo aquí</Link>
       </div>
     </>
   )

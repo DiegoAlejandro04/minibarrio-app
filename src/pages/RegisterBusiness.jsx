@@ -115,7 +115,7 @@ export default function RegisterBusiness() {
           <div className="acceso-logo">
             <Icon name="store" size={30} />
           </div>
-          <h1 className="acceso-titulo">Registra tu barbería</h1>
+          <h1 className="acceso-titulo">Registra tu negocio</h1>
           <p className="acceso-subtitulo">Crea tu portafolio digital gratis y llega a más clientes del barrio</p>
 
           <form onSubmit={handleSubmit}>
