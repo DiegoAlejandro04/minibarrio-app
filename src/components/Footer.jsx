@@ -150,7 +150,7 @@ export default function Footer() {
           <div
             style={{
               maxWidth: 1224, margin: '0 auto', padding: isMobile ? '14px 16px' : '16px 32px',
-              fontSize: 11.5, color: 'var(--text-faint)', textAlign: isMobile ? 'left' : 'center',
+              fontSize: 11.5, color: 'var(--text-faint)', textAlign: 'center',
             }}
           >
             © {anio} MiniBarrio. Todos los derechos reservados.
