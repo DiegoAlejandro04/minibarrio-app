@@ -920,13 +920,15 @@ export default function ClientHome() {
 
               {!mapError && problemaUbicacion && !avisoUbicacionCerrado && (
                 <div className="aviso-mapa" role="status">
-                  <span>
-                    {problemaUbicacion === 'lejos'
-                      ? 'Estás lejos de Britalia · te mostramos los negocios del barrio'
-                      : 'Tu ubicación es aproximada · te mostramos los negocios del barrio'}
+                  <span className="aviso-mapa__icono" aria-hidden="true">
+                    <Icon name={problemaUbicacion === 'lejos' ? 'mapPin' : 'target'} size={17} />
+                  </span>
+                  <span className="aviso-mapa__texto">
+                    <strong>{problemaUbicacion === 'lejos' ? 'Estás fuera de Britalia' : 'Tu ubicación es aproximada'}</strong>
+                    <span>Te mostramos los negocios del barrio.</span>
                   </span>
                   <button type="button" onClick={() => setAvisoUbicacionCerrado(true)} aria-label="Cerrar aviso">
-                    <Icon name="x" size={12} />
+                    <Icon name="x" size={14} />
                   </button>
                 </div>
               )}
@@ -1162,6 +1164,7 @@ const ICON_PATHS = {
   home: 'M3 10.5 12 3l9 7.5M5 9v11h5v-6h4v6h5V9',
   menu: 'M3 6h18M3 12h18M3 18h18',
   x: 'M18 6 6 18M6 6l12 12',
+  mapPin: 'M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
   target: 'M12 2a10 10 0 1 0 .01 0zM12 9a3 3 0 1 0 .01 0zM12 2v3M12 19v3M2 12h3M19 12h3',
   user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
   store: 'M3 9l1.5-5h15L21 9M3 9h18M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M5 12v8h14v-8M10 20v-5h4v5',
