@@ -12,7 +12,7 @@ import { enlaceInstagram, enlaceTiktok, etiquetaMetodoPago } from '../../perfilN
 import { acortarDireccion } from '../../maps/osm.js'
 import { usePortafolio } from '../../portafolio.js'
 import Splash from '../../components/Splash.jsx'
-import { reservarCita } from '../../turnosOcupados.js'
+import { MINUTOS_TURNO, reservarCita } from '../../turnosOcupados.js'
 import { bloqueDelDia, estadoApertura, formatoHora12, resumenHorario } from '../../horarios.js'
 import ReciboCita from '../../components/ReciboCita.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
@@ -229,6 +229,32 @@ export default function NegocioDetalle() {
     return set
   }, [ocupadosDocs, fecha])
 
+  // Un turno se ofrece solo si cabe la duración COMPLETA del servicio elegido:
+  // ninguno de los bloques de 20 min que cubre puede estar ocupado, y tiene
+  // que terminar antes del cierre. Sin servicio elegido se mira un bloque.
+  const disponibilidad = useMemo(() => {
+    const bloques = Math.max(1, Math.ceil((Number(servicioSeleccionado?.duracionMinutos) || MINUTOS_TURNO) / MINUTOS_TURNO))
+    const aMinutos = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m }
+    const aHora = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
+    const cierre = bloqueHorario?.cierre ? aMinutos(bloqueHorario.cierre) : null
+    const mapa = new Map()
+    slotsDelDia.forEach((s) => {
+      const inicio = aMinutos(s)
+      if (ocupados.has(s)) return mapa.set(s, 'ocupado')
+      for (let i = 1; i < bloques; i++) {
+        if (ocupados.has(aHora(inicio + i * MINUTOS_TURNO))) return mapa.set(s, 'no-cabe')
+      }
+      if (cierre != null && inicio + (Number(servicioSeleccionado?.duracionMinutos) || MINUTOS_TURNO) > cierre) return mapa.set(s, 'no-cabe')
+      mapa.set(s, 'libre')
+    })
+    return mapa
+  }, [slotsDelDia, ocupados, servicioSeleccionado, bloqueHorario])
+
+  // Si al cambiar de servicio la hora elegida deja de caber, se deselecciona.
+  useEffect(() => {
+    if (hora && disponibilidad.get(hora) !== 'libre') setHora(null)
+  }, [hora, disponibilidad])
+
   const estado = negocio ? estadoApertura(negocio.horarios) : null
 
   function handleCambiarFecha(e) {
@@ -264,6 +290,7 @@ export default function NegocioDetalle() {
         clienteId: currentUser.uid,
         servicioId: servicioSeleccionado.id,
         fechaHora,
+        duracionMinutos: servicioSeleccionado.duracionMinutos,
       })
       setCitaConfirmada({
         id: ref.id,
@@ -280,7 +307,7 @@ export default function NegocioDetalle() {
       // Las reglas rechazan la reserva si otra persona tomó ese turno justo
       // antes (ver turnosOcupados.js).
       setError(err.code === 'permission-denied'
-        ? 'Ese turno acaba de ser reservado por otra persona. Elige otro.'
+        ? 'Ese horario se cruza con otra cita que acaban de reservar. Elige otro.'
         : 'No se pudo confirmar la cita. Intenta de nuevo.')
       // eslint-disable-next-line no-console
       console.error(err)
@@ -756,7 +783,11 @@ export default function NegocioDetalle() {
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 8, marginTop: 8 }}>
                   {(turnosExpandidos ? slotsDelDia : slotsDelDia.slice(0, 6)).map((s) => {
-                    const ocupado = ocupados.has(s)
+                    // Ocupado (tachado) o sin espacio para la duración del
+                    // servicio (atenuado): en ambos casos no se puede elegir.
+                    const libre = disponibilidad.get(s) === 'libre'
+                    const ocupado = !libre
+                    const tachado = disponibilidad.get(s) === 'ocupado'
                     const seleccionado = hora === s
                     return (
                       <button
@@ -770,7 +801,8 @@ export default function NegocioDetalle() {
                           background: ocupado ? 'var(--surface-2)' : seleccionado ? 'var(--accent)' : 'var(--surface)',
                           color: ocupado ? 'var(--text-faint)' : seleccionado ? '#fff' : 'var(--text)',
                           cursor: ocupado ? 'not-allowed' : 'pointer',
-                          textDecoration: ocupado ? 'line-through' : 'none',
+                          textDecoration: tachado ? 'line-through' : 'none',
+                          opacity: ocupado && !tachado ? 0.55 : 1,
                         }}
                       >
                         {s}

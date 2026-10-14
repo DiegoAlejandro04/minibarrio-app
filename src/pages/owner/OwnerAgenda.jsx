@@ -23,16 +23,18 @@ const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 // Date.getDay() ya devuelve 0=domingo…6=sábado, que coincide con la
 // posición de columna en DIAS_SEMANA — no hace falta remapear.
 
+// "pendiente" es el estado guardado de una cita activa: se muestra como
+// "Reservada" (reserva inmediata, el turno ya quedó apartado).
 const ESTADO_BADGE = {
-  pendiente: { label: 'Pendiente', bg: 'oklch(78% 0.15 65)', text: '#fff' },
-  cancelada: { label: 'Cancelado', bg: 'oklch(60% 0.19 25)', text: '#fff' },
-  completada: { label: 'Realizado', bg: 'oklch(62% 0.14 152)', text: '#fff' },
+  pendiente: { label: 'Reservada', bg: 'oklch(78% 0.15 65)', text: '#fff' },
+  cancelada: { label: 'Cancelada', bg: 'oklch(60% 0.19 25)', text: '#fff' },
+  completada: { label: 'Realizada', bg: 'oklch(62% 0.14 152)', text: '#fff' },
 }
 
 const OPCIONES_ESTADO = [
-  { value: 'pendiente', label: 'Pendiente' },
-  { value: 'cancelada', label: 'Cancelado' },
-  { value: 'completada', label: 'Realizado' },
+  { value: 'pendiente', label: 'Reservada' },
+  { value: 'cancelada', label: 'Cancelada' },
+  { value: 'completada', label: 'Realizada' },
 ]
 
 function capitalize(s) {
@@ -73,13 +75,16 @@ export default function OwnerAgenda() {
   // la página del negocio no ofrezca turnos que en realidad están tomados.
   const ocupadosSincronizados = useRef(false)
   useEffect(() => {
-    if (!uid || citas.length === 0 || ocupadosSincronizados.current) return
+    // Espera a los servicios: con sus duraciones se ocupan todos los turnos
+    // que cubre cada cita (ver turnosOcupados.js).
+    if (!uid || citas.length === 0 || servicios.length === 0 || ocupadosSincronizados.current) return
     ocupadosSincronizados.current = true
-    sincronizarOcupados(uid, citas).catch((err) => {
+    const duraciones = Object.fromEntries(servicios.map((s) => [s.id, s.duracionMinutos]))
+    sincronizarOcupados(uid, citas, duraciones).catch((err) => {
       // eslint-disable-next-line no-console
       console.error(err)
     })
-  }, [uid, citas])
+  }, [uid, citas, servicios])
 
   useEffect(() => {
     const faltantes = [...new Set(citas.map((c) => c.clienteId))].filter((id) => id && !(id in clientes))
@@ -168,6 +173,7 @@ export default function OwnerAgenda() {
         citaAbierta,
         estadoSeleccionado,
         estadoSeleccionado === 'cancelada' ? { canceladaPor: 'negocio' } : {},
+        servicios.find((s) => s.id === citaAbierta.servicioId)?.duracionMinutos,
       )
       setCitaAbierta(null)
     } catch (err) {
@@ -370,6 +376,10 @@ function FilaCita({ cita, cliente, servicio, conFecha = false, onAbrir }) {
 }
 
 function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstado, onConfirmar, onCancelar, guardando }) {
+  // Una cita solo se puede marcar como realizada cuando ya llegó su hora: si
+  // no, habilitaría una reseña "verificada" de un servicio que aún no se hizo
+  // (firestore.rules también lo rechaza).
+  const citaFutura = cita.fecha ? cita.fecha.getTime() > Date.now() : false
   const estilo = ESTADO_BADGE[cita.estado] || ESTADO_BADGE.pendiente
   return (
     <div
@@ -406,7 +416,9 @@ function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstad
               style={{ flex: 1 }}
             >
               {OPCIONES_ESTADO.map((op) => (
-                <option key={op.value} value={op.value}>{op.label}</option>
+                <option key={op.value} value={op.value} disabled={op.value === 'completada' && citaFutura && cita.estado !== 'completada'}>
+                  {op.label}{op.value === 'completada' && citaFutura && cita.estado !== 'completada' ? ' (después de la cita)' : ''}
+                </option>
               ))}
             </select>
             <button type="button" onClick={onConfirmar} disabled={guardando} className="btn btn-primary" style={{ flexShrink: 0 }}>

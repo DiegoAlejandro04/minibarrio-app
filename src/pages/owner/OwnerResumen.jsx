@@ -11,7 +11,7 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 
 const ESTADO_STYLES = {
   confirmada: { bg: 'var(--sage-soft)', text: 'var(--sage-text)', label: 'Confirmada' },
-  pendiente: { bg: 'var(--warning-soft)', text: 'oklch(45% 0.11 75)', label: 'Pendiente' },
+  pendiente: { bg: 'var(--sage-soft)', text: 'var(--sage-text)', label: 'Reservada' },
   cancelada: { bg: 'oklch(93% 0.035 25)', text: 'var(--danger)', label: 'Cancelada' },
   completada: { bg: 'var(--surface-2)', text: 'var(--text-muted)', label: 'Completada' },
 }

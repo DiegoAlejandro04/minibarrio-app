@@ -147,12 +147,16 @@ export default function ReciboCita({ cita, onCerrar }) {
               <Fila etiqueta="Negocio" valor={cita.negocio} />
               {cita.direccion && <Fila etiqueta="Dirección" valor={acortarDireccion(cita.direccion)} />}
               <Fila etiqueta="Reserva" valor={`#${codigo}`} />
-              <Fila etiqueta="Estado" valor="Pendiente" />
-              <Fila etiqueta="Reservada" valor={sello(cita.reservadaEn)} />
+              <Fila etiqueta="Estado" valor="Reservada" />
+              <Fila etiqueta="Reservado el" valor={sello(cita.reservadaEn)} />
             </dl>
 
             <p style={{ textAlign: 'center', fontSize: 10.5, color: '#6b6b6b', margin: '18px 0 0', lineHeight: 1.5 }}>
-              El negocio debe confirmar tu cita.<br />El pago se hace en el local.
+              {/* Reserva inmediata: el turno queda apartado al confirmar (ver
+                  turnosOcupados.js); el negocio no tiene un paso de
+                  "confirmar", solo puede cancelar si no puede atender. */}
+              Tu turno quedó apartado. Si el negocio no puede atenderte,
+              cancelará la cita y lo verás en Mis citas.<br />El pago se hace en el local.
             </p>
             <p style={{ textAlign: 'center', fontSize: 10, letterSpacing: '0.3em', color: '#a3a3a3', margin: '14px 0 0' }}>
               RES {codigo}

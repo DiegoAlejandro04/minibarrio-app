@@ -32,14 +32,22 @@ service cloud.firestore {
       return string(fechaHora.toMillis());
     }
 
+    // Un turno (bloque de 20 min) es válido si cae dentro de la duración del
+    // servicio de su cita: desde la hora de inicio hasta antes de terminar.
+    // Así una cita de 50 min ocupa 10:00, 10:20 y 10:40, y como cada turno
+    // solo puede tener una cita, nadie puede reservar encima (ver
+    // src/turnosOcupados.js). El turno de inicio siempre vale.
     function turnoValido(negocioId, turno) {
       let datos = request.resource.data;
       let cita = citaTras(datos.citaId);
+      let servicio = get(/databases/$(database)/documents/negocios/$(negocioId)/servicios/$(cita.servicioId)).data;
       return estaAutenticado()
         && datos.keys().hasOnly(['fechaHora', 'citaId'])
         && turno == idTurno(datos.fechaHora)
         && cita.negocioId == negocioId
-        && cita.fechaHora == datos.fechaHora
+        && (cita.fechaHora == datos.fechaHora
+            || (datos.fechaHora > cita.fechaHora
+                && datos.fechaHora < cita.fechaHora + duration.value(int(servicio.get('duracionMinutos', 20)), 'm')))
         && cita.estado != 'cancelada'
         && (cita.clienteId == request.auth.uid || esDueno(negocioId));
     }
@@ -298,6 +306,9 @@ service cloud.firestore {
       allow read: if estaAutenticado()
                   && (resource.data.clienteId == request.auth.uid
                       || resource.data.negocioId == request.auth.uid);
+      // El cliente solo puede cancelar su cita. El negocio puede cambiarla entre
+      // reservada (pendiente), cancelada y realizada (completada), pero
+      // "realizada" solo cuando ya llegó la hora de la cita.
       allow update: if (esDueno(resource.data.clienteId)
                         && cambiosCita().hasOnly(['estado', 'canceladaPor'])
                         && request.resource.data.estado == 'cancelada'
@@ -305,6 +316,9 @@ service cloud.firestore {
                     || (esDueno(resource.data.negocioId)
                         && cambiosCita().hasOnly(['estado', 'canceladaPor'])
                         && request.resource.data.estado in ['pendiente', 'cancelada', 'completada']
+                        && (request.resource.data.estado != 'completada'
+                            || resource.data.estado == 'completada'
+                            || resource.data.fechaHora <= request.time)
                         && (!cambiosCita().hasAny(['canceladaPor'])
                             || request.resource.data.canceladaPor == 'negocio'));
       allow create: if estaAutenticado()

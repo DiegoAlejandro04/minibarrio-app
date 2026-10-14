@@ -9,7 +9,9 @@ const HORA = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digi
 
 const ESTADO_STYLES = {
   confirmada: { bg: 'var(--sage-soft)', text: 'var(--sage-text)', label: 'Confirmada' },
-  pendiente: { bg: 'var(--warning-soft)', text: 'var(--warning-text)', label: 'Pendiente' },
+  // "pendiente" es el estado guardado de una cita activa; se muestra como
+  // "Reservada" porque el turno ya quedó apartado (reserva inmediata).
+  pendiente: { bg: 'var(--sage-soft)', text: 'var(--sage-text)', label: 'Reservada' },
   cancelada: { bg: 'var(--danger-soft)', text: 'var(--danger)', label: 'Cancelada' },
   completada: { bg: 'var(--surface-2)', text: 'var(--text-muted)', label: 'Completada' },
 }
