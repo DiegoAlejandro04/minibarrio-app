@@ -221,7 +221,16 @@ export default function ClientHome() {
     () => (DEMO && cantidadDemo ? [...negocios, ...DEMO.NEGOCIOS_DEMO.slice(0, cantidadDemo)] : negocios),
     [negocios, cantidadDemo]
   )
-  const resenasVista = DEMO && cantidadDemo ? [...DEMO.RESENAS_DEMO, ...resenasRecientes] : resenasRecientes
+  // Memorizados: así el carrusel de reseñas (memo) no se vuelve a dibujar
+  // cada vez que cambia algo de la página, como al abrir el menú ☰.
+  const resenasVista = useMemo(
+    () => (DEMO && cantidadDemo ? [...DEMO.RESENAS_DEMO, ...resenasRecientes] : resenasRecientes),
+    [cantidadDemo, resenasRecientes]
+  )
+  const nombresNegocios = useMemo(
+    () => Object.fromEntries([...negocios, ...(DEMO ? DEMO.NEGOCIOS_DEMO : [])].map((n) => [n.id, n.nombre])),
+    [negocios]
+  )
 
   const negociosConDatos = useMemo(
     () => negociosVista.map((n) => {
@@ -1140,7 +1149,7 @@ export default function ClientHome() {
       <ComoFunciona />
       <ResenasRecientes
         resenas={resenasVista}
-        nombresNegocios={Object.fromEntries([...negocios, ...(DEMO ? DEMO.NEGOCIOS_DEMO : [])].map((n) => [n.id, n.nombre]))}
+        nombresNegocios={nombresNegocios}
       />
 
       <Footer />

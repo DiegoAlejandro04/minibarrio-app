@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import useIsMobile from '../hooks/useIsMobile.js'
 
@@ -16,7 +17,9 @@ const TARJETAS_POR_VUELTA = 8
 
 const FECHA = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short' })
 
-export default function ResenasRecientes({ resenas, nombresNegocios }) {
+// Memorizado (memo): abrir el menú ☰ de la página principal la vuelve a
+// dibujar entera; con memo esta sección se salta si sus datos no cambiaron.
+export default memo(function ResenasRecientes({ resenas, nombresNegocios }) {
   const isMobile = useIsMobile()
   if (resenas.length < MINIMO_RESENAS) return null
 
@@ -75,4 +78,4 @@ export default function ResenasRecientes({ resenas, nombresNegocios }) {
       </div>
     </section>
   )
-}
+})

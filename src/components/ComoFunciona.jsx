@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import useIsMobile from '../hooks/useIsMobile.js'
 
 // "Cómo funciona" de la vitrina (ClientHome.jsx): el recorrido del cliente en
@@ -16,7 +17,9 @@ const PASOS = [
   { titulo: 'Reserva', detalle: 'Elige un turno libre y recibe tu comprobante.', Ilustracion: IlustracionReserva },
 ]
 
-export default function ComoFunciona() {
+// Memorizado (memo): abrir el menú ☰ de la página principal la vuelve a
+// dibujar entera; con memo esta sección se salta si sus datos no cambiaron.
+export default memo(function ComoFunciona() {
   const isMobile = useIsMobile()
   return (
     <section id="como-funciona" style={{ maxWidth: 1224, margin: '0 auto', padding: isMobile ? '44px 16px' : '72px 32px' }}>
@@ -41,7 +44,7 @@ export default function ComoFunciona() {
       </div>
     </section>
   )
-}
+})
 
 const tamanoIlustracion = { width: 168, height: 142, display: 'block', margin: '0 auto 14px' }
 

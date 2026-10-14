@@ -512,8 +512,9 @@ input:focus, select:focus, textarea:focus {
   left: 0;
   right: 0;
   height: 100vh;
-  background: oklch(15% 0.01 50 / 0.42);
-  backdrop-filter: blur(2px);
+  /* Sin backdrop-filter: desenfocar la pantalla entera (con el mapa y las
+     manchas de color detrás) trababa el celular al abrir el menú. */
+  background: oklch(15% 0.01 50 / 0.5);
   animation: menu-movil-velo .2s ease-out;
 }
 .menu-movil {
@@ -2262,7 +2263,11 @@ input:focus, select:focus, textarea:focus {
 
 /* Celular: píldora más baja y el menú ☰ como tarjeta de cristal debajo. */
 @media (max-width: 768px) {
-  .nav-flotante { padding: 0 12px; }
+  /* Cristal falso: sin desenfoque real, que en el celular se recalcula en
+     cada cuadro al desplazarse o al abrir el menú. */
+  .nav-flotante { padding: 0 12px; --nav-vidrio: oklch(99% 0.004 80 / 0.94); }
+  [data-theme="dark"] .nav-flotante { --nav-vidrio: oklch(21% 0.018 170 / 0.94); }
+  .nav-pastilla::before { -webkit-backdrop-filter: none; backdrop-filter: none; }
   .nav-pastilla { top: 10px; padding: 7px 7px 7px 10px; }
   .nav-marca { font-size: 16px; gap: 8px; }
   .nav-marca-icono { width: 32px; height: 32px; font-size: 11.5px; }

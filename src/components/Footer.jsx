@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import useIsMobile from '../hooks/useIsMobile.js'
 import ContactoModal from './ContactoModal.jsx'
@@ -39,7 +39,9 @@ const ESTILO_BOTON_AYUDA = {
   background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
 }
 
-export default function Footer() {
+// Memorizado (memo): abrir el menú ☰ de la página principal la vuelve a
+// dibujar entera; con memo esta sección se salta si sus datos no cambiaron.
+export default memo(function Footer() {
   const isMobile = useIsMobile()
   const { pathname } = useLocation()
   const anio = new Date().getFullYear()
@@ -164,4 +166,4 @@ export default function Footer() {
       {formularioAbierto === 'pqrs' && <PqrsModal onClose={() => setFormularioAbierto(null)} />}
     </footer>
   )
-}
+})
