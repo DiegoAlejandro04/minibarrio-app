@@ -13,6 +13,7 @@ import { acortarDireccion } from '../../maps/osm.js'
 import { usePortafolio } from '../../portafolio.js'
 import Splash from '../../components/Splash.jsx'
 import { MINUTOS_TURNO, reservarCita } from '../../turnosOcupados.js'
+import { textoFechaCita } from '../../notificaciones.js'
 import { bloqueDelDia, estadoApertura, formatoHora12, resumenHorario } from '../../horarios.js'
 import ReciboCita from '../../components/ReciboCita.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
@@ -285,12 +286,31 @@ export default function NegocioDetalle() {
     setReservando(true)
     try {
       const fechaHora = new Date(`${fecha}T${hora}:00`)
+      const cuando = textoFechaCita(fechaHora)
       const ref = await reservarCita({
         negocioId: id,
         clienteId: currentUser.uid,
         servicioId: servicioSeleccionado.id,
         fechaHora,
         duracionMinutos: servicioSeleccionado.duracionMinutos,
+        // Notificaciones: al negocio, la reserva nueva; al cliente, su
+        // confirmación (ver notificaciones.js).
+        avisos: [
+          {
+            destinatarioId: id,
+            tipo: 'nueva-reserva',
+            titulo: 'Nueva reserva',
+            texto: `${currentUser.displayName || 'Un cliente'} reservó ${servicioSeleccionado.nombre} para el ${cuando}.`,
+            enlace: '/panel/agenda',
+          },
+          {
+            destinatarioId: currentUser.uid,
+            tipo: 'reserva-confirmada',
+            titulo: 'Reserva confirmada',
+            texto: `Reservaste ${servicioSeleccionado.nombre} en ${negocio.nombre} para el ${cuando}.`,
+            enlace: '/perfil/citas',
+          },
+        ],
       })
       setCitaConfirmada({
         id: ref.id,

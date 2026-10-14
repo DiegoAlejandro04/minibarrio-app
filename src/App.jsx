@@ -23,7 +23,7 @@ import OwnerIdentidad from './pages/owner/OwnerIdentidad.jsx'
 import OwnerClientes from './pages/owner/OwnerClientes.jsx'
 import OwnerResenas from './pages/owner/OwnerResenas.jsx'
 import OwnerConfiguracion from './pages/owner/OwnerConfiguracion.jsx'
-import Proximamente from './components/Proximamente.jsx'
+import ClientNotificaciones from './pages/client/ClientNotificaciones.jsx'
 import NotFound from './pages/NotFound.jsx'
 // Página inactiva a futuro (enlaces de los correos de Firebase con diseño
 // propio). Ver el encabezado de AccionCuenta.jsx para saber cómo activarla.
@@ -131,7 +131,7 @@ export default function App() {
           <Route path="favoritos" element={<ClientFavoritos />} />
           <Route path="resenas" element={<ClientResenas />} />
           <Route path="datos" element={<ClientDatosPersonales />} />
-          <Route path="notificaciones" element={<Proximamente titulo="Notificaciones" />} />
+          <Route path="notificaciones" element={<ClientNotificaciones />} />
           <Route path="configuracion" element={<ClientConfiguracion />} />
         </Route>
 

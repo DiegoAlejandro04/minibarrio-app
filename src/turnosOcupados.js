@@ -2,6 +2,7 @@ import {
   collection, doc, getDocs, query, serverTimestamp, where, writeBatch,
 } from 'firebase/firestore'
 import { db } from './firebase/config'
+import { agregarAvisos } from './notificaciones.js'
 
 // Turnos ocupados de cada negocio: "negocios/{negocioId}/ocupados/{turno}",
 // con solo { fechaHora, citaId } — sin cliente ni servicio. Es lo único que
@@ -42,8 +43,12 @@ function refOcupado(negocioId, fechaHora) {
   return doc(db, 'negocios', negocioId, 'ocupados', idTurno(fechaHora))
 }
 
-/** Crea la cita y ocupa sus turnos. Devuelve la referencia de la cita. */
-export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora, duracionMinutos }) {
+/**
+ * Crea la cita y ocupa sus turnos. Devuelve la referencia de la cita.
+ * `avisos`: notificaciones del evento (al negocio y al propio cliente), en
+ * el mismo batch (ver notificaciones.js).
+ */
+export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora, duracionMinutos, avisos = [] }) {
   const citaRef = doc(collection(db, 'citas'))
   const batch = writeBatch(db)
   batch.set(citaRef, {
@@ -57,6 +62,7 @@ export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora
   turnosCubiertos(fechaHora, duracionMinutos).forEach((turno) => {
     batch.set(refOcupado(negocioId, turno), { fechaHora: turno, citaId: citaRef.id })
   })
+  agregarAvisos(batch, avisos, citaRef.id)
   await batch.commit()
   return citaRef
 }
@@ -66,9 +72,10 @@ export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora
  * libera todos los turnos de esa cita; cualquier otro estado los ocupa. Si al
  * reactivar una cita cancelada alguno de sus turnos ya es de otra cita, las
  * reglas rechazan el cambio. `extra` son campos adicionales para la cita (p.
- * ej. canceladaPor); `duracionMinutos`, la del servicio de la cita.
+ * ej. canceladaPor); `duracionMinutos`, la del servicio de la cita;
+ * `avisos`, notificaciones para la otra parte (ver notificaciones.js).
  */
-export async function cambiarEstadoCita(cita, estado, extra = {}, duracionMinutos) {
+export async function cambiarEstadoCita(cita, estado, extra = {}, duracionMinutos, avisos = []) {
   const batch = writeBatch(db)
   batch.update(doc(db, 'citas', cita.id), { estado, ...extra })
   if (estado === 'cancelada') {
@@ -80,6 +87,7 @@ export async function cambiarEstadoCita(cita, estado, extra = {}, duracionMinuto
       batch.set(refOcupado(cita.negocioId, turno), { fechaHora: turno, citaId: cita.id })
     })
   }
+  agregarAvisos(batch, avisos, cita.id)
   await batch.commit()
 }
 

@@ -4,6 +4,7 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { leerPerfilCliente } from '../../perfilesClientes.js'
 import { cambiarEstadoCita, sincronizarOcupados } from '../../turnosOcupados.js'
+import { textoFechaCita } from '../../notificaciones.js'
 import Icon from '../../components/Icon.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva, normalizarCodigo } from '../../reservas.js'
@@ -46,7 +47,7 @@ function isSameDay(a, b) {
 }
 
 export default function OwnerAgenda() {
-  const { servicios, uid } = useOutletContext()
+  const { negocio, servicios, uid } = useOutletContext()
   const isMobile = useIsMobile()
 
   const [mesVisto, setMesVisto] = useState(() => {
@@ -163,17 +164,46 @@ export default function OwnerAgenda() {
     setEstadoSeleccionado(OPCIONES_ESTADO.some((o) => o.value === cita.estado) ? cita.estado : 'pendiente')
   }
 
+  // Notificación al cliente cuando su cita cambia a cancelada (por el
+  // negocio) o a completada (invitación a calificar). Solo si el estado de
+  // verdad cambió.
+  function avisosParaElCliente(cita, estado, servicio) {
+    if (estado === cita.estado) return []
+    const nombreServicio = servicio?.nombre || 'tu servicio'
+    if (estado === 'cancelada') {
+      return [{
+        destinatarioId: cita.clienteId,
+        tipo: 'cita-cancelada',
+        titulo: 'El negocio canceló tu cita',
+        texto: `${negocio.nombre} canceló tu cita de ${nombreServicio} del ${textoFechaCita(cita.fechaHora)}.`,
+        enlace: '/perfil/citas',
+      }]
+    }
+    if (estado === 'completada') {
+      return [{
+        destinatarioId: cita.clienteId,
+        tipo: 'calificar',
+        titulo: '¿Cómo te fue?',
+        texto: `Cuéntanos qué tal tu ${nombreServicio} en ${negocio.nombre}: tu reseña ayuda a otros clientes del barrio.`,
+        enlace: `/negocio/${uid}`,
+      }]
+    }
+    return []
+  }
+
   async function confirmarEstado() {
     if (!citaAbierta) return
     setGuardando(true)
     try {
       // cambiarEstadoCita además libera u ocupa el turno según el estado
       // (ver turnosOcupados.js).
+      const servicio = servicios.find((s) => s.id === citaAbierta.servicioId)
       await cambiarEstadoCita(
         citaAbierta,
         estadoSeleccionado,
         estadoSeleccionado === 'cancelada' ? { canceladaPor: 'negocio' } : {},
-        servicios.find((s) => s.id === citaAbierta.servicioId)?.duracionMinutos,
+        servicio?.duracionMinutos,
+        avisosParaElCliente(citaAbierta, estadoSeleccionado, servicio),
       )
       setCitaAbierta(null)
     } catch (err) {

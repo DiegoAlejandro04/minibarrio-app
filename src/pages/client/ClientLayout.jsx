@@ -6,6 +6,8 @@ import {
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import { cambiarEstadoCita } from '../../turnosOcupados.js'
+import { crearAvisoPropio, marcarLeida, marcarTodasLeidas, textoFechaCita } from '../../notificaciones.js'
+import useNotificaciones from '../../hooks/useNotificaciones.js'
 import PanelConMenu from '../../components/PanelConMenu.jsx'
 import Splash from '../../components/Splash.jsx'
 
@@ -37,6 +39,9 @@ const GRUPOS_NAV = [
   ],
 ]
 
+const HORA = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', hour12: true })
+const UNA_HORA = 60 * 60 * 1000
+
 function inicialesDe(nombre) {
   if (!nombre) return '?'
   const partes = nombre.trim().split(/\s+/)
@@ -56,6 +61,13 @@ export default function ClientLayout() {
   const [serviciosPorId, setServiciosPorId] = useState({})
   const [ratings, setRatings] = useState({}) // negocioId -> { suma, total } (de TODOS los clientes, para mostrar el rating de cada negocio)
   const [loading, setLoading] = useState(true)
+  const { notificaciones, sinLeer, cargadas } = useNotificaciones(uid)
+  // Cada 5 minutos se revisan de nuevo los recordatorios (ver abajo).
+  const [reloj, setReloj] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setReloj(Date.now()), 5 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [])
 
   // El cambio de correo (Configuración) se confirma desde un enlace que
   // Firebase envía al correo nuevo, fuera de la app: cuando el correo de la
@@ -135,6 +147,40 @@ export default function ClientLayout() {
     })
   }, [citas, serviciosPorId])
 
+  // Recordatorios de las citas próximas: el día anterior (24 h antes) y una
+  // hora antes. Los crea el propio cliente al tener el panel abierto, con un
+  // id fijo por cita para no repetirlos (ver notificaciones.js).
+  useEffect(() => {
+    if (!uid || !cargadas) return
+    const existentes = new Set(notificaciones.map((n) => n.id))
+    citas.forEach((c) => {
+      const fecha = c.fechaHora?.toDate?.()
+      if (!fecha || c.estado === 'cancelada' || c.estado === 'completada') return
+      const negocio = negociosPorId[c.negocioId]
+      const servicio = serviciosPorId[`${c.negocioId}:${c.servicioId}`]
+      if (negocio === undefined || servicio === undefined) return // nombres aún cargando
+      const falta = fecha.getTime() - reloj
+      if (falta <= 0 || falta > 24 * UNA_HORA) return
+      const deQue = `${servicio?.nombre || 'tu cita'} en ${negocio?.nombre || 'el negocio'}`
+      if (falta <= UNA_HORA) {
+        crearAvisoPropio(uid, `recordatorio-hora-${c.id}`, {
+          tipo: 'recordatorio',
+          titulo: 'Tu cita es en menos de una hora',
+          texto: `${deQue}, a las ${HORA.format(fecha)}. ¡Te esperan!`,
+          enlace: '/perfil/citas',
+        }, existentes)
+      } else {
+        const esHoy = fecha.toDateString() === new Date(reloj).toDateString()
+        crearAvisoPropio(uid, `recordatorio-dia-${c.id}`, {
+          tipo: 'recordatorio',
+          titulo: esHoy ? 'Tienes una cita hoy' : 'Tienes una cita mañana',
+          texto: `${deQue}, ${esHoy ? 'hoy' : 'mañana'} a las ${HORA.format(fecha)}.`,
+          enlace: '/perfil/citas',
+        }, existentes)
+      }
+    })
+  }, [uid, cargadas, notificaciones, citas, negociosPorId, serviciosPorId, reloj])
+
   async function toggleFavorito(negocioId) {
     const ref = doc(db, 'usuarios', uid, 'favoritos', negocioId)
     const yaEsFavorito = favoritos.some((f) => f.negocioId === negocioId)
@@ -149,14 +195,35 @@ export default function ClientLayout() {
     // "canceladaPor" le permite a la agenda del negocio ocultar las citas que
     // canceló el propio cliente (ver OwnerAgenda.jsx).
     // cambiarEstadoCita además libera el turno (ver turnosOcupados.js).
+    // Al negocio le llega la notificación en el mismo batch.
     const cita = citas.find((c) => c.id === citaId)
-    await cambiarEstadoCita(cita, 'cancelada', { canceladaPor: 'cliente' })
+    const servicio = serviciosPorId[`${cita.negocioId}:${cita.servicioId}`]
+    await cambiarEstadoCita(cita, 'cancelada', { canceladaPor: 'cliente' }, undefined, [{
+      destinatarioId: cita.negocioId,
+      tipo: 'cita-cancelada',
+      titulo: 'Un cliente canceló su cita',
+      texto: `${perfil?.nombre || 'Un cliente'} canceló ${servicio?.nombre || 'su cita'} del ${textoFechaCita(cita.fechaHora)}. El turno quedó libre.`,
+      enlace: '/panel/agenda',
+    }])
   }
 
   const context = useMemo(
-    () => ({ uid, perfil, citas, favoritos, resenas, negociosPorId, serviciosPorId, ratings, toggleFavorito, cancelarCita }),
+    () => ({
+      uid, perfil, citas, favoritos, resenas, negociosPorId, serviciosPorId, ratings, toggleFavorito, cancelarCita,
+      notificaciones,
+      marcarLeida: (id) => marcarLeida(uid, id),
+      marcarTodasLeidas: () => marcarTodasLeidas(uid, notificaciones),
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [uid, perfil, citas, favoritos, resenas, negociosPorId, serviciosPorId, ratings]
+    [uid, perfil, citas, favoritos, resenas, negociosPorId, serviciosPorId, ratings, notificaciones]
+  )
+
+  // El menú muestra cuántas notificaciones hay sin leer.
+  const grupos = useMemo(
+    () => GRUPOS_NAV.map((grupo) => grupo.map((item) => (
+      item.to === '/perfil/notificaciones' ? { ...item, insignia: sinLeer } : item
+    ))),
+    [sinLeer]
   )
 
   async function handleLogout() {
@@ -176,7 +243,7 @@ export default function ClientLayout() {
 
   return (
     <PanelConMenu
-      grupos={GRUPOS_NAV}
+      grupos={grupos}
       claveColapsado="minibarrio:perfilColapsado"
       reemplazar
       centrado

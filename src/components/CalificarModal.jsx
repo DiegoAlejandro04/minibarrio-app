@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
+import { doc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase/config'
+import { agregarAvisos } from '../notificaciones.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import Icon from './Icon.jsx'
 
@@ -32,15 +33,27 @@ export default function CalificarModal({ negocio, citaId, nombreCliente, onClose
     try {
       // El id de la reseña es el uid del cliente: una sola reseña por cliente
       // en cada negocio. firestore.rules rechaza una segunda.
-      await setDoc(doc(db, 'negocios', negocio.id, 'resenas', currentUser.uid), {
+      // La reseña y la notificación al negocio van juntas (ver
+      // notificaciones.js); por privacidad, el aviso no dice quién la escribió.
+      const texto = comentario.trim().slice(0, MAX_COMENTARIO)
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'negocios', negocio.id, 'resenas', currentUser.uid), {
         negocioId: negocio.id,
         clienteId: currentUser.uid,
         calificacion,
-        comentario: comentario.trim().slice(0, MAX_COMENTARIO),
+        comentario: texto,
         creadoEn: serverTimestamp(),
         citaId,
         ...(nombreCliente ? { nombreCliente: nombreCliente.slice(0, 40) } : {}),
       })
+      agregarAvisos(batch, [{
+        destinatarioId: negocio.id,
+        tipo: 'nueva-resena',
+        titulo: `Nueva reseña de ${'★'.repeat(calificacion)}`,
+        texto: texto ? `"${texto.length > 140 ? `${texto.slice(0, 140)}…` : texto}"` : `Un cliente te calificó con ${calificacion} de 5 estrellas.`,
+        enlace: '/panel/resenas',
+      }])
+      await batch.commit()
       onCreada?.()
       onClose()
     } catch (err) {

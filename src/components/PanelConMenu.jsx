@@ -15,6 +15,8 @@ import useIsMobile from '../hooks/useIsMobile.js'
 // - pie({ colapsado, alNavegar }): contenido sobre "Cerrar sesión".
 // - centrado: en el computador, panel y contenido en una columna centrada
 //   (panel del cliente) en vez del menú pegado al borde a todo lo alto.
+// - acciones: botones fijos arriba a la derecha del contenido, en todas las
+//   secciones (p. ej. la campana de notificaciones del negocio).
 
 function leerColapsado(clave) {
   try {
@@ -24,7 +26,7 @@ function leerColapsado(clave) {
   }
 }
 
-export default function PanelConMenu({ grupos, claveColapsado, reemplazar = false, centrado = false, onSalir, pie, children }) {
+export default function PanelConMenu({ grupos, claveColapsado, reemplazar = false, centrado = false, onSalir, pie, acciones, children }) {
   const isMobile = useIsMobile()
   const [abiertoMovil, setAbiertoMovil] = useState(false)
   const [colapsadoEscritorio, setColapsadoEscritorio] = useState(() => leerColapsado(claveColapsado))
@@ -95,7 +97,15 @@ export default function PanelConMenu({ grupos, claveColapsado, reemplazar = fals
                   title={colapsado ? item.label : undefined}
                   className={({ isActive }) => `panel-item${isActive && !item.salir ? ' activo' : ''}`}
                 >
-                  <Icon name={item.icon} size={17} />
+                  <span className="panel-item-icono">
+                    <Icon name={item.icon} size={17} />
+                    {/* "insignia": cuántas hay sin ver (p. ej. notificaciones). */}
+                    {item.insignia > 0 && (
+                      <span className="panel-insignia" aria-label={`${item.insignia} sin leer`}>
+                        {item.insignia > 9 ? '9+' : item.insignia}
+                      </span>
+                    )}
+                  </span>
                   <span className="panel-oculto-colapsado">{item.label}</span>
                 </NavLink>
               ))}
@@ -120,6 +130,7 @@ export default function PanelConMenu({ grupos, claveColapsado, reemplazar = fals
       </aside>
 
       <main className="panel-contenido vitrina">
+        {acciones && <div className="panel-acciones">{acciones}</div>}
         {children}
       </main>
     </div>

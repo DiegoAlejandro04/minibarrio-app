@@ -162,6 +162,30 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
+    function notificacionValida() {
+      let datos = request.resource.data;
+      return datos.keys().hasOnly(['tipo', 'titulo', 'texto', 'enlace', 'citaId', 'leida', 'creadoEn'])
+        && datos.tipo in ['nueva-reserva', 'reserva-confirmada', 'cita-cancelada', 'recordatorio', 'calificar', 'nueva-resena', 'citas-hoy', 'citas-por-cerrar', 'perfil']
+        && datos.titulo is string && datos.titulo.size() <= 80
+        && datos.texto is string && datos.texto.size() <= 300
+        && (!('enlace' in datos) || datos.enlace == null || (datos.enlace is string && datos.enlace.size() <= 120))
+        && (!('citaId' in datos) || datos.citaId is string)
+        && datos.leida == false
+        && datos.creadoEn == request.time;
+    }
+
+    function avisoDeResena(uid) {
+      return request.resource.data.tipo == 'nueva-resena'
+        && existsAfter(/databases/$(database)/documents/negocios/$(uid)/resenas/$(request.auth.uid));
+    }
+
+    function avisoDeCita(uid) {
+      let datos = request.resource.data;
+      let cita = getAfter(/databases/$(database)/documents/citas/$(datos.citaId)).data;
+      return (cita.clienteId == request.auth.uid && cita.negocioId == uid && datos.tipo in ['nueva-reserva', 'cita-cancelada'])
+        || (cita.negocioId == request.auth.uid && cita.clienteId == uid && datos.tipo in ['cita-cancelada', 'calificar']);
+    }
+
     // Ubicación del negocio: null o { lat, lng } con coordenadas válidas.
     function ubicacionValida(datos) {
       return !('ubicacion' in datos)
@@ -190,6 +214,16 @@ service cloud.firestore {
 
       match /favoritos/{negocioId} {
         allow read, write: if esDueno(uid);
+      }
+
+      match /notificaciones/{notificacionId} {
+        allow read, delete: if esDueno(uid);
+        allow update: if esDueno(uid)
+                      && camposCambiados().hasOnly(['leida'])
+                      && request.resource.data.leida is bool;
+        allow create: if estaAutenticado()
+                      && notificacionValida()
+                      && (esDueno(uid) || avisoDeResena(uid) || ('citaId' in request.resource.data && avisoDeCita(uid)));
       }
     }
 

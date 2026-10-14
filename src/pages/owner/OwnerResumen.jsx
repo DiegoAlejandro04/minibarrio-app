@@ -205,17 +205,6 @@ export default function OwnerResumen() {
               : `${citasHoy.length} cita${citasHoy.length === 1 ? '' : 's'} programada${citasHoy.length === 1 ? '' : 's'} para hoy`}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span
-            title="Aún no hay notificaciones"
-            style={{
-              width: 38, height: 38, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)',
-            }}
-          >
-            <Icon name="bell" size={16} />
-          </span>
-        </div>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: isMobile ? 12 : 16 }}>
