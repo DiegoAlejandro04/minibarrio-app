@@ -841,7 +841,18 @@ export default function NegocioDetalle() {
               : 'Confirmar cita'}
           </button>
 
-          {whatsapp && (
+          {/* Por privacidad del negocio, su WhatsApp solo se abre con sesión iniciada. */}
+          {whatsapp && !currentUser && (
+            <button
+              type="button"
+              disabled
+              className="btn btn-outline"
+              style={{ width: '100%', marginTop: 10, opacity: 0.5, cursor: 'not-allowed' }}
+            >
+              Inicia sesión para escribir por WhatsApp
+            </button>
+          )}
+          {whatsapp && currentUser && (
             <a
               href={`https://wa.me/57${whatsapp.replace(/\D/g, '')}`}
               target="_blank"
