@@ -6,7 +6,7 @@ import {
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import { cambiarEstadoCita } from '../../turnosOcupados.js'
-import { crearAvisoPropio, marcarLeida, marcarTodasLeidas, textoFechaCita } from '../../notificaciones.js'
+import { crearAvisoPropio, eliminarNotificacion, marcarLeida, marcarTodasLeidas, textoFechaCita } from '../../notificaciones.js'
 import useNotificaciones from '../../hooks/useNotificaciones.js'
 import PanelConMenu from '../../components/PanelConMenu.jsx'
 import Splash from '../../components/Splash.jsx'
@@ -213,6 +213,7 @@ export default function ClientLayout() {
       notificaciones,
       marcarLeida: (id) => marcarLeida(uid, id),
       marcarTodasLeidas: () => marcarTodasLeidas(uid, notificaciones),
+      eliminarNotificacion: (n) => eliminarNotificacion(uid, n).catch((err) => console.error(err)),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [uid, perfil, citas, favoritos, resenas, negociosPorId, serviciosPorId, ratings, notificaciones]

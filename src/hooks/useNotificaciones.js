@@ -28,9 +28,13 @@ export default function useNotificaciones(uid) {
     )
   }, [uid])
 
+  // Las ocultas (avisos propios que la persona quitó con la ✕, ver
+  // eliminarNotificacion) no se muestran, pero siguen existiendo para que no
+  // se vuelvan a crear.
+  const visibles = notificaciones.filter((n) => !n.oculta)
   return {
-    notificaciones,
-    sinLeer: notificaciones.filter((n) => !n.leida).length,
+    notificaciones: visibles,
+    sinLeer: visibles.filter((n) => !n.leida).length,
     cargadas,
   }
 }

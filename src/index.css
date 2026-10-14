@@ -2872,6 +2872,29 @@ a.panel-perfil-avatar:hover { color: #fff; }
   cursor: pointer;
   transition: background .2s ease;
 }
+/* Cada fila lleva la ✕ para eliminar arriba a la derecha, encima del botón
+   de la notificación (que deja espacio a la derecha con .con-eliminar). */
+.notif-fila { position: relative; }
+.notif-item.con-eliminar { padding-right: 40px; }
+.notif-eliminar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.notif-eliminar:hover,
+.notif-eliminar:focus-visible { background: color-mix(in oklch, var(--danger) 14%, transparent); color: var(--danger); }
 .notif-item:hover { background: color-mix(in oklch, var(--text) 6%, transparent); }
 .notif-item.sin-leer { background: color-mix(in oklch, var(--accent) 9%, transparent); }
 .notif-item.sin-leer:hover { background: color-mix(in oklch, var(--accent) 14%, transparent); }

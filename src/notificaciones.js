@@ -1,4 +1,4 @@
-import { collection, doc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore'
+import { collection, deleteDoc, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from './firebase/config'
 
 // Notificaciones de clientes y negocios, guardadas en Firestore en
@@ -78,6 +78,20 @@ export function crearAvisoPropio(uid, id, aviso, existentes) {
 
 export function marcarLeida(uid, id) {
   return setDoc(refNotificacion(uid, id), { leida: true }, { merge: true })
+}
+
+/**
+ * Quita una notificación de la lista (la ✕ de cada una). Las de eventos se
+ * borran. Los avisos propios (id fijo con guiones, p. ej.
+ * "recordatorio-dia-{citaId}", ver crearAvisoPropio) se ocultan en vez de
+ * borrarse: si se borraran, el panel los volvería a crear la próxima vez que
+ * se abre, porque no los encontraría. Los ids automáticos de Firestore nunca
+ * tienen guiones.
+ */
+export function eliminarNotificacion(uid, notificacion) {
+  const ref = refNotificacion(uid, notificacion.id)
+  if (notificacion.id.includes('-')) return updateDoc(ref, { oculta: true, leida: true })
+  return deleteDoc(ref)
 }
 
 export async function marcarTodasLeidas(uid, notificaciones) {

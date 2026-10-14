@@ -5,7 +5,7 @@ import ListaNotificaciones from '../../components/ListaNotificaciones.jsx'
 // canceladas por el negocio e invitaciones a calificar, en tiempo real (ver
 // ClientLayout.jsx y src/notificaciones.js).
 export default function ClientNotificaciones() {
-  const { notificaciones, marcarLeida, marcarTodasLeidas } = useOutletContext()
+  const { notificaciones, marcarLeida, marcarTodasLeidas, eliminarNotificacion } = useOutletContext()
   const navigate = useNavigate()
   const hayPendientes = notificaciones.some((n) => !n.leida)
 
@@ -31,7 +31,7 @@ export default function ClientNotificaciones() {
       </div>
 
       <div className="card" style={{ padding: 8 }}>
-        <ListaNotificaciones notificaciones={notificaciones} onAbrir={abrir} />
+        <ListaNotificaciones notificaciones={notificaciones} onAbrir={abrir} onEliminar={eliminarNotificacion} />
       </div>
     </div>
   )

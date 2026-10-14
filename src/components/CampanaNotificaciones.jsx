@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import Icon from './Icon.jsx'
 import ListaNotificaciones from './ListaNotificaciones.jsx'
-import { marcarLeida, marcarTodasLeidas } from '../notificaciones.js'
+import { eliminarNotificacion, marcarLeida, marcarTodasLeidas } from '../notificaciones.js'
 
 // Campana de notificaciones del panel del negocio (OwnerResumen.jsx). Al
 // tocarla, el propio botón "crece" hasta volverse un panel de cristal que se
@@ -138,7 +138,11 @@ export default function CampanaNotificaciones({ uid, notificaciones, sinLeer }) 
                 </div>
               </header>
               <div className="campana-lista">
-                <ListaNotificaciones notificaciones={notificaciones} onAbrir={abrirNotificacion} />
+                <ListaNotificaciones
+                  notificaciones={notificaciones}
+                  onAbrir={abrirNotificacion}
+                  onEliminar={(n) => eliminarNotificacion(uid, n).catch((err) => console.error(err))}
+                />
               </div>
             </div>
           </section>

@@ -218,9 +218,12 @@ service cloud.firestore {
 
       match /notificaciones/{notificacionId} {
         allow read, delete: if esDueno(uid);
+        // La propia cuenta solo puede marcarla leída u ocultarla (la ✕ de
+        // los avisos propios, ver eliminarNotificacion en notificaciones.js).
         allow update: if esDueno(uid)
-                      && camposCambiados().hasOnly(['leida'])
-                      && request.resource.data.leida is bool;
+                      && camposCambiados().hasOnly(['leida', 'oculta'])
+                      && request.resource.data.leida is bool
+                      && (!('oculta' in request.resource.data) || request.resource.data.oculta is bool);
         allow create: if estaAutenticado()
                       && notificacionValida()
                       && (esDueno(uid) || avisoDeResena(uid) || ('citaId' in request.resource.data && avisoDeCita(uid)));
