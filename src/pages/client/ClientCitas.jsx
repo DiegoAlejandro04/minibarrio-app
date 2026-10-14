@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import Icon from '../../components/Icon.jsx'
 import ConfirmarModal from '../../components/ConfirmarModal.jsx'
+import PaginadorPeine from '../../components/PaginadorPeine.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva } from '../../reservas.js'
 
@@ -17,6 +18,10 @@ const ESTADO_STYLES = {
   completada: { bg: 'var(--surface-2)', text: 'var(--text-muted)', label: 'Completada' },
 }
 
+// El historial se muestra de a CITAS_POR_PAGINA, con el paginador del peine
+// debajo cuando hay más (ver PaginadorPeine.jsx).
+const CITAS_POR_PAGINA = 10
+
 function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
@@ -25,6 +30,8 @@ export default function ClientCitas() {
   const { citas, negociosPorId, serviciosPorId, cancelarCita } = useOutletContext()
   const [cancelandoId, setCancelandoId] = useState(null)
   const [porCancelar, setPorCancelar] = useState(null) // cita que pide confirmación | null
+  const [pagina, setPagina] = useState(1)
+  const historialRef = useRef(null)
   const isMobile = useIsMobile()
 
   const ahora = useMemo(() => new Date(), [])
@@ -47,6 +54,17 @@ export default function ClientCitas() {
       .sort((a, b) => b.fecha - a.fecha),
     [citasConFecha, ahora]
   )
+
+  const totalPaginas = Math.max(1, Math.ceil(pasadas.length / CITAS_POR_PAGINA))
+  // Si el historial se achica (p. ej. al recargar), no quedarse en una página vacía.
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const pasadasDeLaPagina = pasadas.slice((paginaActual - 1) * CITAS_POR_PAGINA, paginaActual * CITAS_POR_PAGINA)
+
+  // Al cambiar de página sube despacio hasta el título "Historial".
+  function irAPagina(p) {
+    setPagina(p)
+    historialRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   // Se cancela solo después de confirmarlo en la ventana (ConfirmarModal),
   // igual que en la vista Principal (ClientResumen.jsx).
@@ -147,14 +165,22 @@ export default function ClientCitas() {
         </div>
       )}
 
-      <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 10 }}>Historial</div>
+      <div ref={historialRef} style={{ fontWeight: 800, fontSize: 15, marginBottom: 10, scrollMarginTop: 20 }}>
+        Historial
+        {totalPaginas > 1 && (
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-faint)', marginLeft: 8 }}>
+            Página {paginaActual} de {totalPaginas}
+          </span>
+        )}
+      </div>
       {pasadas.length === 0 ? (
         <p style={{ color: 'var(--text-muted)', fontSize: 13.5 }}>Aún no tienes citas pasadas.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {pasadas.map((c) => <Fila key={c.id} c={c} mostrarCancelar={false} />)}
+          {pasadasDeLaPagina.map((c) => <Fila key={c.id} c={c} mostrarCancelar={false} />)}
         </div>
       )}
+      <PaginadorPeine pagina={paginaActual} total={totalPaginas} onCambiar={irAPagina} visibles={isMobile ? 5 : 10} />
 
       {porCancelar && (
         <ConfirmarModal

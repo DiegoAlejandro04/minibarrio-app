@@ -2707,3 +2707,118 @@ a.panel-perfil-avatar:hover { color: #fff; }
   color: #fff;
   box-shadow: 0 4px 15px var(--vidrio-brillo);
 }
+
+/* Paginador con peine de barbero (PaginadorPeine.jsx): el lomo arriba, un
+   diente por página y el número debajo; la página actual tiene el diente
+   más largo y naranja. Anterior / Siguiente a los lados, como en Google. */
+.peine {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 26px;
+  user-select: none;
+}
+.peine-flecha {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 64px;
+  padding: 2px 4px 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.peine-flecha svg { transition: transform .2s ease; }
+.peine-flecha:first-child:hover svg { transform: translateX(-3px); }
+.peine-flecha:last-child:hover svg { transform: translateX(3px); }
+.peine-flecha--vacia { visibility: hidden; cursor: default; }
+.peine {
+  /* Color del peine y separación de los dientes pequeños. Cada página mide
+     --peine-columna; con 30px y un diente pequeño cada 6px, uno de ellos
+     cae justo bajo el diente de la página (que lo tapa). */
+  --peine-color: color-mix(in oklch, var(--text-muted) 60%, transparent);
+  --peine-columna: 30px;
+  --peine-borde: 4px;
+}
+.peine-cuerpo { display: flex; flex-direction: column; align-items: stretch; }
+/* Base del peine: gruesa, redondeada y un poco más ancha que los dientes. */
+.peine-lomo {
+  height: 14px;
+  margin: 0 -6px;
+  border-radius: 8px;
+  background: var(--peine-color);
+  box-shadow: inset 0 2px 0 oklch(100% 0 0 / 0.12), inset 0 -2px 0 oklch(0% 0 0 / 0.15);
+}
+.peine-dientes {
+  position: relative;
+  display: flex;
+  padding: 0 var(--peine-borde);
+}
+/* Dientes pequeños entre los números: una hilera continua bajo la base. */
+.peine-relleno {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 11px;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, var(--peine-color) 0 2px, transparent 2px 6px);
+  background-position-x: var(--peine-relleno-x, 0px);
+  border-radius: 0 0 2px 2px;
+}
+.peine-pagina {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--peine-columna);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+/* Diente de cada página: igual a los de relleno (encima de uno de ellos);
+   al pasar el mouse crece, y el de la página actual es largo y naranja. */
+.peine-diente {
+  width: 2px;
+  height: 11px;
+  border-radius: 0 0 2px 2px;
+  background: var(--peine-color);
+  transition: height .25s ease, width .25s ease, background .25s ease;
+}
+.peine-numero {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  transition: color .2s ease;
+}
+.peine-pagina:hover .peine-diente { width: 4px; height: 22px; background: var(--text-muted); border-radius: 0 0 3px 3px; }
+.peine-pagina:hover .peine-numero { text-decoration: underline; }
+.peine-pagina.actual { cursor: default; }
+.peine-pagina.actual .peine-diente {
+  width: 4px;
+  height: 30px;
+  border-radius: 0 0 3px 3px;
+  background: var(--accent);
+  box-shadow: 0 4px 10px color-mix(in oklch, var(--accent) 40%, transparent);
+}
+.peine-pagina.actual .peine-numero { color: var(--text); font-weight: 800; text-decoration: none; }
+
+@media (max-width: 480px) {
+  /* Columnas de 24px: el relleno se corre 5px para que un diente pequeño
+     siga cayendo bajo el de cada página. */
+  .peine { gap: 4px; --peine-columna: 24px; --peine-borde: 0px; --peine-relleno-x: 5px; }
+  .peine-flecha { min-width: 0; font-size: 11px; }
+  .peine-numero { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .peine-diente, .peine-flecha svg { transition: none; }
+}
