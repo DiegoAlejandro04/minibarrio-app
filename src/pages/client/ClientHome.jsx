@@ -551,129 +551,115 @@ export default function ClientHome() {
     if (!isMobile) setMenuAbierto(false)
   }, [isMobile])
 
+  // Enlace resaltado de la barra según la sección que se está viendo.
+  const [seccionActiva, setSeccionActiva] = useState('inicio')
+  useEffect(() => {
+    let pendiente = false
+    const revisar = () => {
+      pendiente = false
+      const pasada = (id) => {
+        const el = document.getElementById(id)
+        return el && el.getBoundingClientRect().top <= 140
+      }
+      setSeccionActiva(pasada('como-funciona') ? 'como-funciona' : pasada('resultados') ? 'resultados' : 'inicio')
+    }
+    const alDesplazar = () => {
+      if (pendiente) return
+      pendiente = true
+      requestAnimationFrame(revisar)
+    }
+    revisar()
+    window.addEventListener('scroll', alDesplazar, { passive: true })
+    return () => window.removeEventListener('scroll', alDesplazar)
+  }, [])
+
+  function irArriba(e) {
+    e.preventDefault()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const claseEnlace = (id) => `nav-enlace${seccionActiva === id ? ' activo' : ''}`
+
   return (
     <div>
-      <header
-        ref={headerRef}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: isMobile ? '12px 16px' : '14px 32px', background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-          flexWrap: isMobile ? 'nowrap' : 'wrap', gap: 12,
-          position: 'relative', zIndex: 1100, // el menú móvil va por encima del mapa (Leaflet llega a z-index 1000)
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 28, flexWrap: 'wrap' }}>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 18, fontWeight: 800 }}>
-            <span
-              style={{
-                width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', color: '#fff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
-              }}
-            >
-              MB
-            </span>
-            <span>
-              <span style={{ color: 'var(--text)' }}>Mini</span><span style={{ color: 'var(--accent)' }}>Barrio</span>
-            </span>
+      {/* Barra flotante de cristal (estilos .nav-* en index.css). Ocupa 0 de
+          alto: flota sobre la portada, que deja el espacio arriba. z-index
+          1100: por encima del mapa (Leaflet llega a 1000). */}
+      <header ref={headerRef} className="nav-flotante">
+        <div className="nav-pastilla">
+          <Link to="/" className="nav-marca" onClick={irArriba}>
+            <span className="nav-marca-icono">MB</span>
+            <span>Mini<span style={{ color: 'var(--accent)' }}>Barrio</span></span>
           </Link>
+
           {!isMobile && (
-            <nav style={{ display: 'flex', gap: 20, fontSize: 13.5, fontWeight: 700 }}>
-              <a href="#resultados" style={{ color: 'var(--text-muted)' }}>Explorar</a>
-              <a href="#como-funciona" style={{ color: 'var(--text-muted)' }}>Cómo funciona</a>
-              <span style={{ color: 'var(--text-faint)', cursor: 'not-allowed' }} title="Por ahora solo barberías y estética">Categorías</span>
-              <Link to="/registro/negocio" style={{ color: 'var(--text-muted)' }}>Para negocios</Link>
+            <nav className="nav-menu" aria-label="Secciones">
+              <a href="#inicio" className={claseEnlace('inicio')} onClick={irArriba} title="Inicio">
+                <Icon name="home" size={16} /> <span>Inicio</span>
+              </a>
+              <a href="#resultados" className={claseEnlace('resultados')} title="Explorar">
+                <Icon name="search" size={16} /> <span>Explorar</span>
+              </a>
+              <a href="#como-funciona" className={claseEnlace('como-funciona')} title="Cómo funciona">
+                <Icon name="info" size={16} /> <span>Cómo funciona</span>
+              </a>
+              <Link to="/registro/negocio" className="nav-enlace" title="Para negocios">
+                <Icon name="store" size={16} /> <span>Para negocios</span>
+              </Link>
             </nav>
           )}
-        </div>
 
-        {isMobile ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            {!currentUser && (
-              <Link to="/login" className="btn btn-outline" style={{ padding: '7px 12px', fontSize: 13 }}>
-                Iniciar sesión
-              </Link>
-            )}
-            {currentUser && role === 'cliente' && (
-              <Link
-                to="/perfil"
-                title="Mi perfil"
-                style={{
-                  width: 34, height: 34, borderRadius: '50%', background: 'var(--accent)', color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
-                }}
-              >
-                {inicialesDe(currentUser.displayName)}
-              </Link>
-            )}
-            {currentUser && role === 'propietario' && (
-              <Link to="/panel" className="btn btn-outline" style={{ padding: '7px 12px', fontSize: 13 }}>
-                Mi panel
-              </Link>
-            )}
-            <button
-              type="button"
-              onClick={() => setMenuAbierto((v) => !v)}
-              aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
-              aria-expanded={menuAbierto}
-              aria-controls="menu-movil"
-              style={{
-                width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: menuAbierto ? 'var(--surface-2)' : 'transparent', color: 'var(--text)',
-                border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: 0,
-              }}
-            >
-              <Icon name={menuAbierto ? 'x' : 'menu'} size={18} />
-            </button>
-          </div>
-        ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          {!isMobile && (
-            <span
-              style={{
-                fontSize: 12.5, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--surface-2)',
-                padding: '7px 12px', borderRadius: 999,
-              }}
-            >
-              Britalia, Kennedy
-            </span>
-          )}
-          {currentUser ? (
-            <>
-              {role === 'propietario' && (
-                <Link to="/panel" className="btn btn-outline" style={{ padding: '8px 14px', fontSize: 13 }}>
-                  Ir a mi panel
-                </Link>
+          {isMobile ? (
+            <div className="nav-acciones">
+              {!currentUser && (
+                <Link to="/login" className="nav-cta">Iniciar sesión</Link>
               )}
-              {role === 'cliente' ? (
-                <Link
-                  to="/perfil"
-                  title="Mi perfil"
-                  style={{
-                    width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)', color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
-                  }}
-                >
+              {currentUser && role === 'cliente' && (
+                <Link to="/perfil" title="Mi perfil" className="nav-avatar">
                   {inicialesDe(currentUser.displayName)}
                 </Link>
-              ) : (
-                <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {currentUser.displayName}
-                </span>
               )}
-              <button onClick={handleLogout} className="btn btn-outline" style={{ padding: '8px 14px', fontSize: 13 }}>
-                Cerrar sesión
+              {currentUser && role === 'propietario' && (
+                <Link to="/panel" className="nav-cta">Mi panel</Link>
+              )}
+              <button
+                type="button"
+                className={`nav-boton-menu${menuAbierto ? ' abierto' : ''}`}
+                onClick={() => setMenuAbierto((v) => !v)}
+                aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
+                aria-expanded={menuAbierto}
+                aria-controls="menu-movil"
+              >
+                <Icon name={menuAbierto ? 'x' : 'menu'} size={18} />
               </button>
-            </>
+            </div>
           ) : (
-            <>
-              <Link to="/login" style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Iniciar sesión</Link>
-              <Link to="/registro/negocio" className="btn btn-primary" style={{ padding: '9px 16px', fontSize: 13.5 }}>
-                Registra tu negocio
-              </Link>
-            </>
+            <div className="nav-acciones">
+              <span className="nav-zona">Britalia, Kennedy</span>
+              {currentUser ? (
+                <>
+                  {role === 'cliente' ? (
+                    <Link to="/perfil" title="Mi perfil" className="nav-avatar">
+                      {inicialesDe(currentUser.displayName)}
+                    </Link>
+                  ) : (
+                    <span className="nav-nombre">{currentUser.displayName}</span>
+                  )}
+                  <button type="button" onClick={handleLogout} className="nav-enlace nav-salir">
+                    <Icon name="logout" size={16} /> <span>Cerrar sesión</span>
+                  </button>
+                  {role === 'propietario' && (
+                    <Link to="/panel" className="nav-cta">Ir a mi panel</Link>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Link to="/login" className="nav-enlace">Iniciar sesión</Link>
+                  <Link to="/registro/negocio" className="nav-cta">Registra tu negocio</Link>
+                </>
+              )}
+            </div>
           )}
-        </div>
-        )}
 
         {isMobile && menuAbierto && (
           <>
@@ -724,9 +710,11 @@ export default function ClientHome() {
             </nav>
           </>
         )}
+        </div>
       </header>
 
-      <section style={{ background: 'var(--surface-2)', padding: isMobile ? '28px 16px' : '48px 32px' }}>
+      {/* Arriba deja el espacio de la barra flotante (ver .nav-flotante). */}
+      <section id="inicio" style={{ background: 'var(--surface-2)', padding: isMobile ? '92px 16px 28px' : '124px 32px 48px' }}>
         {/* alignItems center: texto y mapa quedan centrados uno frente al
             otro en vez de alineados arriba con alturas distintas. */}
         {/* Dos columnas iguales con un espacio amplio entre texto y mapa
@@ -1137,6 +1125,7 @@ export default function ClientHome() {
 
 const ICON_PATHS = {
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+  home: 'M3 10.5 12 3l9 7.5M5 9v11h5v-6h4v6h5V9',
   menu: 'M3 6h18M3 12h18M3 18h18',
   x: 'M18 6 6 18M6 6l12 12',
   target: 'M12 2a10 10 0 1 0 .01 0zM12 9a3 3 0 1 0 .01 0zM12 2v3M12 19v3M2 12h3M19 12h3',

@@ -2072,3 +2072,230 @@ input:focus, select:focus, textarea:focus {
   .panel-item,
   .panel-velo { transition: none; animation: none; }
 }
+
+/* ==========================================================================
+   Barra de navegación flotante de la vitrina (ClientHome.jsx)
+   Píldora de cristal fija arriba, con los colores de la página y del modo
+   oscuro. Adaptada del "Modern Navbar" de CodeByGaurav.
+   ========================================================================== */
+.nav-flotante {
+  --nav-vidrio: oklch(99% 0.004 80 / 0.72);
+  --nav-borde: oklch(100% 0 0 / 0.85);
+  --nav-sombra: 0 14px 34px oklch(23% 0.02 55 / 0.12), 0 2px 6px oklch(23% 0.02 55 / 0.05);
+  --nav-hover: oklch(23% 0.02 55 / 0.06);
+  --nav-brillo: oklch(68% 0.15 48 / 0.35);
+
+  /* Alto 0: la barra no empuja la página, flota sobre la portada. */
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  height: 0;
+  padding: 0 24px;
+}
+[data-theme="dark"] .nav-flotante {
+  --nav-vidrio: oklch(23% 0.02 170 / 0.62);
+  --nav-borde: oklch(100% 0 0 / 0.11);
+  --nav-sombra: 0 20px 40px oklch(0% 0 0 / 0.45);
+  --nav-hover: oklch(100% 0 0 / 0.08);
+  --nav-brillo: oklch(72% 0.16 48 / 0.4);
+}
+
+.nav-pastilla {
+  position: relative;
+  z-index: 0;
+  top: 16px;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 9px 10px 9px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--nav-borde);
+  border-radius: 100px;
+  box-shadow: var(--nav-sombra);
+}
+/* El cristal va en una capa aparte: backdrop-filter en la propia pastilla
+   volvería relativo a ella todo lo position: fixed de adentro (el velo del
+   menú en celular). */
+.nav-pastilla::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--nav-vidrio);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+}
+
+.nav-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.nav-marca-icono {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px var(--nav-brillo);
+}
+
+.nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.nav-enlace {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border: 0;
+  border-radius: 50px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .3s cubic-bezier(.4, 0, .2, 1), background .3s cubic-bezier(.4, 0, .2, 1), transform .3s cubic-bezier(.4, 0, .2, 1);
+}
+.nav-enlace svg { opacity: .7; transition: opacity .3s, color .3s; flex-shrink: 0; }
+.nav-enlace:hover,
+.nav-enlace.activo {
+  color: var(--text);
+  background: var(--nav-hover);
+}
+.nav-enlace:hover svg,
+.nav-enlace.activo svg { opacity: 1; color: var(--accent); }
+.nav-enlace:hover { transform: translateY(-2px); }
+.nav-salir:hover svg { color: var(--danger); }
+
+.nav-acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.nav-zona {
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--nav-hover);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.nav-nombre {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.nav-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-shadow: 0 4px 12px var(--nav-brillo);
+}
+.nav-cta {
+  padding: 10px 20px;
+  border-radius: 50px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px var(--nav-brillo);
+  transition: background .3s ease, transform .3s ease, box-shadow .3s ease;
+}
+.nav-cta:hover {
+  background: var(--accent-hover);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--nav-brillo);
+}
+.nav-boton-menu {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--nav-hover);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.nav-boton-menu.abierto { background: var(--accent); color: #fff; }
+
+/* Las secciones a las que lleva la barra no quedan tapadas por ella. */
+#resultados,
+#como-funciona { scroll-margin-top: 84px; }
+
+/* Pantallas medianas: no cabe todo, los enlaces quedan solo con su ícono. */
+@media (max-width: 1320px) {
+  .nav-zona { display: none; }
+}
+@media (max-width: 1140px) {
+  .nav-menu .nav-enlace > span,
+  .nav-salir > span { display: none; }
+  .nav-enlace { padding: 10px 12px; }
+}
+
+/* Celular: píldora más baja y el menú ☰ como tarjeta de cristal debajo. */
+@media (max-width: 768px) {
+  .nav-flotante { padding: 0 12px; }
+  .nav-pastilla { top: 10px; padding: 7px 7px 7px 10px; }
+  .nav-marca { font-size: 16px; gap: 8px; }
+  .nav-marca-icono { width: 32px; height: 32px; font-size: 11.5px; }
+  .nav-cta { padding: 8px 14px; font-size: 13px; }
+  .nav-avatar { width: 34px; height: 34px; }
+
+  .nav-pastilla .menu-movil-velo {
+    position: fixed;
+    inset: 0;
+    top: 0;
+    height: auto;
+    z-index: -2;
+  }
+  .nav-pastilla .menu-movil {
+    top: calc(100% + 10px);
+    border: 1px solid var(--nav-borde);
+    border-radius: 22px;
+    max-height: calc(100vh - 100px);
+    max-height: calc(100dvh - 100px);
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-enlace,
+  .nav-cta { transition: none; }
+  .nav-enlace:hover,
+  .nav-cta:hover { transform: none; }
+}
