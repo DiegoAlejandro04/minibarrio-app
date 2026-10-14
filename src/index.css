@@ -1014,6 +1014,16 @@ input:focus, select:focus, textarea:focus {
    colores propios (no cambian con el tema): son un objeto físico. */
 .recibo {
   --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
+  /* Papel: blanco en modo claro, negro en modo oscuro. */
+  --papel: #fafaf8;
+  --papel-texto: #171717;
+  --papel-tenue: #6b6b6b;
+  --papel-suave: #a3a3a3;
+  --papel-hover: #e9e9e4;
+  /* Cuerpo de la impresora: cristal con los colores de la página. */
+  --maquina-vidrio: oklch(100% 0 0 / 0.55);
+  --maquina-borde: oklch(100% 0 0 / 0.85);
+  --maquina-filtro: blur(18px) saturate(150%);
   position: relative;
   isolation: isolate;
   display: flex;
@@ -1029,14 +1039,16 @@ input:focus, select:focus, textarea:focus {
   width: 100%;
   overflow: hidden;
   border-radius: 24px;
-  border: 1px solid #111;
-  background: #2e2e2e;
+  border: 1px solid var(--maquina-borde);
+  background: var(--maquina-vidrio);
+  -webkit-backdrop-filter: var(--maquina-filtro);
+  backdrop-filter: var(--maquina-filtro);
   padding: 12px 12px 32px;
   box-shadow:
-    0 20px 36px -20px rgb(0 0 0 / 0.55),
+    0 20px 36px -20px rgb(0 0 0 / 0.35),
     0 6px 14px -8px rgb(0 0 0 / 0.24),
-    inset 0 1px 0 rgb(255 255 255 / 0.14),
-    inset 0 -1px 0 rgb(0 0 0 / 0.55);
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    inset 0 -1px 0 rgb(0 0 0 / 0.12);
 }
 .recibo-pantalla {
   position: relative;
@@ -1066,8 +1078,8 @@ input:focus, select:focus, textarea:focus {
   flex-shrink: 0;
   border: none;
   border-radius: 999px;
-  background: #fafaf8;
-  color: #171717;
+  background: var(--papel);
+  color: var(--papel-texto);
   padding: 7px 16px;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -1075,7 +1087,7 @@ input:focus, select:focus, textarea:focus {
   transition: background .15s;
   animation: recibo-icono-entra .2s cubic-bezier(.23, 1, .32, 1);
 }
-.recibo-aceptar:hover { background: #e9e9e4; }
+.recibo-aceptar:hover { background: var(--papel-hover); }
 
 .recibo-ranura {
   position: absolute;
@@ -1119,9 +1131,9 @@ input:focus, select:focus, textarea:focus {
 }
 .recibo-papel {
   position: relative;
-  background: #fafaf8;
+  background: var(--papel);
   background-image: linear-gradient(180deg, rgb(0 0 0 / 0.025), transparent 18%, transparent 82%, rgb(0 0 0 / 0.02));
-  color: #171717;
+  color: var(--papel-texto);
   padding: 28px 24px 32px;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -1130,7 +1142,7 @@ input:focus, select:focus, textarea:focus {
 .recibo-separador {
   margin: 16px 0;
   border: none;
-  border-top: 1px dashed #a3a3a3;
+  border-top: 1px dashed var(--papel-suave);
 }
 .recibo:not([data-etapa="procesando"]) .recibo-sombra-ranura { opacity: 1; }
 .recibo[data-etapa="imprimiendo"] .recibo-papel-mov {
@@ -1876,44 +1888,6 @@ input:focus, select:focus, textarea:focus {
 }
 .panel-alternar:hover { background: var(--vidrio-hover); }
 
-/* Buscador */
-.panel-buscador {
-  height: 46px;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 0 16px;
-  margin-bottom: 18px;
-  flex-shrink: 0;
-  border: 1px solid var(--vidrio-borde);
-  border-radius: 30px;
-  background: var(--vidrio-campo);
-  color: var(--text-muted);
-  transition: border-color .25s;
-}
-.panel-buscador:focus-within { border-color: var(--accent); }
-.panel-buscador input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-}
-.panel-buscador input::placeholder { color: var(--text-faint); }
-.panel-negocio.colapsado .panel-buscador {
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  margin-left: auto;
-  margin-right: auto;
-  justify-content: center;
-  cursor: pointer;
-}
-.panel-negocio.colapsado .panel-buscador input { display: none; }
-
 /* Menú */
 .panel-menu,
 .panel-grupo {
@@ -1959,12 +1933,6 @@ input:focus, select:focus, textarea:focus {
   flex-shrink: 0;
   background: var(--vidrio-linea);
 }
-.panel-sin-resultados {
-  font-size: 12.5px;
-  color: var(--text-faint);
-  padding: 8px 12px;
-}
-.panel-negocio.colapsado .panel-sin-resultados { display: none; }
 
 /* Pie: progreso del perfil y cerrar sesión */
 .panel-pie {
@@ -2299,3 +2267,255 @@ input:focus, select:focus, textarea:focus {
   .nav-enlace:hover,
   .nav-cta:hover { transform: none; }
 }
+
+/* ==========================================================================
+   Cristal de la vitrina: página principal (ClientHome.jsx) y página de cada
+   negocio (NegocioDetalle.jsx), con el mismo estilo de la barra flotante.
+   Todo va dentro de .vitrina, así el resto de la app (paneles, login) no
+   cambia. Los colores salen de los tokens de la página, en claro y oscuro.
+
+   En celular el cristal es "falso": semitransparente pero sin desenfoque
+   real (backdrop-filter), que en equipos de gama baja traba el desplazamiento.
+   ========================================================================== */
+.vitrina {
+  --vidrio: oklch(100% 0 0 / 0.55);
+  --vidrio-fuerte: oklch(100% 0 0 / 0.75);
+  --vidrio-campo: oklch(100% 0 0 / 0.6);
+  --vidrio-borde: oklch(100% 0 0 / 0.85);
+  --vidrio-linea: oklch(23% 0.02 55 / 0.09);
+  --vidrio-sombra: 0 14px 34px oklch(23% 0.02 55 / 0.08), inset 0 1px 0 oklch(100% 0 0 / 0.6);
+  --vidrio-filtro: blur(18px) saturate(150%);
+  --vidrio-brillo: oklch(68% 0.15 48 / 0.35);
+  --pie-fondo: oklch(100% 0 0 / 0.35);
+  --pie-linea: var(--vidrio-linea);
+  --mancha-opacidad: 0.24;
+
+  position: relative;
+  isolation: isolate;
+  /* Llega hasta el fondo de la pantalla aunque haya poco contenido: si no,
+     las manchas se cortaban y quedaba una franja sin ellas abajo. */
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+[data-theme="dark"] .vitrina {
+  --vidrio: oklch(30% 0.03 168 / 0.34);
+  --vidrio-fuerte: oklch(32% 0.03 168 / 0.55);
+  --vidrio-campo: oklch(100% 0 0 / 0.05);
+  --vidrio-borde: oklch(100% 0 0 / 0.1);
+  --vidrio-linea: oklch(100% 0 0 / 0.08);
+  --vidrio-sombra: 0 18px 40px oklch(0% 0 0 / 0.35), inset 0 1px 0 oklch(100% 0 0 / 0.05);
+  --vidrio-brillo: oklch(72% 0.16 48 / 0.4);
+  --pie-fondo: oklch(100% 0 0 / 0.02);
+  --mancha-opacidad: 0.17;
+}
+
+/* Manchas naranja y verde a lo largo de la página, detrás de todo. No son
+   position: fixed (Safari en iOS teñiría su barra con ellas). */
+.vitrina-fondo {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.vitrina-fondo span {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: var(--mancha-opacidad);
+}
+.vitrina-fondo span:nth-child(1) { width: 520px; height: 520px; top: -160px; left: -140px; background: var(--accent); }
+.vitrina-fondo span:nth-child(2) { width: 560px; height: 560px; top: 18%; right: -180px; background: var(--sage); }
+.vitrina-fondo span:nth-child(3) { width: 500px; height: 500px; top: 52%; left: -160px; background: var(--accent); }
+.vitrina-fondo span:nth-child(4) { width: 540px; height: 540px; top: 80%; right: -140px; background: var(--sage); }
+
+/* Portada: un velo suave del tono de antes, que se funde con el fondo. */
+.vitrina-portada {
+  background: linear-gradient(180deg, color-mix(in oklch, var(--surface-2) 60%, transparent), transparent);
+}
+.vitrina-volver {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.vitrina-volver:hover { color: var(--accent); }
+
+/* Tarjetas de cristal */
+.vitrina .card,
+.vitrina .resena-tarjeta {
+  background: var(--vidrio);
+  border: 1px solid var(--vidrio-borde);
+  box-shadow: var(--vidrio-sombra);
+  -webkit-backdrop-filter: var(--vidrio-filtro);
+  backdrop-filter: var(--vidrio-filtro);
+}
+.vitrina .tarjeta-negocio:hover {
+  border-color: color-mix(in oklch, var(--accent) 40%, transparent);
+  box-shadow: 0 16px 34px -14px var(--vidrio-brillo);
+}
+.vitrina .servicio-fila { background: var(--vidrio-campo); }
+.vitrina .servicio-fila--activo {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 12%, transparent);
+}
+.vitrina .servicio-fila__icono { background: var(--vidrio-campo); }
+.vitrina .banda-resenas {
+  background: var(--pie-fondo);
+  border-color: var(--vidrio-linea);
+}
+
+/* Botones y campos en forma de píldora, como la barra */
+.vitrina .btn {
+  border-radius: 999px;
+  transition: background .3s ease, transform .3s ease, box-shadow .3s ease;
+}
+.vitrina .btn-primary { box-shadow: 0 4px 15px var(--vidrio-brillo); }
+.vitrina .btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--vidrio-brillo);
+}
+.vitrina .btn-primary:disabled { box-shadow: none; }
+.vitrina .btn-outline {
+  background: var(--vidrio-campo);
+  border-color: var(--vidrio-borde);
+}
+.vitrina .btn-outline:hover { background: var(--vidrio-fuerte); }
+.vitrina input,
+.vitrina select,
+.vitrina textarea { background: var(--vidrio-campo); }
+/* Dentro de una tarjeta los campos van sin fondo propio (como antes). */
+.vitrina .card input,
+.vitrina .card select { background: transparent; }
+
+/* Celular: cristal falso, sin desenfoque real y un poco más opaco. */
+@media (max-width: 768px) {
+  .vitrina {
+    --vidrio: oklch(99% 0.004 80 / 0.8);
+    --vidrio-campo: oklch(100% 0 0 / 0.7);
+    --vidrio-filtro: none;
+  }
+  [data-theme="dark"] .vitrina {
+    --vidrio: oklch(23% 0.022 170 / 0.8);
+    --vidrio-campo: oklch(100% 0 0 / 0.06);
+    --vidrio-filtro: none;
+  }
+  .vitrina-fondo span { filter: blur(60px); width: 340px; height: 340px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vitrina .btn { transition: none; }
+  .vitrina .btn-primary:hover:not(:disabled) { transform: none; }
+}
+
+/* Contenido del panel del negocio: usa el cristal de .vitrina pero sin
+   crear su propia capa, para que sus ventanas (z-index 50) queden encima del
+   menú lateral y no debajo. Las manchas de fondo ya las pone el panel. */
+.panel-contenido.vitrina { isolation: auto; z-index: auto; min-height: 0; }
+.panel-negocio.es-movil .panel-vidrio { z-index: 45; }
+.panel-velo { z-index: 44; }
+
+/* Ventanas emergentes (PQRS, Contáctanos, calificar, editar negocio, citas
+   de la agenda, galería): cristal más denso que las tarjetas, sobre el velo
+   oscuro, para que se lean bien. Funciona en cualquier página. */
+:root {
+  --ventana-vidrio: oklch(99% 0.004 80 / 0.84);
+  --ventana-borde: oklch(100% 0 0 / 0.9);
+}
+[data-theme="dark"] {
+  --ventana-vidrio: oklch(22% 0.02 170 / 0.78);
+  --ventana-borde: oklch(100% 0 0 / 0.12);
+}
+.card.ventana-vidrio {
+  background: var(--ventana-vidrio);
+  border: 1px solid var(--ventana-borde);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px oklch(0% 0 0 / 0.3);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
+}
+.ventana-vidrio .btn { border-radius: 999px; }
+.ventana-vidrio .btn-primary { box-shadow: 0 4px 15px oklch(68% 0.15 48 / 0.35); }
+.card.ventana-vidrio input,
+.card.ventana-vidrio select,
+.card.ventana-vidrio textarea { background: oklch(100% 0 0 / 0.5); }
+[data-theme="dark"] .card.ventana-vidrio input,
+[data-theme="dark"] .card.ventana-vidrio select,
+[data-theme="dark"] .card.ventana-vidrio textarea { background: oklch(100% 0 0 / 0.05); }
+
+@media (max-width: 768px) {
+  :root { --ventana-vidrio: oklch(99% 0.004 80 / 0.96); }
+  [data-theme="dark"] { --ventana-vidrio: oklch(21% 0.018 170 / 0.96); }
+  .card.ventana-vidrio {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Recibo de la mini impresora (ReciboCita.jsx) en modo oscuro: papel negro
+   con letra clara y cuerpo de cristal oscuro. */
+[data-theme="dark"] .recibo {
+  --papel: #151515;
+  --papel-texto: #f2f2ef;
+  --papel-tenue: #a3a3a3;
+  --papel-suave: #5e5e5e;
+  --papel-hover: #262626;
+  --maquina-vidrio: oklch(30% 0.03 168 / 0.4);
+  --maquina-borde: oklch(100% 0 0 / 0.12);
+}
+/* Botón negro sobre la pantalla oscura: un borde fino para que se distinga. */
+[data-theme="dark"] .recibo-aceptar { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.28); }
+[data-theme="dark"] .recibo-papel { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06); }
+/* Celular: cristal falso, sin desenfoque real. */
+@media (max-width: 768px) {
+  .recibo {
+    --maquina-vidrio: oklch(99% 0.004 80 / 0.82);
+    --maquina-filtro: none;
+  }
+  [data-theme="dark"] .recibo { --maquina-vidrio: oklch(23% 0.022 170 / 0.85); }
+}
+
+/* Menú lateral compartido (PanelConMenu.jsx): la marca lleva al inicio, y el
+   avatar del cliente en el pie del panel del cliente. */
+.panel-marca,
+.panel-marca:hover { color: var(--text); text-decoration: none; }
+.panel-perfil-avatar {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-shadow: 0 4px 12px oklch(68% 0.15 48 / 0.35);
+}
+a.panel-perfil-avatar:hover { color: #fff; }
+
+/* Panel centrado (panel del cliente, PanelConMenu.jsx con "centrado"): en el
+   computador, menú y contenido en una columna centrada, con el menú de la
+   altura de sus opciones en vez de pegado al borde a todo lo alto. Las
+   manchas de fondo las pone la .vitrina de afuera, a todo el ancho. */
+.panel-negocio.centrado { background: transparent; }
+.panel-negocio.centrado .panel-manchas { display: none; }
+.panel-negocio.centrado:not(.es-movil) {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 28px 32px;
+  gap: 24px;
+  align-items: flex-start;
+}
+.panel-negocio.centrado:not(.es-movil) .panel-vidrio {
+  top: 28px;
+  height: auto;
+  max-height: calc(100vh - 56px);
+  max-height: calc(100dvh - 56px);
+  margin: 0;
+  width: 248px;
+}
+.panel-negocio.centrado:not(.es-movil).colapsado .panel-vidrio { width: var(--pn-colapsado); }
+.panel-negocio.centrado:not(.es-movil) .panel-pie { margin-top: 6px; }
+.panel-negocio.centrado:not(.es-movil) .panel-contenido { padding: 0; }

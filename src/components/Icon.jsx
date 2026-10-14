@@ -32,6 +32,7 @@ const ICON_PATHS = {
   check: 'M20 6 9 17l-5-5',
   lock: 'M6 11h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 0 1 8 0v4M12 15v2',
   arrowLeft: 'M19 12H5M12 19l-7-7 7-7',
+  home: 'M3 10.5 12 3l9 7.5M5 9v11h5v-6h4v6h5V9',
 }
 
 export default function Icon({ name, size = 18, filled = false }) {

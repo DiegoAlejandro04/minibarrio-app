@@ -70,7 +70,7 @@ export default function Footer() {
           página (no --surface): una franja de otro tono justo debajo de la
           tarjeta de negocios partía la página en bandas. Lo separa solo una
           línea fina. */}
-      <div style={{ background: 'var(--bg)', borderTop: '1px solid var(--border)' }}>
+      <div style={{ background: 'var(--pie-fondo, var(--bg))', borderTop: '1px solid var(--pie-linea, var(--border))' }}>
         <div
           style={{
             maxWidth: 1224, margin: '0 auto', padding: isMobile ? '32px 16px 24px' : '40px 32px 28px',

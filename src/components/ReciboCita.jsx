@@ -47,7 +47,7 @@ function sello(fecha) {
 
 function Fila({ etiqueta, valor, fuerte, tenue }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontWeight: fuerte ? 700 : 400, color: tenue ? '#6b6b6b' : undefined }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontWeight: fuerte ? 700 : 400, color: tenue ? 'var(--papel-tenue)' : undefined }}>
       <dt>{etiqueta}</dt>
       <dd style={{ margin: 0, textAlign: 'right' }}>{valor}</dd>
     </div>
@@ -129,7 +129,7 @@ export default function ReciboCita({ cita, onCerrar }) {
         <div className="recibo-papel-mov" aria-hidden={etapa !== 'listo'}>
           <article className="recibo-papel" style={{ clipPath: CLIP_PAPEL }}>
             <p style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, margin: 0 }}>MiniBarrio</p>
-            <p style={{ textAlign: 'center', fontSize: 11, color: '#6b6b6b', margin: '4px 0 0' }}>Comprobante de reserva</p>
+            <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--papel-tenue)', margin: '4px 0 0' }}>Comprobante de reserva</p>
 
             <hr className="recibo-separador" />
 
@@ -143,7 +143,7 @@ export default function ReciboCita({ cita, onCerrar }) {
 
             <hr className="recibo-separador" />
 
-            <dl style={{ display: 'grid', gap: 4, margin: 0, fontSize: 11, color: '#6b6b6b' }}>
+            <dl style={{ display: 'grid', gap: 4, margin: 0, fontSize: 11, color: 'var(--papel-tenue)' }}>
               <Fila etiqueta="Negocio" valor={cita.negocio} />
               {cita.direccion && <Fila etiqueta="Dirección" valor={acortarDireccion(cita.direccion)} />}
               <Fila etiqueta="Reserva" valor={`#${codigo}`} />
@@ -151,14 +151,14 @@ export default function ReciboCita({ cita, onCerrar }) {
               <Fila etiqueta="Reservado el" valor={sello(cita.reservadaEn)} />
             </dl>
 
-            <p style={{ textAlign: 'center', fontSize: 10.5, color: '#6b6b6b', margin: '18px 0 0', lineHeight: 1.5 }}>
+            <p style={{ textAlign: 'center', fontSize: 10.5, color: 'var(--papel-tenue)', margin: '18px 0 0', lineHeight: 1.5 }}>
               {/* Reserva inmediata: el turno queda apartado al confirmar (ver
                   turnosOcupados.js); el negocio no tiene un paso de
                   "confirmar", solo puede cancelar si no puede atender. */}
               Tu turno quedó apartado. Si el negocio no puede atenderte,
               cancelará la cita y lo verás en Mis citas.<br />El pago se hace en el local.
             </p>
-            <p style={{ textAlign: 'center', fontSize: 10, letterSpacing: '0.3em', color: '#a3a3a3', margin: '14px 0 0' }}>
+            <p style={{ textAlign: 'center', fontSize: 10, letterSpacing: '0.3em', color: 'var(--papel-suave)', margin: '14px 0 0' }}>
               RES {codigo}
             </p>
           </article>

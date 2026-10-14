@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useNavigate } from 'react-router-dom'
 import {
   collection, collectionGroup, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where,
 } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
 import { cambiarEstadoCita } from '../../turnosOcupados.js'
-import Icon from '../../components/Icon.jsx'
+import PanelConMenu from '../../components/PanelConMenu.jsx'
 import Splash from '../../components/Splash.jsx'
-import useIsMobile from '../../hooks/useIsMobile.js'
 
-// Shell del panel del cliente: sidebar de navegación + los datos del perfil,
+// Shell del panel del cliente: menú lateral de cristal (PanelConMenu.jsx,
+// compartido con el panel del negocio) + los datos del perfil,
 // citas, favoritos y reseñas del cliente, compartidos entre las sub-páginas
 // vía Outlet context (mismo patrón que src/pages/owner/OwnerLayout.jsx).
 //
@@ -18,14 +18,23 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 // no deja historial, así que "atrás" sale del panel a la página desde donde
 // se entró (normalmente la principal) en vez de recorrer cada menú visitado.
 
-const NAV_ITEMS = [
-  { to: '/perfil', label: 'Principal', icon: 'grid', end: true },
-  { to: '/perfil/citas', label: 'Mis citas', icon: 'calendar' },
-  { to: '/perfil/favoritos', label: 'Favoritos', icon: 'heart' },
-  { to: '/perfil/resenas', label: 'Mis reseñas', icon: 'star' },
-  { to: '/perfil/datos', label: 'Datos personales', icon: 'user' },
-  { to: '/perfil/notificaciones', label: 'Notificaciones', icon: 'bell' },
-  { to: '/perfil/configuracion', label: 'Configuración', icon: 'gear' },
+// Menú en grupos, separados por una línea en el panel. "Ir al inicio" sale
+// del panel (salir: deja historial, ver PanelConMenu.jsx).
+const GRUPOS_NAV = [
+  [
+    { to: '/perfil', label: 'Principal', icon: 'grid', end: true },
+    { to: '/perfil/citas', label: 'Mis citas', icon: 'calendar' },
+  ],
+  [
+    { to: '/perfil/favoritos', label: 'Favoritos', icon: 'heart' },
+    { to: '/perfil/resenas', label: 'Mis reseñas', icon: 'star' },
+    { to: '/perfil/datos', label: 'Datos personales', icon: 'user' },
+    { to: '/perfil/notificaciones', label: 'Notificaciones', icon: 'bell' },
+  ],
+  [
+    { to: '/perfil/configuracion', label: 'Configuración', icon: 'gear' },
+    { to: '/', label: 'Ir al inicio', icon: 'home', end: true, salir: true },
+  ],
 ]
 
 function inicialesDe(nombre) {
@@ -38,8 +47,6 @@ export default function ClientLayout() {
   const { currentUser, logout } = useAuth()
   const navigate = useNavigate()
   const uid = currentUser?.uid
-  const isMobile = useIsMobile()
-  const [drawerAbierto, setDrawerAbierto] = useState(false)
 
   const [perfil, setPerfil] = useState(null)
   const [citas, setCitas] = useState([])
@@ -165,146 +172,48 @@ export default function ClientLayout() {
     ? new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' }).format(perfil.creadoEn.toDate())
     : null
 
-  const sidebar = (
-    <aside
-      style={{
-        width: isMobile ? 260 : 232, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16,
-        ...(isMobile && {
-          position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 51, background: 'var(--bg)',
-          padding: 16, overflowY: 'auto', boxShadow: 'var(--shadow-md)',
-        }),
-      }}
-    >
-      <div className="card" style={{ padding: 20, textAlign: 'center' }}>
-        <span
-          style={{
-            width: 56, height: 56, borderRadius: '50%', background: 'var(--accent)', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, fontWeight: 700, margin: '0 auto',
-          }}
-        >
-          {inicialesDe(perfil?.nombre || currentUser?.displayName)}
-        </span>
-        <div style={{ fontWeight: 800, fontSize: 15, marginTop: 10 }}>{perfil?.nombre || currentUser?.displayName}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 5, marginBottom: 18, lineHeight: 1.4 }}>
-          Cliente{desde ? ` · desde ${desde}` : ''}
-        </div>
-        <Link
-          to="/perfil/datos"
-          replace
-          onClick={() => setDrawerAbierto(false)}
-          className="btn btn-outline"
-          style={{ width: '100%', padding: '8px 0', fontSize: 12.5 }}
-        >
-          Editar perfil
-        </Link>
-      </div>
-
-      <nav className="card" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            replace
-            onClick={() => setDrawerAbierto(false)}
-            style={({ isActive }) => ({
-              display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 9,
-              fontSize: 13.5, fontWeight: 700, textDecoration: 'none',
-              background: isActive ? 'var(--accent-soft)' : 'transparent',
-              color: isActive ? 'var(--accent-hover)' : 'var(--text-muted)',
-            })}
-          >
-            <Icon name={item.icon} size={16} />
-            {item.label}
-          </NavLink>
-        ))}
-        <div style={{ height: 1, background: 'var(--border)', margin: '8px 4px' }} />
-        <button
-          onClick={handleLogout}
-          style={{
-            background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px',
-            borderRadius: 9, fontSize: 13.5, fontWeight: 700, color: 'var(--danger)', cursor: 'pointer', textAlign: 'left',
-          }}
-        >
-          <Icon name="logout" size={16} /> Cerrar sesión
-        </button>
-      </nav>
-    </aside>
-  )
+  const nombre = perfil?.nombre || currentUser?.displayName
 
   return (
-    <div>
-      <header
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: isMobile ? '14px 16px' : '14px 32px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 12,
-        }}
-      >
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 18, fontWeight: 800 }}>
-          <span
-            style={{
-              width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
-            }}
+    <PanelConMenu
+      grupos={GRUPOS_NAV}
+      claveColapsado="minibarrio:perfilColapsado"
+      reemplazar
+      centrado
+      onSalir={handleLogout}
+      pie={({ colapsado, alNavegar }) => (
+        colapsado ? (
+          <Link
+            to="/perfil/datos"
+            replace
+            onClick={alNavegar}
+            className="panel-perfil-avatar"
+            title="Editar perfil"
+            aria-label="Editar perfil"
           >
-            MB
-          </span>
-          <span>
-            <span style={{ color: 'var(--text)' }}>Mini</span><span style={{ color: 'var(--accent)' }}>Barrio</span>
-          </span>
-        </Link>
-        {!isMobile && (
-          <nav style={{ display: 'flex', gap: 20, fontSize: 13.5, fontWeight: 700 }}>
-            <Link to="/" style={{ color: 'var(--text-muted)' }}>Inicio</Link>
-            <Link to="/#resultados" style={{ color: 'var(--text-muted)' }}>Recomendados para ti</Link>
-          </nav>
-        )}
-        {isMobile ? (
-          <button
-            type="button"
-            onClick={() => setDrawerAbierto(true)}
-            aria-label="Abrir menú"
-            style={{ background: 'none', border: 'none', color: 'var(--text)', display: 'flex', padding: 4 }}
-          >
-            <Icon name="menu" size={22} />
-          </button>
+            {inicialesDe(nombre)}
+          </Link>
         ) : (
-          <span
-            style={{
-              width: 34, height: 34, borderRadius: '50%', background: 'var(--accent)', color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 700,
-            }}
-          >
-            {inicialesDe(perfil?.nombre || currentUser?.displayName)}
-          </span>
-        )}
-      </header>
-
-      <div
-        style={{
-          display: 'flex', flexDirection: isMobile ? 'column' : 'row', maxWidth: 1160, margin: '0 auto',
-          gap: isMobile ? 0 : 24, padding: isMobile ? 16 : '28px 32px', alignItems: 'flex-start',
-        }}
-      >
-        {isMobile ? (
-          <>
-            {drawerAbierto && (
-              <div
-                role="presentation"
-                onClick={() => setDrawerAbierto(false)}
-                style={{ position: 'fixed', inset: 0, background: 'oklch(20% 0.01 0 / 0.45)', zIndex: 50 }}
-              />
-            )}
-            {drawerAbierto && sidebar}
-          </>
-        ) : (
-          sidebar
-        )}
-
-        <main style={{ flex: 1, minWidth: 0, width: isMobile ? '100%' : 'auto' }}>
-          <Outlet context={context} />
-        </main>
-      </div>
-    </div>
+          <div className="panel-progreso" style={{ textAlign: 'center' }}>
+            <span className="panel-perfil-avatar">{inicialesDe(nombre)}</span>
+            <div style={{ fontWeight: 800, fontSize: 14, marginTop: 8 }}>{nombre}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 3, marginBottom: 12, lineHeight: 1.4 }}>
+              Cliente{desde ? ` · desde ${desde}` : ''}
+            </div>
+            <Link
+              to="/perfil/datos"
+              replace
+              onClick={alNavegar}
+              className="btn btn-primary"
+              style={{ display: 'block', width: '100%', padding: '8px 0', fontSize: 12.5, textAlign: 'center', color: '#fff' }}
+            >
+              Editar perfil
+            </Link>
+          </div>
+        )
+      )}
+    >
+      <Outlet context={context} />
+    </PanelConMenu>
   )
 }

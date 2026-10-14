@@ -70,7 +70,7 @@ export default function RecuperarContrasenaModal({ correoInicial = '', onClose }
       <form
         onSubmit={handleSubmit}
         onClick={(e) => e.stopPropagation()}
-        className="card"
+        className="card ventana-vidrio"
         noValidate
         style={{ width: 400, maxWidth: '100%', maxHeight: '100%', overflowY: 'auto', padding: 22 }}
       >

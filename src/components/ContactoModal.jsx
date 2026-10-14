@@ -72,7 +72,7 @@ export default function ContactoModal({ onClose }) {
       <form
         onSubmit={handleSubmit}
         onClick={(e) => e.stopPropagation()}
-        className="card"
+        className="card ventana-vidrio"
         noValidate
         style={{ width: 460, maxWidth: '100%', maxHeight: '100%', overflowY: 'auto', padding: 22 }}
       >

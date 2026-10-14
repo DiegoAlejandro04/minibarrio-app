@@ -182,7 +182,7 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
       <form
         onSubmit={handleSubmit}
         onClick={(e) => e.stopPropagation()}
-        className="card"
+        className="card ventana-vidrio"
         style={{ width: 560, maxWidth: '100%', padding: 22, maxHeight: '90vh', overflowY: 'auto' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>

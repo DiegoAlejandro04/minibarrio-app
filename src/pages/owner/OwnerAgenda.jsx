@@ -390,7 +390,7 @@ function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstad
         alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20,
       }}
     >
-      <div className="card" style={{ width: 380, maxWidth: '100%', padding: 22 }} onClick={(e) => e.stopPropagation()}>
+      <div className="card ventana-vidrio" style={{ width: 380, maxWidth: '100%', padding: 22 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
           <div style={{ fontWeight: 800, fontSize: 17 }}>{cliente?.nombre || 'Cliente'}</div>
           <span style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 10, background: estilo.bg, color: estilo.text, whiteSpace: 'nowrap' }}>

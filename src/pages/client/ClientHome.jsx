@@ -581,7 +581,10 @@ export default function ClientHome() {
   const claseEnlace = (id) => `nav-enlace${seccionActiva === id ? ' activo' : ''}`
 
   return (
-    <div>
+    <div className="vitrina">
+      {/* Manchas de color de fondo: le dan algo que desenfocar al cristal
+          de las tarjetas (estilos .vitrina* en index.css). */}
+      <div className="vitrina-fondo" aria-hidden="true"><span /><span /><span /><span /></div>
       {/* Barra flotante de cristal (estilos .nav-* en index.css). Ocupa 0 de
           alto: flota sobre la portada, que deja el espacio arriba. z-index
           1100: por encima del mapa (Leaflet llega a 1000). */}
@@ -714,7 +717,7 @@ export default function ClientHome() {
       </header>
 
       {/* Arriba deja el espacio de la barra flotante (ver .nav-flotante). */}
-      <section id="inicio" style={{ background: 'var(--surface-2)', padding: isMobile ? '92px 16px 28px' : '124px 32px 48px' }}>
+      <section id="inicio" className="vitrina-portada" style={{ padding: isMobile ? '92px 16px 28px' : '124px 32px 48px' }}>
         {/* alignItems center: texto y mapa quedan centrados uno frente al
             otro en vez de alineados arriba con alturas distintas. */}
         {/* Dos columnas iguales con un espacio amplio entre texto y mapa
@@ -832,8 +835,8 @@ export default function ClientHome() {
                   onClick={() => handleChip(chip)}
                   style={{
                     fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 999,
-                    border: `1px solid ${chipsActivos.has(chip) ? 'var(--accent)' : 'var(--border-strong)'}`,
-                    background: chipsActivos.has(chip) ? 'var(--accent-soft)' : 'var(--surface)',
+                    border: `1px solid ${chipsActivos.has(chip) ? 'var(--accent)' : 'var(--vidrio-borde)'}`,
+                    background: chipsActivos.has(chip) ? 'var(--accent-soft)' : 'var(--vidrio-campo)',
                     color: chipsActivos.has(chip) ? 'var(--accent-hover)' : 'var(--text-muted)',
                   }}
                 >

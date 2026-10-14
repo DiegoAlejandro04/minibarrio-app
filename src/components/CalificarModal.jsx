@@ -66,7 +66,7 @@ export default function CalificarModal({ negocio, citaId, nombreCliente, onClose
       <form
         onSubmit={handleSubmit}
         onClick={(e) => e.stopPropagation()}
-        className="card"
+        className="card ventana-vidrio"
         style={{ width: 380, maxWidth: '100%', padding: 22 }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>

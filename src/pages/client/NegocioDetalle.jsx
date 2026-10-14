@@ -335,10 +335,12 @@ export default function NegocioDetalle() {
   const metodosPago = negocio.metodosPago || []
 
   return (
-    <div>
-      <div style={{ background: 'var(--ink)', padding: isMobile ? '18px 16px 20px' : '24px 32px 28px' }}>
+    <div className="vitrina">
+      {/* Manchas de color de fondo para el cristal (ver .vitrina en index.css). */}
+      <div className="vitrina-fondo" aria-hidden="true"><span /><span /><span /><span /></div>
+      <div className="vitrina-portada" style={{ padding: isMobile ? '18px 16px 20px' : '24px 32px 28px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <Link to="/" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-text)' }}>← Volver a la vitrina</Link>
+          <Link to="/" className="vitrina-volver">← Volver a la vitrina</Link>
 
           {portada ? (
             <div style={{ position: 'relative', marginTop: 14 }}>
@@ -364,8 +366,9 @@ export default function NegocioDetalle() {
           ) : fotos.length === 0 ? (
             <div
               style={{
-                marginTop: 14, height: 180, borderRadius: 'var(--radius-lg)', background: 'var(--ink-2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'oklch(70% 0.02 165)', fontSize: 13,
+                marginTop: 14, height: 180, borderRadius: 'var(--radius-lg)', background: 'var(--vidrio)',
+                border: '1px solid var(--vidrio-borde)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: 13,
               }}
             >
               Este negocio aún no ha publicado fotos
@@ -377,8 +380,8 @@ export default function NegocioDetalle() {
                   type="button"
                   onClick={() => setGaleriaAbierta(true)}
                   style={{
-                    fontSize: 12.5, fontWeight: 700, padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-                    background: 'transparent', border: '1px solid oklch(50% 0.03 165)', color: 'var(--ink-text)', cursor: 'pointer',
+                    fontSize: 12.5, fontWeight: 700, padding: '8px 16px', borderRadius: 999,
+                    background: 'var(--vidrio-campo)', border: '1px solid var(--vidrio-borde)', color: 'var(--text)', cursor: 'pointer',
                   }}
                 >
                   Mostrar todas las fotos{fotos.length > 1 ? ` (${fotos.length})` : ''}
@@ -415,7 +418,7 @@ export default function NegocioDetalle() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="card"
+            className="card ventana-vidrio"
             style={{ width: '100%', maxWidth: 900, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
@@ -797,8 +800,8 @@ export default function NegocioDetalle() {
                         onClick={() => { setHora(s); setCitaConfirmada(null) }}
                         style={{
                           fontSize: 12.5, fontWeight: 700, padding: '9px 0', borderRadius: 8,
-                          border: `1px solid ${seleccionado ? 'var(--accent)' : 'var(--border-strong)'}`,
-                          background: ocupado ? 'var(--surface-2)' : seleccionado ? 'var(--accent)' : 'var(--surface)',
+                          border: `1px solid ${seleccionado ? 'var(--accent)' : 'var(--vidrio-borde)'}`,
+                          background: ocupado ? 'var(--surface-2)' : seleccionado ? 'var(--accent)' : 'var(--vidrio-campo)',
                           color: ocupado ? 'var(--text-faint)' : seleccionado ? '#fff' : 'var(--text)',
                           cursor: ocupado ? 'not-allowed' : 'pointer',
                           textDecoration: tachado ? 'line-through' : 'none',
