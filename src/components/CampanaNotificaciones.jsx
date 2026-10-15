@@ -5,7 +5,9 @@ import Icon from './Icon.jsx'
 import ListaNotificaciones from './ListaNotificaciones.jsx'
 import { eliminarNotificacion, marcarLeida, marcarTodasLeidas } from '../notificaciones.js'
 
-// Campana de notificaciones del panel del negocio (OwnerResumen.jsx). Al
+// Campana de notificaciones del panel del negocio (OwnerLayout.jsx) y del
+// encabezado de la vitrina (ClientHome.jsx). Con `enlaceVerTodas`, el panel
+// termina en "Ver todas las notificaciones" (la página completa). Al
 // tocarla, el propio botón "crece" hasta volverse un panel de cristal que se
 // pone encima de toda la página: un rectángulo fijo arranca con el tamaño y
 // la posición exactos de la campana y se anima hasta su tamaño final; al
@@ -24,7 +26,7 @@ function destinoDesde(origen) {
   return { top: origen.top, left: izquierda, width: ancho, height: alto }
 }
 
-export default function CampanaNotificaciones({ uid, notificaciones, sinLeer }) {
+export default function CampanaNotificaciones({ uid, notificaciones, sinLeer, enlaceVerTodas }) {
   const navigate = useNavigate()
   const botonRef = useRef(null)
   // cerrada → abriendo (tamaño de la campana) → abierta (tamaño final)
@@ -144,6 +146,15 @@ export default function CampanaNotificaciones({ uid, notificaciones, sinLeer }) 
                   onEliminar={(n) => eliminarNotificacion(uid, n).catch((err) => console.error(err))}
                 />
               </div>
+              {enlaceVerTodas && (
+                <button
+                  type="button"
+                  className="campana-ver-todas"
+                  onClick={() => { setFase('cerrada'); navigate(enlaceVerTodas) }}
+                >
+                  Ver todas las notificaciones <Icon name="chevronRight" size={15} />
+                </button>
+              )}
             </div>
           </section>
         </>,

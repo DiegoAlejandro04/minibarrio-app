@@ -14,6 +14,9 @@ import Footer from '../../components/Footer.jsx'
 import ComoFunciona from '../../components/ComoFunciona.jsx'
 import ResenasRecientes from '../../components/ResenasRecientes.jsx'
 import AvisoFlotante from '../../components/AvisoFlotante.jsx'
+import CampanaNotificaciones from '../../components/CampanaNotificaciones.jsx'
+import MenuCuenta from '../../components/MenuCuenta.jsx'
+import useNotificaciones from '../../hooks/useNotificaciones.js'
 import * as datosDemo from '../../demo.js'
 import { estadoApertura } from '../../horarios.js'
 import FotoNegocio, { ESTADO_APERTURA, inicialesDe } from '../../components/FotoNegocio.jsx'
@@ -82,6 +85,16 @@ export default function ClientHome() {
   const { currentUser, role, logout } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  // Campanita del encabezado (con sesión iniciada).
+  const { notificaciones, sinLeer } = useNotificaciones(currentUser?.uid)
+  const campana = currentUser && (
+    <CampanaNotificaciones
+      uid={currentUser.uid}
+      notificaciones={notificaciones}
+      sinLeer={sinLeer}
+      enlaceVerTodas={role === 'cliente' ? '/perfil/notificaciones' : undefined}
+    />
+  )
 
   const [negocios, setNegocios] = useState([])
   const [ratings, setRatings] = useState({}) // negocioId -> { suma, total }
@@ -550,6 +563,17 @@ export default function ClientHome() {
     setUbicacionEstado('inactiva')
   }
 
+  // Datos al lado de "Mis citas" y "Favoritos" en el menú de la foto.
+  const extrasMenuCuenta = useMemo(() => {
+    if (role !== 'cliente') return {}
+    const ahora = Date.now()
+    const proximas = citasCliente.filter((c) => c.estado !== 'cancelada' && c.fechaHora?.toMillis?.() > ahora).length
+    return {
+      '/perfil/citas': proximas ? `${proximas} próxima${proximas > 1 ? 's' : ''}` : null,
+      '/perfil/favoritos': favoritosCliente.length || null,
+    }
+  }, [role, citasCliente, favoritosCliente])
+
   async function handleLogout() {
     // A la vitrina (se puede ver sin cuenta), no al formulario de login, con
     // un aviso breve (AvisoFlotante.jsx). Primero se navega y luego se cierra
@@ -651,14 +675,7 @@ export default function ClientHome() {
               {!currentUser && (
                 <Link to="/login" className="nav-cta">Iniciar sesión</Link>
               )}
-              {currentUser && role === 'cliente' && (
-                <Link to="/perfil" title="Mi perfil" className="nav-avatar">
-                  {inicialesDe(currentUser.displayName)}
-                </Link>
-              )}
-              {currentUser && role === 'propietario' && (
-                <Link to="/panel" className="nav-cta">Mi panel</Link>
-              )}
+              {campana}
               <button
                 type="button"
                 className={`nav-boton-menu${menuAbierto ? ' abierto' : ''}`}
@@ -677,19 +694,9 @@ export default function ClientHome() {
               {currentUser && <span className="nav-zona">Britalia, Kennedy</span>}
               {currentUser ? (
                 <>
-                  {role === 'cliente' ? (
-                    <Link to="/perfil" title="Mi perfil" className="nav-avatar">
-                      {inicialesDe(currentUser.displayName)}
-                    </Link>
-                  ) : (
-                    <span className="nav-nombre">{currentUser.displayName}</span>
-                  )}
-                  <button type="button" onClick={handleLogout} className="nav-enlace nav-salir">
-                    <Icon name="logout" size={16} /> <span>Cerrar sesión</span>
-                  </button>
-                  {role === 'propietario' && (
-                    <Link to="/panel" className="nav-cta">Ir a mi panel</Link>
-                  )}
+                  {campana}
+                  {/* "Cerrar sesión" vive dentro del menú de la foto. */}
+                  <MenuCuenta usuario={currentUser} role={role} extras={extrasMenuCuenta} onSalir={handleLogout} />
                 </>
               ) : (
                 <>
