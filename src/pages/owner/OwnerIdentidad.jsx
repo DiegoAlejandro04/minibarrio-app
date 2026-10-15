@@ -66,8 +66,8 @@ function VistaPrevia({ negocio, servicios = [], uid, isMobile }) {
   const fotoPin = negocio.logo || negocio.miniatura || negocio.fotos?.[0]
 
   return (
-    <section className="card" style={{ padding: 20, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+    <section className="card" style={{ padding: isMobile ? 16 : 20, marginBottom: 16, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: isMobile ? 8 : 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontWeight: 800, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Icon name="eye" size={17} /> Así te ven los clientes
@@ -82,9 +82,12 @@ function VistaPrevia({ negocio, servicios = [], uid, isMobile }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.15fr', gap: 14, marginTop: 16 }}>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* minWidth 0: sin esto, los textos de una línea de la tarjeta
+            (nowrap) ensanchan la columna y en celular se salía de la
+            pantalla. */}
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div className="vista-previa__etiqueta">En el mapa</div>
-          <div className="vista-previa__mapa" aria-hidden="true">
+          <div className="vista-previa__mapa" aria-hidden="true" style={isMobile ? { minHeight: 150 } : undefined}>
             <div className="vista-previa__pin">
               <div className="pin-negocio pin-negocio--destacado">
                 <div className="pin-negocio__burbuja">
@@ -99,7 +102,7 @@ function VistaPrevia({ negocio, servicios = [], uid, isMobile }) {
           </div>
         </div>
 
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div className="vista-previa__etiqueta">En la vitrina</div>
           <div className="card tarjeta-negocio" style={{ overflow: 'hidden', pointerEvents: 'none' }} aria-hidden="true">
             <FotoNegocio negocio={negocio} estado={estado} alto={118} />
