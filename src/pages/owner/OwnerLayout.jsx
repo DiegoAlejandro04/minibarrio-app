@@ -129,8 +129,12 @@ export default function OwnerLayout() {
   }, [uid, cargadas, idsExistentes, negocio, citas, siguientePaso, perfilCompletado])
 
   async function handleLogout() {
+    // A la vitrina (se puede ver sin cuenta), no al formulario de login, con
+    // un aviso breve (AvisoFlotante.jsx). Primero se navega y luego se cierra
+    // la sesión: al revés, los paneles protegidos (ProtectedRoute) alcanzan a
+    // saltar un instante a /login.
+    navigate('/', { state: { aviso: { titulo: 'Sesión cerrada', texto: '¡Vuelve pronto! Puedes seguir viendo los negocios del barrio.' } } })
     await logout()
-    navigate('/login')
   }
 
   if (loading) return <Splash animar={false} />

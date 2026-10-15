@@ -3148,3 +3148,101 @@ option:disabled { color: var(--text-faint); }
     overflow: visible !important;
   }
 }
+
+/* Aviso breve, p. ej. "Sesión cerrada" (AvisoFlotante.jsx): tarjeta
+   arriba al centro, justo debajo de la barra de navegación — donde se mira
+   al llegar a la página —, con ícono, título, explicación y una barra que
+   se va vaciando mientras dura (DURACION_MS). */
+.aviso-flotante {
+  --aviso-duracion: 5s;
+  --aviso-verde: oklch(70% 0.15 152);
+  position: fixed;
+  top: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3000;
+  width: min(400px, calc(100% - 32px));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 12px 16px 14px;
+  background: color-mix(in oklch, var(--aviso-verde) 12%, var(--surface-2));
+  color: var(--text);
+  border: 1px solid color-mix(in oklch, var(--aviso-verde) 60%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 20px 48px oklch(0% 0 0 / 0.45), 0 0 0 5px color-mix(in oklch, var(--aviso-verde) 14%, transparent);
+  overflow: hidden;
+  animation:
+    aviso-flotante-entrada .4s cubic-bezier(.2, .9, .3, 1.2),
+    aviso-flotante-salida .35s ease-in calc(var(--aviso-duracion) - .35s) forwards;
+}
+.aviso-flotante__icono {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--aviso-verde);
+  color: oklch(20% 0.04 152);
+  box-shadow: 0 0 0 5px color-mix(in oklch, var(--aviso-verde) 22%, transparent);
+}
+.aviso-flotante__texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.35;
+}
+.aviso-flotante__texto strong { font-size: 15px; font-weight: 700; }
+.aviso-flotante__texto span { font-size: 13px; color: color-mix(in oklch, var(--text) 78%, transparent); }
+.aviso-flotante button {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.aviso-flotante button:hover,
+.aviso-flotante button:focus-visible { background: var(--surface-2); color: var(--text); }
+/* Barra de tiempo restante, abajo. */
+.aviso-flotante::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  width: 100%;
+  background: var(--aviso-verde);
+  transform-origin: left;
+  animation: aviso-flotante-tiempo var(--aviso-duracion) linear forwards;
+}
+@keyframes aviso-flotante-entrada {
+  from { opacity: 0; transform: translate(-50%, -14px) scale(.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes aviso-flotante-salida {
+  to { opacity: 0; transform: translate(-50%, -8px); }
+}
+@keyframes aviso-flotante-tiempo {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+@media (max-width: 767px) {
+  .aviso-flotante { top: 76px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aviso-flotante { animation: aviso-flotante-salida 0s linear calc(var(--aviso-duracion) - .1s) forwards; }
+  .aviso-flotante::after { animation: none; }
+}

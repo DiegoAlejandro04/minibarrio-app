@@ -13,6 +13,7 @@ import { ESPECIALIDADES } from '../../especialidades.js'
 import Footer from '../../components/Footer.jsx'
 import ComoFunciona from '../../components/ComoFunciona.jsx'
 import ResenasRecientes from '../../components/ResenasRecientes.jsx'
+import AvisoFlotante from '../../components/AvisoFlotante.jsx'
 import * as datosDemo from '../../demo.js'
 import { estadoApertura } from '../../horarios.js'
 import FotoNegocio, { ESTADO_APERTURA, inicialesDe } from '../../components/FotoNegocio.jsx'
@@ -550,8 +551,12 @@ export default function ClientHome() {
   }
 
   async function handleLogout() {
+    // A la vitrina (se puede ver sin cuenta), no al formulario de login, con
+    // un aviso breve (AvisoFlotante.jsx). Primero se navega y luego se cierra
+    // la sesión: al revés, los paneles protegidos (ProtectedRoute) alcanzan a
+    // saltar un instante a /login.
+    navigate('/', { state: { aviso: { titulo: 'Sesión cerrada', texto: '¡Vuelve pronto! Puedes seguir viendo los negocios del barrio.' } } })
     await logout()
-    navigate('/login')
   }
 
   // Menú ☰ del encabezado en celular: ahí no caben el logo, "Iniciar sesión"
@@ -610,6 +615,7 @@ export default function ClientHome() {
 
   return (
     <div className="vitrina">
+      <AvisoFlotante />
       {/* Manchas de color de fondo: le dan algo que desenfocar al cristal
           de las tarjetas (estilos .vitrina* en index.css). */}
       <div className="vitrina-fondo" aria-hidden="true"><span /><span /><span /><span /></div>
