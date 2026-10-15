@@ -10,6 +10,12 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 
 const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const FORM_INICIAL = { nombre: '', descripcion: '', precio: '', duracionMinutos: '' }
+const PRECIO_MAXIMO = 2000000
+const PASO_PRECIO = 500 // las flechas (y ↑ ↓ del teclado) suben o bajan de a $500
+// El precio se escribe con puntos de miles ("22.000"): en el formulario se
+// guarda solo con dígitos ("22000") y se muestra con los puntos.
+const MILES = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 })
+const conPuntos = (digitos) => (digitos === '' ? '' : MILES.format(Number(digitos)))
 
 export default function OwnerServicios() {
   const { servicios, uid } = useOutletContext()
@@ -24,12 +30,30 @@ export default function OwnerServicios() {
     return (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
   }
 
+  function updatePrecio(e) {
+    let digitos = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '')
+    if (Number(digitos) > PRECIO_MAXIMO) digitos = String(PRECIO_MAXIMO)
+    setForm((f) => ({ ...f, precio: digitos }))
+  }
+
+  // Con las flechas el precio queda en múltiplos de 500: desde 10.003, ▲ va
+  // a 10.500 y ▼ a 10.000.
+  function pasoPrecio(direccion) {
+    setForm((f) => {
+      const actual = Number(f.precio) || 0
+      const siguiente = direccion > 0
+        ? Math.floor(actual / PASO_PRECIO) * PASO_PRECIO + PASO_PRECIO
+        : Math.ceil(actual / PASO_PRECIO) * PASO_PRECIO - PASO_PRECIO
+      return { ...f, precio: String(Math.min(PRECIO_MAXIMO, Math.max(0, siguiente))) }
+    })
+  }
+
   function empezarEdicion(servicio) {
     setEditandoId(servicio.id)
     setForm({
       nombre: servicio.nombre || '',
       descripcion: servicio.descripcion || '',
-      precio: servicio.precio ?? '',
+      precio: servicio.precio != null ? String(servicio.precio) : '',
       duracionMinutos: servicio.duracionMinutos ?? '',
     })
     setError('')
@@ -98,7 +122,41 @@ export default function OwnerServicios() {
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700 }}>Precio (COP)</label>
-            <input type="number" min="0" max="2000000" value={form.precio} onChange={update('precio')} placeholder="22000" style={{ marginTop: 4 }} />
+            {/* Texto (no type="number") para poder mostrar los puntos de
+                miles; inputMode abre el teclado numérico en el celular. */}
+            <div style={{ position: 'relative', marginTop: 4 }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                  fontWeight: 700, color: 'var(--text-muted)', pointerEvents: 'none',
+                }}
+              >
+                $
+              </span>
+              <input
+                inputMode="numeric"
+                value={conPuntos(form.precio)}
+                onChange={updatePrecio}
+                placeholder="22.000"
+                aria-label="Precio en pesos colombianos"
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    pasoPrecio(e.key === 'ArrowUp' ? 1 : -1)
+                  }
+                }}
+                style={{ paddingLeft: 28, paddingRight: 40 }}
+              />
+              <div className="precio-flechas">
+                <button type="button" tabIndex={-1} onClick={() => pasoPrecio(1)} aria-label="Subir $500">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6 21 18H3z" /></svg>
+                </button>
+                <button type="button" tabIndex={-1} onClick={() => pasoPrecio(-1)} aria-label="Bajar $500">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18 3 6h18z" /></svg>
+                </button>
+              </div>
+            </div>
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700 }}>Duración (min)</label>

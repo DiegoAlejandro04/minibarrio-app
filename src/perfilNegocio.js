@@ -7,7 +7,10 @@ export const METODOS_PAGO = [
   { id: 'nequi', label: 'Nequi' },
   { id: 'daviplata', label: 'Daviplata' },
   { id: 'tarjeta', label: 'Tarjeta' },
-  { id: 'transferencia', label: 'Transferencia' },
+  // Se muestra como Bre-B (las transferencias inmediatas del Banco de la
+  // República); el id sigue siendo 'transferencia' para no tocar los
+  // negocios que ya lo tenían marcado.
+  { id: 'transferencia', label: 'Bre-B' },
 ]
 
 export const etiquetaMetodoPago = (id) => METODOS_PAGO.find((m) => m.id === id)?.label || id

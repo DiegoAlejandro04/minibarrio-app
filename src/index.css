@@ -3246,3 +3246,32 @@ option:disabled { color: var(--text-faint); }
   .aviso-flotante { animation: aviso-flotante-salida 0s linear calc(var(--aviso-duracion) - .1s) forwards; }
   .aviso-flotante::after { animation: none; }
 }
+
+/* Flechas ▲ ▼ del precio en Servicios (OwnerServicios.jsx): suben o bajan de
+   a $500. El campo es de texto (para los puntos de miles), así que no trae
+   las flechas del navegador. */
+.precio-flechas {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.precio-flechas button {
+  width: 26px;
+  height: 15px;
+  border: none;
+  border-radius: 4px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.precio-flechas button:hover { background: color-mix(in oklch, var(--accent) 18%, var(--surface-2)); color: var(--accent); }
+.precio-flechas button:active { transform: scale(.94); }
