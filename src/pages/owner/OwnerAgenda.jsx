@@ -8,6 +8,8 @@ import { textoFechaCita } from '../../notificaciones.js'
 import Icon from '../../components/Icon.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva, normalizarCodigo } from '../../reservas.js'
+import useEquipo from '../../hooks/useEquipo.js'
+import AvatarProfesional from '../../components/AvatarProfesional.jsx'
 
 // Agenda del negocio (RF-07/RF-08): calendario del mes con las citas
 // agendadas por los clientes, y cambio de estado de cada cita (pendiente /
@@ -62,6 +64,10 @@ export default function OwnerAgenda() {
   const [estadoSeleccionado, setEstadoSeleccionado] = useState('pendiente')
   const [guardando, setGuardando] = useState(false)
   const [busqueda, setBusqueda] = useState('') // número de reserva, ver reservas.js
+  // Con equipo: ver las citas de todos o solo las de una persona.
+  const { equipo } = useEquipo(uid)
+  const [filtroProfesional, setFiltroProfesional] = useState('todos')
+  const equipoPorId = useMemo(() => Object.fromEntries(equipo.map((p) => [p.id, p])), [equipo])
 
   useEffect(() => {
     if (!uid) return
@@ -106,9 +112,10 @@ export default function OwnerAgenda() {
   const citasConFecha = useMemo(
     () => citas
       .filter((c) => c.estado !== 'cancelada' || c.canceladaPor === 'negocio')
+      .filter((c) => filtroProfesional === 'todos' || c.profesionalId === filtroProfesional)
       .map((c) => ({ ...c, fecha: c.fechaHora?.toDate ? c.fechaHora.toDate() : null }))
       .filter((c) => c.fecha),
-    [citas]
+    [citas, filtroProfesional]
   )
 
   const citasPorDia = useMemo(() => {
@@ -252,6 +259,7 @@ export default function OwnerAgenda() {
                   cita={c}
                   cliente={clientes[c.clienteId]}
                   servicio={serviciosPorId[c.servicioId]}
+                  profesional={equipoPorId[c.profesionalId]}
                   conFecha
                   onAbrir={() => abrirCita(c)}
                 />
@@ -260,6 +268,32 @@ export default function OwnerAgenda() {
           )
         )}
       </div>
+
+      {equipo.length > 0 && (
+        <div className="agenda-filtro" role="radiogroup" aria-label="Ver citas de">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={filtroProfesional === 'todos'}
+            className={filtroProfesional === 'todos' ? 'on' : ''}
+            onClick={() => setFiltroProfesional('todos')}
+          >
+            <Icon name="users" size={15} /> Todo el equipo
+          </button>
+          {equipo.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              role="radio"
+              aria-checked={filtroProfesional === p.id}
+              className={filtroProfesional === p.id ? 'on' : ''}
+              onClick={() => setFiltroProfesional(p.id)}
+            >
+              <AvatarProfesional profesional={p} tamano={22} /> {p.nombre.split(' ')[0]}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: !isMobile && diaSeleccionado ? '1.3fr 1fr' : '1fr', gap: isMobile ? 14 : 20, alignItems: 'start' }}>
         <div className="card" style={{ padding: 20 }}>
@@ -348,6 +382,7 @@ export default function OwnerAgenda() {
                     cita={c}
                     cliente={clientes[c.clienteId]}
                     servicio={serviciosPorId[c.servicioId]}
+                    profesional={equipoPorId[c.profesionalId]}
                     onAbrir={() => abrirCita(c)}
                   />
                 ))}
@@ -375,7 +410,7 @@ export default function OwnerAgenda() {
 
 // Fila de una cita: en la lista del día seleccionado y en los resultados de
 // la búsqueda por número (ahí con la fecha, porque puede ser de otro mes).
-function FilaCita({ cita, cliente, servicio, conFecha = false, onAbrir }) {
+function FilaCita({ cita, cliente, servicio, profesional, conFecha = false, onAbrir }) {
   const estilo = ESTADO_BADGE[cita.estado] || ESTADO_BADGE.pendiente
   return (
     <button
@@ -389,7 +424,13 @@ function FilaCita({ cita, cliente, servicio, conFecha = false, onAbrir }) {
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
           {servicio?.nombre || 'Servicio'} · {conFecha && `${capitalize(DIA_LARGO.format(cita.fecha))}, `}{HORA.format(cita.fecha)}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2, fontFamily: 'ui-monospace, Consolas, monospace' }}>
+        {cita.profesionalNombre && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', marginTop: 5 }}>
+            <AvatarProfesional profesional={profesional || { nombre: cita.profesionalNombre }} tamano={18} />
+            con {cita.profesionalNombre}
+          </div>
+        )}
+        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4, fontFamily: 'ui-monospace, Consolas, monospace' }}>
           #{codigoReserva(cita.id)}
         </div>
       </div>
@@ -432,6 +473,7 @@ function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstad
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5 }}>
           <Campo label="Contacto" valor={[cliente?.telefono, cliente?.correo].filter(Boolean).join(' · ') || '—'} />
           <Campo label="Servicio" valor={servicio?.nombre || '—'} />
+          {cita.profesionalNombre && <Campo label="Lo atiende" valor={cita.profesionalNombre} />}
           <Campo label="Pago" valor={servicio ? COP.format(servicio.precio || 0) : '—'} />
           <Campo label="Fecha" valor={cita.fecha ? capitalize(DIA_LARGO.format(cita.fecha)) : '—'} />
           <Campo label="Hora" valor={cita.fecha ? HORA.format(cita.fecha) : '—'} />

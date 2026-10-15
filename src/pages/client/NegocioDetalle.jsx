@@ -17,6 +17,11 @@ import { textoFechaCita } from '../../notificaciones.js'
 import { bloqueDelDia, estadoApertura, formatoHora12, resumenHorario } from '../../horarios.js'
 import ReciboCita from '../../components/ReciboCita.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
+import useEquipo from '../../hooks/useEquipo.js'
+import AvatarProfesional from '../../components/AvatarProfesional.jsx'
+import {
+  disponibilidadAgenda, disponibilidadCualquiera, equipoDelDia, ocupadosDe, ocupadosDelDia, primerNombre, trabajaEl,
+} from '../../equipo.js'
 
 // Perfil público del negocio + reserva de citas (RF-05, RF-06, RF-07, RF-08,
 // RF-10). La reserva exige al menos un día de anticipación (no el mismo
@@ -29,6 +34,10 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const SERVICIOS_VISIBLES = 6
 const FECHA_CORTA = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })
+const DIA_SEMANA_CORTO = new Intl.DateTimeFormat('es-CO', { weekday: 'short' })
+const MES_CORTO = new Intl.DateTimeFormat('es-CO', { month: 'short' })
+// Días que se ofrecen para reservar, desde mañana.
+const DIAS_RESERVABLES = 14
 
 function toDateInputValue(date) {
   const y = date.getFullYear()
@@ -76,7 +85,7 @@ export default function NegocioDetalle() {
   // Foto de portada: va en su propio documento (ver OwnerIdentidad.jsx), así
   // la vitrina no la descarga para todos los negocios.
   const [portada, setPortada] = useState(null)
-  const [ocupadosDocs, setOcupadosDocs] = useState([]) // turnos tomados: [{ fechaHora }]
+  const [ocupadosDocs, setOcupadosDocs] = useState([]) // turnos tomados: [{ id, fechaHora: Date }]
   const [loading, setLoading] = useState(true)
 
   const manana = useMemo(() => {
@@ -92,6 +101,8 @@ export default function NegocioDetalle() {
   const [verTodosServicios, setVerTodosServicios] = useState(false)
   const [fecha, setFecha] = useState(minFecha)
   const [hora, setHora] = useState(null)
+  // Con equipo: con quién reservar ('cualquiera' = la primera persona libre).
+  const [profesionalId, setProfesionalId] = useState('cualquiera')
   const [reservando, setReservando] = useState(false)
   const [error, setError] = useState('')
   const [citaConfirmada, setCitaConfirmada] = useState(null) // datos del comprobante (ReciboCita)
@@ -172,8 +183,10 @@ export default function NegocioDetalle() {
       setOcupadosDocs([])
       return undefined
     }
+    // El id del turno dice de quién es la agenda ("{ms}_{profesionalId}",
+    // ver turnosOcupados.js).
     const unsub = onSnapshot(collection(db, 'negocios', id, 'ocupados'), (snap) => {
-      setOcupadosDocs(snap.docs.map((d) => d.data()))
+      setOcupadosDocs(snap.docs.map((d) => ({ id: d.id, fechaHora: d.data().fechaHora?.toDate?.() || null })))
     })
     return unsub
   }, [currentUser, id])
@@ -216,40 +229,73 @@ export default function NegocioDetalle() {
     [servicios, servicioId]
   )
 
+  // Equipo del negocio (ver equipo.js): solo las personas activas se pueden
+  // elegir. Sin equipo, el negocio tiene una sola agenda, como antes.
+  const { equipo } = useEquipo(id)
+  const equipoActivo = useMemo(() => equipo.filter((p) => p.activo !== false), [equipo])
+  const conEquipo = equipoActivo.length > 0
+  const profesionalElegido = conEquipo && profesionalId !== 'cualquiera'
+    ? equipoActivo.find((p) => p.id === profesionalId) || null
+    : null
+  // Si la persona elegida sale del equipo o se pausa, vuelve a "Cualquiera".
+  useEffect(() => {
+    if (profesionalId !== 'cualquiera' && conEquipo && !equipoActivo.some((p) => p.id === profesionalId)) setProfesionalId('cualquiera')
+  }, [profesionalId, conEquipo, equipoActivo])
+
+  // Próximos días para reservar (desde mañana), con si se puede ese día: el
+  // negocio abre y, con equipo, la persona elegida (o alguien) trabaja.
+  const diasReserva = useMemo(() => Array.from({ length: DIAS_RESERVABLES }, (_, i) => {
+    const d = new Date(manana)
+    d.setDate(d.getDate() + i)
+    d.setHours(0, 0, 0, 0)
+    const abre = !!bloqueDelDia(negocio?.horarios, d)
+    const atiende = !conEquipo || (profesionalElegido ? trabajaEl(profesionalElegido, d) : equipoDelDia(equipoActivo, d).length > 0)
+    return { fecha: d, valor: toDateInputValue(d), disponible: abre && atiende }
+  }), [manana, negocio, conEquipo, profesionalElegido, equipoActivo])
+
+  // Si el día elegido deja de servir (otra persona elegida), pasa al primero
+  // que sí.
+  useEffect(() => {
+    const actual = diasReserva.find((d) => d.valor === fecha)
+    if (actual?.disponible) return
+    const primero = diasReserva.find((d) => d.disponible)
+    if (primero && primero.valor !== fecha) {
+      setFecha(primero.valor)
+      setHora(null)
+    }
+  }, [diasReserva, fecha])
+
   const fechaObj = useMemo(() => new Date(`${fecha}T00:00:00`), [fecha])
   const bloqueHorario = useMemo(() => bloqueDelDia(negocio?.horarios, fechaObj), [negocio, fechaObj])
-  const slotsDelDia = useMemo(() => generarSlots(bloqueHorario), [bloqueHorario])
+  const equipoHoy = useMemo(() => equipoDelDia(equipoActivo, fechaObj), [equipoActivo, fechaObj])
+  const slotsDelDia = useMemo(() => {
+    if (conEquipo && (profesionalElegido ? !trabajaEl(profesionalElegido, fechaObj) : equipoHoy.length === 0)) return []
+    return generarSlots(bloqueHorario)
+  }, [bloqueHorario, conEquipo, profesionalElegido, fechaObj, equipoHoy])
 
-  const ocupados = useMemo(() => {
-    const set = new Set()
-    ocupadosDocs.forEach((c) => {
-      const d = c.fechaHora?.toDate ? c.fechaHora.toDate() : null
-      if (!d || toDateInputValue(d) !== fecha) return
-      set.add(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
-    })
-    return set
-  }, [ocupadosDocs, fecha])
+  const ocupados = useMemo(() => ocupadosDelDia(ocupadosDocs, fecha), [ocupadosDocs, fecha])
 
-  // Un turno se ofrece solo si cabe la duración COMPLETA del servicio elegido:
-  // ninguno de los bloques de 20 min que cubre puede estar ocupado, y tiene
-  // que terminar antes del cierre. Sin servicio elegido se mira un bloque.
-  const disponibilidad = useMemo(() => {
-    const bloques = Math.max(1, Math.ceil((Number(servicioSeleccionado?.duracionMinutos) || MINUTOS_TURNO) / MINUTOS_TURNO))
-    const aMinutos = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m }
-    const aHora = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
-    const cierre = bloqueHorario?.cierre ? aMinutos(bloqueHorario.cierre) : null
-    const mapa = new Map()
-    slotsDelDia.forEach((s) => {
-      const inicio = aMinutos(s)
-      if (ocupados.has(s)) return mapa.set(s, 'ocupado')
-      for (let i = 1; i < bloques; i++) {
-        if (ocupados.has(aHora(inicio + i * MINUTOS_TURNO))) return mapa.set(s, 'no-cabe')
+  // Un turno se ofrece solo si cabe la duración COMPLETA del servicio elegido
+  // en la agenda que corresponde: la de la persona elegida, la de alguien del
+  // equipo ("Cualquiera") o la única del negocio. Ver equipo.js.
+  const { disponibilidad, asignarProfesional } = useMemo(() => {
+    const duracion = servicioSeleccionado?.duracionMinutos || MINUTOS_TURNO
+    const cierre = bloqueHorario?.cierre
+    if (!conEquipo) {
+      // Sin equipo cuenta cualquier turno tomado (también los de personas
+      // que ya no están en el equipo).
+      const todos = new Set([...ocupados.general, ...[...ocupados.porProfesional.values()].flatMap((s) => [...s])])
+      return { disponibilidad: disponibilidadAgenda(slotsDelDia, todos, duracion, cierre), asignarProfesional: () => null }
+    }
+    if (profesionalElegido) {
+      return {
+        disponibilidad: disponibilidadAgenda(slotsDelDia, ocupadosDe(ocupados, profesionalElegido.id), duracion, cierre),
+        asignarProfesional: () => profesionalElegido,
       }
-      if (cierre != null && inicio + (Number(servicioSeleccionado?.duracionMinutos) || MINUTOS_TURNO) > cierre) return mapa.set(s, 'no-cabe')
-      mapa.set(s, 'libre')
-    })
-    return mapa
-  }, [slotsDelDia, ocupados, servicioSeleccionado, bloqueHorario])
+    }
+    const { mapa, asignar } = disponibilidadCualquiera(slotsDelDia, ocupados, equipoHoy, duracion, cierre)
+    return { disponibilidad: mapa, asignarProfesional: asignar }
+  }, [slotsDelDia, ocupados, servicioSeleccionado, bloqueHorario, conEquipo, profesionalElegido, equipoHoy])
 
   // Si al cambiar de servicio la hora elegida deja de caber, se deselecciona.
   useEffect(() => {
@@ -258,10 +304,16 @@ export default function NegocioDetalle() {
 
   const estado = negocio ? estadoApertura(negocio.horarios) : null
 
-  function handleCambiarFecha(e) {
-    setFecha(e.target.value)
+  function elegirFecha(valor) {
+    setFecha(valor)
     setHora(null)
     setTurnosExpandidos(false)
+  }
+
+  function elegirProfesional(valor) {
+    setProfesionalId(valor)
+    setHora(null)
+    setCitaConfirmada(null)
   }
 
   // Al confirmar, el comprobante aparece debajo del panel — se desplaza la
@@ -282,6 +334,15 @@ export default function NegocioDetalle() {
     }
     if (!servicioSeleccionado || !hora) return
 
+    // Con equipo, la cita va a la agenda de la persona elegida o, con
+    // "Cualquiera", de la primera libre a esa hora.
+    const profesional = conEquipo ? asignarProfesional(hora) : null
+    if (conEquipo && !profesional) {
+      setError('Ese horario ya no está libre. Elige otro.')
+      return
+    }
+    const conQuien = profesional ? ` con ${primerNombre(profesional.nombre)}` : ''
+
     setError('')
     setReservando(true)
     try {
@@ -293,6 +354,7 @@ export default function NegocioDetalle() {
         servicioId: servicioSeleccionado.id,
         fechaHora,
         duracionMinutos: servicioSeleccionado.duracionMinutos,
+        profesional: profesional ? { id: profesional.id, nombre: profesional.nombre } : null,
         // Notificaciones: al negocio, la reserva nueva; al cliente, su
         // confirmación (ver notificaciones.js).
         avisos: [
@@ -300,14 +362,14 @@ export default function NegocioDetalle() {
             destinatarioId: id,
             tipo: 'nueva-reserva',
             titulo: 'Nueva reserva',
-            texto: `${currentUser.displayName || 'Un cliente'} reservó ${servicioSeleccionado.nombre} para el ${cuando}.`,
+            texto: `${currentUser.displayName || 'Un cliente'} reservó ${servicioSeleccionado.nombre}${conQuien} para el ${cuando}.`,
             enlace: '/panel/agenda',
           },
           {
             destinatarioId: currentUser.uid,
             tipo: 'reserva-confirmada',
             titulo: 'Reserva confirmada',
-            texto: `Reservaste ${servicioSeleccionado.nombre} en ${negocio.nombre} para el ${cuando}.`,
+            texto: `Reservaste ${servicioSeleccionado.nombre}${conQuien} en ${negocio.nombre} para el ${cuando}.`,
             enlace: '/perfil/citas',
           },
         ],
@@ -319,6 +381,7 @@ export default function NegocioDetalle() {
         servicio: servicioSeleccionado.nombre,
         duracionMinutos: servicioSeleccionado.duracionMinutos,
         precio: servicioSeleccionado.precio,
+        profesional: profesional?.nombre || null,
         fechaHora,
         reservadaEn: new Date(),
       })
@@ -774,10 +837,12 @@ export default function NegocioDetalle() {
         </div>
 
         {/* Con el comprobante abierto el panel queda más alto que la pantalla:
-            si siguiera "sticky", la parte de abajo del recibo nunca se vería. */}
+            si siguiera "sticky", la parte de abajo del recibo nunca se vería.
+            minWidth 0: las filas deslizables de personas y días no deben
+            ensanchar la columna. */}
         {(!isMobile || tab === 'general') && (
-        <div style={isMobile || citaConfirmada ? {} : { position: 'sticky', top: 20 }}>
-        <div className="card" style={{ padding: 20 }}>
+        <div style={isMobile || citaConfirmada ? { minWidth: 0 } : { position: 'sticky', top: 20, minWidth: 0 }}>
+        <div className="card" style={{ padding: 20, minWidth: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Servicio seleccionado</div>
           {servicioSeleccionado ? (
             <div style={{ marginTop: 6 }}>
@@ -790,38 +855,89 @@ export default function NegocioDetalle() {
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>Elige un servicio de la lista.</p>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 18 }}>
-            <div style={{ border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)', padding: '8px 10px' }}>
-              <label style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha</label>
-              <input
-                type="date"
-                min={minFecha}
-                value={fecha}
-                onChange={handleCambiarFecha}
-                style={{ marginTop: 2, border: 'none', padding: '2px 0', fontSize: 13, fontWeight: 700 }}
-              />
-            </div>
-            <div style={{ border: `1px solid ${hora ? 'var(--accent)' : 'var(--border-strong)'}`, borderRadius: 'var(--radius-sm)', padding: '8px 10px' }}>
-              <label style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Hora</label>
-              <div style={{ marginTop: 2, fontSize: 13, fontWeight: 700, color: hora ? 'var(--accent-hover)' : 'var(--text-faint)' }}>
-                {hora ? formatoHora12(hora) : 'Elige un turno'}
+          {conEquipo && (
+            <div style={{ marginTop: 18 }}>
+              <div className="reserva-etiqueta">¿Con quién?</div>
+              <div className="reserva-personas" role="radiogroup" aria-label="Con quién quieres reservar">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={profesionalId === 'cualquiera'}
+                  className={`reserva-persona${profesionalId === 'cualquiera' ? ' on' : ''}`}
+                  onClick={() => elegirProfesional('cualquiera')}
+                >
+                  <span className="reserva-persona__cualquiera" aria-hidden="true"><Icon name="users" size={18} /></span>
+                  <span className="reserva-persona__nombre">Cualquiera</span>
+                  <span className="reserva-persona__cargo">La primera libre</span>
+                </button>
+                {equipoActivo.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={profesionalId === p.id}
+                    className={`reserva-persona${profesionalId === p.id ? ' on' : ''}`}
+                    onClick={() => elegirProfesional(p.id)}
+                  >
+                    <AvatarProfesional profesional={p} tamano={40} />
+                    <span className="reserva-persona__nombre">{primerNombre(p.nombre)}</span>
+                    <span className="reserva-persona__cargo">{p.cargo || 'Equipo'}</span>
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6 }}>
-            Las citas se reservan con al menos un día de anticipación.
+          )}
+
+          <div style={{ marginTop: 18 }}>
+            <div className="reserva-etiqueta">
+              Día{profesionalElegido ? ` · los que trabaja ${primerNombre(profesionalElegido.nombre)}` : ''}
+            </div>
+            <div className="reserva-dias" role="radiogroup" aria-label="Día de la cita">
+              {diasReserva.map((d) => (
+                <button
+                  key={d.valor}
+                  type="button"
+                  role="radio"
+                  aria-checked={fecha === d.valor}
+                  disabled={!d.disponible}
+                  className={`reserva-dia${fecha === d.valor ? ' on' : ''}`}
+                  onClick={() => elegirFecha(d.valor)}
+                  title={d.disponible ? undefined : 'No hay atención ese día'}
+                >
+                  <span className="reserva-dia__semana">{DIA_SEMANA_CORTO.format(d.fecha).replace('.', '')}</span>
+                  <span className="reserva-dia__numero">{d.fecha.getDate()}</span>
+                  <span className="reserva-dia__mes">{MES_CORTO.format(d.fecha).replace('.', '')}</span>
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6 }}>
+              Las citas se reservan con al menos un día de anticipación.
+            </div>
           </div>
 
           <div style={{ marginTop: 16 }}>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
               Turnos disponibles · {FECHA_CORTA.format(fechaObj)}
             </label>
+            {hora && (
+              <div className="reserva-resumen">
+                <Icon name="check" size={14} />
+                <span>
+                  {formatoHora12(hora)}
+                  {conEquipo && (profesionalElegido
+                    ? ` con ${primerNombre(profesionalElegido.nombre)}`
+                    : asignarProfesional(hora) ? ` con ${primerNombre(asignarProfesional(hora).nombre)}` : '')}
+                </span>
+              </div>
+            )}
             {!currentUser ? (
               <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 8 }}>
                 Inicia sesión para ver los turnos disponibles y reservar.
               </p>
             ) : slotsDelDia.length === 0 ? (
-              <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 8 }}>Este negocio no atiende ese día.</p>
+              <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 8 }}>
+                {conEquipo && profesionalElegido ? `${primerNombre(profesionalElegido.nombre)} no atiende ese día.` : 'Este negocio no atiende ese día.'}
+              </p>
             ) : (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 8, marginTop: 8 }}>

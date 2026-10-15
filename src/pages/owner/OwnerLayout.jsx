@@ -24,6 +24,7 @@ const GRUPOS_NAV = [
   ],
   [
     { to: '/panel/servicios', label: 'Servicios', icon: 'scissors' },
+    { to: '/panel/equipo', label: 'Equipo', icon: 'equipo' },
     { to: '/panel/identidad', label: 'Identidad', icon: 'store' },
     { to: '/panel/portafolio', label: 'Portafolio', icon: 'image' },
     { to: '/panel/resenas', label: 'Reseñas', icon: 'star' },

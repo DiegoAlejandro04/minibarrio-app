@@ -3616,3 +3616,343 @@ option:disabled { color: var(--text-faint); }
 /* La campanita de la vitrina sube al pasar el mouse, como los enlaces de la barra. */
 .nav-acciones .campana-boton { transition: color .3s cubic-bezier(.4, 0, .2, 1), border-color .3s cubic-bezier(.4, 0, .2, 1), transform .3s cubic-bezier(.4, 0, .2, 1); }
 .nav-acciones .campana-boton:hover { transform: translateY(-2px); }
+
+/* ── Equipo del negocio (OwnerEquipo.jsx) ── */
+.equipo-vacio {
+  padding: 36px 24px;
+  text-align: center;
+}
+.equipo-vacio__avatares { display: flex; justify-content: center; }
+.equipo-vacio__avatares span {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border: 3px solid var(--surface);
+  margin-left: -12px;
+}
+.equipo-vacio__avatares span:first-child { margin-left: 0; }
+.equipo-contador {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--sage) 18%, transparent);
+  color: color-mix(in oklch, var(--sage) 75%, var(--text));
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.equipo-tarjeta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  transition: border-color .3s cubic-bezier(.4, 0, .2, 1), transform .3s cubic-bezier(.4, 0, .2, 1), opacity .3s;
+}
+.equipo-tarjeta:hover { border-color: color-mix(in oklch, var(--accent) 45%, var(--border)); transform: translateY(-2px); }
+.equipo-tarjeta.en-pausa { opacity: .62; }
+.equipo-tarjeta.en-pausa:hover { opacity: 1; }
+.equipo-estado {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--sage) 20%, transparent);
+  color: color-mix(in oklch, var(--sage) 75%, var(--text));
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.equipo-estado.pausa {
+  background: color-mix(in oklch, var(--warning) 22%, transparent);
+  color: color-mix(in oklch, var(--warning) 70%, var(--text));
+}
+.equipo-dias { display: flex; gap: 4px; margin-top: 9px; flex-wrap: wrap; }
+.equipo-dias span {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: color-mix(in oklch, var(--text) 5%, transparent);
+  color: var(--text-faint);
+}
+.equipo-dias span.on {
+  background: color-mix(in oklch, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+.equipo-acciones {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.equipo-boton {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color .3s cubic-bezier(.4, 0, .2, 1), border-color .3s cubic-bezier(.4, 0, .2, 1), background .3s cubic-bezier(.4, 0, .2, 1);
+}
+.equipo-boton:hover { color: var(--accent); border-color: var(--accent); }
+.equipo-boton.peligro:hover {
+  color: var(--danger);
+  border-color: color-mix(in oklch, var(--danger) 60%, transparent);
+  background: color-mix(in oklch, var(--danger) 10%, transparent);
+}
+.equipo-formulario {
+  padding: 22px;
+  margin-bottom: 22px;
+  border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
+  animation: equipo-entrada .3s cubic-bezier(.2, .9, .3, 1.1);
+}
+@keyframes equipo-entrada {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+.equipo-foto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.equipo-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color .3s, color .3s;
+}
+.equipo-enlace:hover { border-color: var(--accent); color: var(--accent); }
+.equipo-enlace.tenue { border: none; padding: 2px 6px; color: var(--text-faint); font-weight: 600; }
+.equipo-enlace.tenue:hover { color: var(--danger); }
+.equipo-etiqueta {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.equipo-sugerencias { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.equipo-sugerencias button {
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .3s cubic-bezier(.4, 0, .2, 1);
+}
+.equipo-sugerencias button:hover { color: var(--text); border-color: var(--border-strong); }
+.equipo-sugerencias button.on {
+  background: color-mix(in oklch, var(--accent) 16%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.equipo-selector-dias {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.equipo-selector-dias button {
+  padding: 10px 0;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .3s cubic-bezier(.4, 0, .2, 1);
+}
+.equipo-selector-dias button .corto { display: none; }
+.equipo-selector-dias button:hover { border-color: var(--border-strong); color: var(--text); transform: translateY(-2px); }
+.equipo-selector-dias button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.equipo-selector-dias button.cerrado:not(.on) { opacity: .45; }
+@media (max-width: 767px) {
+  .equipo-selector-dias button .corto { display: inline; }
+  .equipo-selector-dias button .largo { display: none; }
+  .equipo-tarjeta { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .equipo-formulario { animation: none; }
+}
+
+/* ── Reservar con equipo (NegocioDetalle.jsx): ¿con quién?, día y resumen ── */
+.reserva-etiqueta {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+.reserva-personas,
+.reserva-dias {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 6px;
+  margin: -4px -2px 0;
+  scroll-snap-type: x proximity;
+  /* Sin barra de desplazamiento (en Windows se veía pesada): el borde
+     derecho se desvanece para mostrar que hay más días. */
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+  mask-image: linear-gradient(90deg, #000 85%, transparent);
+}
+.reserva-personas::-webkit-scrollbar,
+.reserva-dias::-webkit-scrollbar { display: none; }
+/* Las personas casi siempre caben: sin desvanecido. */
+.reserva-personas { -webkit-mask-image: none; mask-image: none; }
+.reserva-persona {
+  flex: 0 0 auto;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--vidrio-borde, var(--border));
+  background: var(--vidrio-campo, var(--surface));
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: border-color .3s cubic-bezier(.4, 0, .2, 1), background .3s cubic-bezier(.4, 0, .2, 1), transform .3s cubic-bezier(.4, 0, .2, 1);
+}
+.reserva-persona:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+.reserva-persona.on {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 12%, var(--vidrio-campo, var(--surface)));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 18%, transparent);
+}
+.reserva-persona__cualquiera {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in oklch, var(--text) 8%, transparent);
+  color: var(--text-muted);
+}
+.reserva-persona.on .reserva-persona__cualquiera { background: var(--accent); color: #fff; }
+.reserva-persona__nombre {
+  max-width: 100%;
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reserva-persona__cargo {
+  max-width: 100%;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reserva-dia {
+  flex: 0 0 auto;
+  width: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 0;
+  border-radius: 12px;
+  border: 1px solid var(--vidrio-borde, var(--border));
+  background: var(--vidrio-campo, var(--surface));
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: border-color .3s cubic-bezier(.4, 0, .2, 1), background .3s cubic-bezier(.4, 0, .2, 1), transform .3s cubic-bezier(.4, 0, .2, 1), color .3s;
+}
+.reserva-dia:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--border-strong); }
+.reserva-dia__semana { font-size: 10.5px; font-weight: 700; text-transform: capitalize; color: var(--text-muted); }
+.reserva-dia__numero { font-size: 17px; font-weight: 800; line-height: 1.15; }
+.reserva-dia__mes { font-size: 10px; color: var(--text-faint); text-transform: capitalize; }
+.reserva-dia.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.reserva-dia.on .reserva-dia__semana,
+.reserva-dia.on .reserva-dia__mes { color: oklch(100% 0 0 / 0.85); }
+.reserva-dia:disabled { opacity: .35; cursor: not-allowed; }
+.reserva-dia:disabled .reserva-dia__numero { text-decoration: line-through; }
+.reserva-resumen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* Filtro de la agenda por persona del equipo (OwnerAgenda.jsx). */
+.agenda-filtro {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  margin-bottom: 14px;
+}
+.agenda-filtro button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px 6px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color .3s cubic-bezier(.4, 0, .2, 1), border-color .3s cubic-bezier(.4, 0, .2, 1), background .3s cubic-bezier(.4, 0, .2, 1), transform .3s cubic-bezier(.4, 0, .2, 1);
+}
+.agenda-filtro button:first-child { padding-left: 12px; }
+.agenda-filtro button:hover { color: var(--text); transform: translateY(-2px); }
+.agenda-filtro button.on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 12%, var(--surface));
+}

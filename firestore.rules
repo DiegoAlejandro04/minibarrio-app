@@ -32,6 +32,15 @@ service cloud.firestore {
       return string(fechaHora.toMillis());
     }
 
+    // Id del turno de una cita: con equipo lleva la persona que atiende
+    // ("{ms}_{profesionalId}", una agenda por persona); sin equipo, solo la
+    // hora (ver src/turnosOcupados.js).
+    function idTurnoDe(cita, fechaHora) {
+      return 'profesionalId' in cita
+        ? idTurno(fechaHora) + '_' + cita.profesionalId
+        : idTurno(fechaHora);
+    }
+
     // Un turno (bloque de 20 min) es válido si cae dentro de la duración del
     // servicio de su cita: desde la hora de inicio hasta antes de terminar.
     // Así una cita de 50 min ocupa 10:00, 10:20 y 10:40, y como cada turno
@@ -43,13 +52,36 @@ service cloud.firestore {
       let servicio = get(/databases/$(database)/documents/negocios/$(negocioId)/servicios/$(cita.servicioId)).data;
       return estaAutenticado()
         && datos.keys().hasOnly(['fechaHora', 'citaId'])
-        && turno == idTurno(datos.fechaHora)
+        && turno == idTurnoDe(cita, datos.fechaHora)
         && cita.negocioId == negocioId
         && (cita.fechaHora == datos.fechaHora
             || (datos.fechaHora > cita.fechaHora
                 && datos.fechaHora < cita.fechaHora + duration.value(int(servicio.get('duracionMinutos', 20)), 'm')))
         && cita.estado != 'cancelada'
         && (cita.clienteId == request.auth.uid || esDueno(negocioId));
+    }
+
+    // La persona elegida en una cita existe en el equipo de ese negocio, está
+    // activa, y el nombre guardado en la cita es el suyo.
+    function profesionalDeCitaValido(datos) {
+      let ruta = /databases/$(database)/documents/negocios/$(datos.negocioId)/profesionales/$(datos.get('profesionalId', '-'));
+      return (!('profesionalId' in datos) && !('profesionalNombre' in datos))
+        || (datos.profesionalId is string
+            && exists(ruta)
+            && get(ruta).data.get('activo', true) == true
+            && datos.profesionalNombre == get(ruta).data.nombre);
+    }
+
+    function profesionalValido() {
+      let datos = request.resource.data;
+      return datos.nombre is string
+        && datos.nombre.size() >= 2
+        && datos.nombre.size() <= 40
+        && textoMax(datos, 'cargo', 30)
+        && datos.dias is list
+        && datos.dias.size() <= 7
+        && datos.activo is bool
+        && imagenValida(datos, 'foto', 143360);
     }
 
     function resenaValida() {
@@ -292,6 +324,20 @@ service cloud.firestore {
         allow delete: if esDueno(negocioId);
       }
 
+      // Equipo del negocio (ver src/equipo.js): lo administra el dueño y lo
+      // ve todo el mundo, porque el cliente elige con quién reservar.
+      match /profesionales/{profesionalId} {
+        allow read: if true;
+        allow create: if esDueno(negocioId)
+                      && request.resource.data.keys().hasOnly(['nombre', 'cargo', 'dias', 'activo', 'foto', 'creadoEn'])
+                      && request.resource.data.creadoEn == request.time
+                      && profesionalValido();
+        allow update: if esDueno(negocioId)
+                      && camposCambiados().hasOnly(['nombre', 'cargo', 'dias', 'activo', 'foto'])
+                      && profesionalValido();
+        allow delete: if esDueno(negocioId);
+      }
+
       match /resenas/{resenaId} {
         allow read: if true;
         allow create: if esDueno(resenaId)
@@ -367,14 +413,15 @@ service cloud.firestore {
                             || request.resource.data.canceladaPor == 'negocio'));
       allow create: if estaAutenticado()
                     && rolDe(request.auth.uid) == 'cliente'
-                    && request.resource.data.keys().hasOnly(['negocioId', 'clienteId', 'servicioId', 'fechaHora', 'estado', 'creadoEn'])
+                    && request.resource.data.keys().hasOnly(['negocioId', 'clienteId', 'servicioId', 'fechaHora', 'estado', 'creadoEn', 'profesionalId', 'profesionalNombre'])
                     && request.resource.data.clienteId == request.auth.uid
                     && request.resource.data.estado == 'pendiente'
                     && request.resource.data.fechaHora is timestamp
                     && request.resource.data.fechaHora > request.time
                     && request.resource.data.creadoEn == request.time
                     && exists(/databases/$(database)/documents/negocios/$(request.resource.data.negocioId)/servicios/$(request.resource.data.servicioId))
-                    && getAfter(/databases/$(database)/documents/negocios/$(request.resource.data.negocioId)/ocupados/$(idTurno(request.resource.data.fechaHora))).data.citaId == citaId;
+                    && profesionalDeCitaValido(request.resource.data)
+                    && getAfter(/databases/$(database)/documents/negocios/$(request.resource.data.negocioId)/ocupados/$(idTurnoDe(request.resource.data, request.resource.data.fechaHora))).data.citaId == citaId;
       allow delete: if false;
     }
   }

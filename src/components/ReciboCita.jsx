@@ -69,7 +69,8 @@ function IconoEstado({ listo }) {
 
 /**
  * `cita`: { id, negocio, direccion, servicio, duracionMinutos, precio,
- * fechaHora (Date), reservadaEn (Date) }. `onCerrar` se llama con el botón
+ * profesional (nombre, si el negocio tiene equipo), fechaHora (Date),
+ * reservadaEn (Date) }. `onCerrar` se llama con el botón
  * "Aceptar", que aparece al terminar de imprimir.
  */
 export default function ReciboCita({ cita, onCerrar }) {
@@ -136,6 +137,7 @@ export default function ReciboCita({ cita, onCerrar }) {
             <dl style={{ display: 'grid', gap: 6, margin: 0 }}>
               <Fila etiqueta={cita.servicio} valor={COP.format(cita.precio || 0)} />
               <Fila etiqueta="Duración" valor={`${cita.duracionMinutos} min`} tenue />
+              {cita.profesional && <Fila etiqueta="Te atiende" valor={cita.profesional} tenue />}
               <Fila etiqueta="Fecha" valor={FECHA_CITA.format(cita.fechaHora)} tenue />
               <Fila etiqueta="Hora" valor={HORA.format(cita.fechaHora)} fuerte />
               <Fila etiqueta="Total a pagar" valor={COP.format(cita.precio || 0)} fuerte />

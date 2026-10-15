@@ -18,13 +18,20 @@ import { agregarAvisos } from './notificaciones.js'
 // la duración del servicio de esa cita. Si alguno ya es de otra cita, las
 // reglas rechazan el batch completo y la cita no se crea: no hay doble
 // reserva ni citas encimadas, aunque dos clientes confirmen a la vez.
+//
+// Con equipo (ver equipo.js), cada persona tiene su propia agenda: el id es
+// "{ms}_{profesionalId}", así dos personas pueden atender a la misma hora y
+// una misma persona nunca tiene dos citas encima.
 
 export const MINUTOS_TURNO = 20
 
-/** Id del documento del turno: la hora en milisegundos, como texto. */
-export function idTurno(fechaHora) {
+/**
+ * Id del documento del turno: la hora en milisegundos, como texto, y con
+ * equipo el id de la persona ("{ms}_{profesionalId}").
+ */
+export function idTurno(fechaHora, profesionalId) {
   const ms = fechaHora?.toMillis ? fechaHora.toMillis() : fechaHora.getTime()
-  return String(ms)
+  return profesionalId ? `${ms}_${profesionalId}` : String(ms)
 }
 
 const comoFecha = (fechaHora) => (fechaHora?.toDate ? fechaHora.toDate() : fechaHora)
@@ -39,16 +46,18 @@ export function turnosCubiertos(fechaHora, duracionMinutos) {
   return Array.from({ length: cantidad }, (_, i) => new Date(inicio + i * MINUTOS_TURNO * 60000))
 }
 
-function refOcupado(negocioId, fechaHora) {
-  return doc(db, 'negocios', negocioId, 'ocupados', idTurno(fechaHora))
+function refOcupado(negocioId, fechaHora, profesionalId) {
+  return doc(db, 'negocios', negocioId, 'ocupados', idTurno(fechaHora, profesionalId))
 }
 
 /**
  * Crea la cita y ocupa sus turnos. Devuelve la referencia de la cita.
- * `avisos`: notificaciones del evento (al negocio y al propio cliente), en
- * el mismo batch (ver notificaciones.js).
+ * `profesional`: { id, nombre } de quien atiende, si el negocio tiene equipo
+ * (el nombre se guarda en la cita para mostrarlo aunque luego esa persona
+ * salga del equipo). `avisos`: notificaciones del evento (al negocio y al
+ * propio cliente), en el mismo batch (ver notificaciones.js).
  */
-export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora, duracionMinutos, avisos = [] }) {
+export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora, duracionMinutos, profesional, avisos = [] }) {
   const citaRef = doc(collection(db, 'citas'))
   const batch = writeBatch(db)
   batch.set(citaRef, {
@@ -56,11 +65,12 @@ export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora
     clienteId,
     servicioId,
     fechaHora,
+    ...(profesional ? { profesionalId: profesional.id, profesionalNombre: profesional.nombre } : {}),
     estado: 'pendiente',
     creadoEn: serverTimestamp(),
   })
   turnosCubiertos(fechaHora, duracionMinutos).forEach((turno) => {
-    batch.set(refOcupado(negocioId, turno), { fechaHora: turno, citaId: citaRef.id })
+    batch.set(refOcupado(negocioId, turno, profesional?.id), { fechaHora: turno, citaId: citaRef.id })
   })
   agregarAvisos(batch, avisos, citaRef.id)
   await batch.commit()
@@ -84,7 +94,7 @@ export async function cambiarEstadoCita(cita, estado, extra = {}, duracionMinuto
     turnos.docs.forEach((t) => batch.delete(t.ref))
   } else {
     turnosCubiertos(cita.fechaHora, duracionMinutos).forEach((turno) => {
-      batch.set(refOcupado(cita.negocioId, turno), { fechaHora: turno, citaId: cita.id })
+      batch.set(refOcupado(cita.negocioId, turno, cita.profesionalId), { fechaHora: turno, citaId: cita.id })
     })
   }
   agregarAvisos(batch, avisos, cita.id)
@@ -128,9 +138,9 @@ export async function sincronizarOcupados(negocioId, citas, duraciones = {}) {
       })
     } else if (c.fechaHora.toDate() >= ahora) {
       turnosCubiertos(c.fechaHora, duraciones[c.servicioId]).forEach((turno) => {
-        const id = idTurno(turno)
+        const id = idTurno(turno, c.profesionalId)
         if (citaPorTurno.has(id)) return
-        batch.set(refOcupado(negocioId, turno), { fechaHora: turno, citaId: c.id })
+        batch.set(refOcupado(negocioId, turno, c.profesionalId), { fechaHora: turno, citaId: c.id })
         citaPorTurno.set(id, c.id)
         cambios += 1
       })

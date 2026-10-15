@@ -113,8 +113,9 @@ export default function ClientCitas() {
       <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14 }}>{negociosPorId[c.negocioId]?.nombre || 'Negocio'}</div>
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
-          {serviciosPorId[`${c.negocioId}:${c.servicioId}`]?.nombre || 'Servicio'} ·{' '}
-          {capitalize(FECHA_LARGA.format(c.fecha))}, {HORA.format(c.fecha)}
+          {serviciosPorId[`${c.negocioId}:${c.servicioId}`]?.nombre || 'Servicio'}
+          {c.profesionalNombre && <> con <strong style={{ color: 'var(--text)', fontWeight: 700 }}>{c.profesionalNombre.split(' ')[0]}</strong></>}
+          {' · '}{capitalize(FECHA_LARGA.format(c.fecha))}, {HORA.format(c.fecha)}
         </div>
         <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 3, fontFamily: 'ui-monospace, Consolas, monospace' }}>
           Reserva #{codigoReserva(c.id)}

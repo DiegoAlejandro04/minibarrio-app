@@ -18,6 +18,7 @@ import OwnerLayout from './pages/owner/OwnerLayout.jsx'
 import OwnerResumen from './pages/owner/OwnerResumen.jsx'
 import OwnerAgenda from './pages/owner/OwnerAgenda.jsx'
 import OwnerServicios from './pages/owner/OwnerServicios.jsx'
+import OwnerEquipo from './pages/owner/OwnerEquipo.jsx'
 import OwnerPortafolio from './pages/owner/OwnerPortafolio.jsx'
 import OwnerIdentidad from './pages/owner/OwnerIdentidad.jsx'
 import OwnerClientes from './pages/owner/OwnerClientes.jsx'
@@ -146,6 +147,7 @@ export default function App() {
         >
           <Route index element={<OwnerResumen />} />
           <Route path="servicios" element={<OwnerServicios />} />
+          <Route path="equipo" element={<OwnerEquipo />} />
           <Route path="identidad" element={<OwnerIdentidad />} />
           <Route path="portafolio" element={<OwnerPortafolio />} />
           <Route path="clientes" element={<OwnerClientes />} />
