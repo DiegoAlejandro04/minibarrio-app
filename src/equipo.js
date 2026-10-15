@@ -1,7 +1,12 @@
 // Equipo del negocio: las personas que atienden (barberos, estilistas,
 // manicuristas…), en negocios/{id}/profesionales/{profesionalId}:
-// { nombre, cargo, dias, activo, foto?, creadoEn }. `dias` son los días que
-// trabaja, con la numeración de Date.getDay() (0 = domingo … 6 = sábado).
+// { nombre, cargo, dias, activo, foto?, horario?, horariosDia?, creadoEn }.
+// `dias` son los días que trabaja, con la numeración de Date.getDay() (0 =
+// domingo … 6 = sábado). `horario` ({ inicio, fin }, "HH:MM") es su horario
+// propio, el mismo todos sus días; `horariosDia` ({ "6": { inicio, fin } })
+// cambia el de días puntuales (p. ej. los sábados en la tarde). Sin ninguno
+// de los dos atiende en todo el horario del negocio. Lo configura el dueño
+// en OwnerEquipo.jsx.
 //
 // Con equipo, cada persona tiene su propia agenda: el turno ocupado de una
 // cita lleva el id "{ms}_{profesionalId}" (ver idTurno en turnosOcupados.js)
@@ -55,6 +60,61 @@ export function inicialesProfesional(nombre = '') {
 /** Primer nombre, para textos cortos: "con Carlos". */
 export function primerNombre(nombre = '') {
   return nombre.trim().split(/\s+/)[0] || nombre
+}
+
+const horarioValido = (h) => (h?.inicio && h?.fin && h.inicio < h.fin ? h : null)
+
+/**
+ * Horario propio de la persona ({ inicio, fin }) para ese día (`fecha`, o el
+ * número de día 0–6), o null si atiende en el horario del negocio. El de un
+ * día puntual (horariosDia) manda sobre el general.
+ */
+export function horarioDe(profesional, fecha) {
+  if (fecha != null) {
+    const dia = typeof fecha === 'number' ? fecha : fecha.getDay()
+    const delDia = horarioValido(profesional?.horariosDia?.[dia])
+    if (delDia) return delDia
+  }
+  return horarioValido(profesional?.horario)
+}
+
+/** ¿Algún día tiene un horario distinto al general? */
+export function tieneHorarioPorDia(profesional) {
+  return Object.values(profesional?.horariosDia || {}).some(horarioValido)
+}
+
+const HORA_12 = (hhmm) => {
+  const [h, m] = hhmm.split(':').map(Number)
+  const sufijo = h < 12 ? 'a. m.' : 'p. m.'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${sufijo}`
+}
+
+export const textoRango = (h) => `${HORA_12(h.inicio)} – ${HORA_12(h.fin)}`
+
+/**
+ * "9:00 a. m. – 1:00 p. m." o "Horario del negocio"; con `fecha`/día, el de
+ * ese día. Sin día y con horarios por día: "Horario según el día".
+ */
+export function resumenHorario(profesional, fecha) {
+  if (fecha == null && tieneHorarioPorDia(profesional)) return 'Horario según el día'
+  const h = horarioDe(profesional, fecha)
+  return h ? textoRango(h) : 'Horario del negocio'
+}
+
+/**
+ * Turnos del día que le corresponden a una persona: los del negocio que caen
+ * dentro de su horario propio, y su "cierre" (lo que llegue primero: su
+ * salida o el cierre del negocio). Se recortan los turnos del negocio en vez
+ * de generar otros, para que todas las agendas queden en la misma grilla de
+ * 20 minutos.
+ */
+export function ventanaProfesional(profesional, slots, cierre, fecha) {
+  const h = horarioDe(profesional, fecha)
+  if (!h) return { slots, cierre }
+  return {
+    slots: slots.filter((s) => s >= h.inicio && s < h.fin),
+    cierre: cierre && cierre < h.fin ? cierre : h.fin,
+  }
 }
 
 /** "L, M, X, J, V" o "Todos los días" / "Lunes a viernes" cuando aplica. */
@@ -140,24 +200,39 @@ export function ocupadosDe(ocupados, profesionalId) {
 }
 
 /**
- * Disponibilidad para la opción "Cualquiera": un turno está libre si al
- * menos una persona de las que trabajan ese día lo tiene libre. Devuelve
- * { mapa: Map(turno → estado), asignar: (turno) → profesional | null }; al
- * confirmar se le asigna la primera persona libre en ese turno (en el orden
- * del equipo).
+ * Disponibilidad de UNA persona: sus turnos (según su horario, ver
+ * ventanaProfesional) y el estado de cada uno en su agenda.
+ * Devuelve { slots, mapa }.
  */
-export function disponibilidadCualquiera(slots, ocupados, equipoDia, duracionMinutos, cierre) {
+export function disponibilidadProfesional(profesional, slots, ocupados, duracionMinutos, cierre, fecha) {
+  const ventana = ventanaProfesional(profesional, slots, cierre, fecha)
+  return {
+    slots: ventana.slots,
+    mapa: disponibilidadAgenda(ventana.slots, ocupadosDe(ocupados, profesional.id), duracionMinutos, ventana.cierre),
+  }
+}
+
+/**
+ * Disponibilidad para la opción "Cualquiera": se ofrecen los turnos que cubre
+ * al menos una persona de las que trabajan ese día (cada una en su horario),
+ * y uno está libre si alguna de ellas lo tiene libre. Devuelve
+ * { slots, mapa: Map(turno → estado), asignar: (turno) → profesional | null };
+ * al confirmar se le asigna la primera persona libre en ese turno (en el
+ * orden del equipo).
+ */
+export function disponibilidadCualquiera(slots, ocupados, equipoDia, duracionMinutos, cierre, fecha) {
   const porPersona = equipoDia.map((p) => ({
     profesional: p,
-    mapa: disponibilidadAgenda(slots, ocupadosDe(ocupados, p.id), duracionMinutos, cierre),
+    ...disponibilidadProfesional(p, slots, ocupados, duracionMinutos, cierre, fecha),
   }))
+  const cubiertos = slots.filter((s) => porPersona.some((x) => x.mapa.has(s)))
   const mapa = new Map()
-  slots.forEach((s) => {
-    const estados = porPersona.map((x) => x.mapa.get(s))
+  cubiertos.forEach((s) => {
+    const estados = porPersona.filter((x) => x.mapa.has(s)).map((x) => x.mapa.get(s))
     if (estados.includes('libre')) mapa.set(s, 'libre')
-    else if (estados.length > 0 && estados.every((e) => e === 'ocupado')) mapa.set(s, 'ocupado')
+    else if (estados.every((e) => e === 'ocupado')) mapa.set(s, 'ocupado')
     else mapa.set(s, 'no-cabe')
   })
   const asignar = (turno) => porPersona.find((x) => x.mapa.get(turno) === 'libre')?.profesional || null
-  return { mapa, asignar }
+  return { slots: cubiertos, mapa, asignar }
 }

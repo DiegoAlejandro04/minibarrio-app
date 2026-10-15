@@ -72,6 +72,16 @@ service cloud.firestore {
             && datos.profesionalNombre == get(ruta).data.nombre);
     }
 
+    // Horario propio de una persona del equipo: { inicio, fin } en "HH:MM",
+    // con la salida después de la entrada.
+    function rangoHorasValido(h) {
+      return h is map
+        && h.keys().hasOnly(['inicio', 'fin'])
+        && h.inicio is string && h.inicio.matches('[0-2][0-9]:[0-5][0-9]')
+        && h.fin is string && h.fin.matches('[0-2][0-9]:[0-5][0-9]')
+        && h.inicio < h.fin;
+    }
+
     function profesionalValido() {
       let datos = request.resource.data;
       return datos.nombre is string
@@ -81,7 +91,11 @@ service cloud.firestore {
         && datos.dias is list
         && datos.dias.size() <= 7
         && datos.activo is bool
-        && imagenValida(datos, 'foto', 143360);
+        && imagenValida(datos, 'foto', 143360)
+        && (!('horario' in datos) || rangoHorasValido(datos.horario))
+        && (!('horariosDia' in datos)
+            || (datos.horariosDia is map
+                && datos.horariosDia.keys().hasOnly(['0', '1', '2', '3', '4', '5', '6'])));
     }
 
     function resenaValida() {
@@ -329,11 +343,11 @@ service cloud.firestore {
       match /profesionales/{profesionalId} {
         allow read: if true;
         allow create: if esDueno(negocioId)
-                      && request.resource.data.keys().hasOnly(['nombre', 'cargo', 'dias', 'activo', 'foto', 'creadoEn'])
+                      && request.resource.data.keys().hasOnly(['nombre', 'cargo', 'dias', 'activo', 'foto', 'horario', 'horariosDia', 'creadoEn'])
                       && request.resource.data.creadoEn == request.time
                       && profesionalValido();
         allow update: if esDueno(negocioId)
-                      && camposCambiados().hasOnly(['nombre', 'cargo', 'dias', 'activo', 'foto'])
+                      && camposCambiados().hasOnly(['nombre', 'cargo', 'dias', 'activo', 'foto', 'horario', 'horariosDia'])
                       && profesionalValido();
         allow delete: if esDueno(negocioId);
       }

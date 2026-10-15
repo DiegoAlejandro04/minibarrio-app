@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  disponibilidadAgenda, disponibilidadCualquiera, ocupadosDelDia, ocupadosDe,
-  resumenDias, trabajaEl, inicialesProfesional, colorProfesional,
+  disponibilidadAgenda, disponibilidadCualquiera, disponibilidadProfesional, ocupadosDelDia, ocupadosDe,
+  resumenDias, resumenHorario, trabajaEl, inicialesProfesional, colorProfesional,
 } from './equipo.js'
 
 const SLOTS = ['09:00', '09:20', '09:40', '10:00', '10:20', '10:40']
@@ -52,4 +52,42 @@ test('días de trabajo y textos', () => {
   assert.equal(resumenDias([3, 4, 5, 6]), 'X · J · V · S')
   assert.equal(inicialesProfesional('Carlos Méndez'), 'CM')
   assert.equal(colorProfesional('Laura'), colorProfesional('Laura'))
+})
+
+test('horario propio: solo sus turnos y no se pasa de su salida', () => {
+  const laura = { id: 'laura', nombre: 'Laura', horario: { inicio: '09:20', fin: '10:20' } }
+  const vacio = ocupadosDelDia([], '2026-10-16')
+  const { slots, mapa } = disponibilidadProfesional(laura, SLOTS, vacio, 40, '11:00')
+  assert.deepEqual(slots, ['09:20', '09:40', '10:00'])
+  assert.equal(mapa.get('09:20'), 'libre') // 9:20–10:00
+  assert.equal(mapa.get('09:40'), 'libre') // 9:40–10:20, justo a su salida
+  assert.equal(mapa.get('10:00'), 'no-cabe') // terminaría 10:40, después de su salida
+  assert.equal(resumenHorario(laura), '9:20 a. m. – 10:20 a. m.')
+  assert.equal(resumenHorario({ nombre: 'Carlos' }), 'Horario del negocio')
+})
+
+test('"Cualquiera" con horarios distintos: suma los turnos de todos', () => {
+  const manana = { id: 'm', nombre: 'Mañana', horario: { inicio: '09:00', fin: '09:40' } }
+  const tarde = { id: 't', nombre: 'Tarde', horario: { inicio: '10:20', fin: '11:00' } }
+  const vacio = ocupadosDelDia([], '2026-10-16')
+  const { slots, asignar } = disponibilidadCualquiera(SLOTS, vacio, [manana, tarde], 20, '11:00')
+  assert.deepEqual(slots, ['09:00', '09:20', '10:20', '10:40']) // 9:40 y 10:00 no los cubre nadie
+  assert.equal(asignar('09:20').id, 'm')
+  assert.equal(asignar('10:40').id, 't')
+})
+
+test('horario por día: el del día manda sobre el general', () => {
+  const laura = {
+    id: 'laura',
+    nombre: 'Laura',
+    horario: { inicio: '09:00', fin: '10:00' },
+    horariosDia: { 5: { inicio: '10:00', fin: '11:00' } }, // viernes
+  }
+  const vacio = ocupadosDelDia([], '2026-10-16')
+  const viernes = new Date('2026-10-16T00:00:00')
+  const jueves = new Date('2026-10-15T00:00:00')
+  assert.deepEqual(disponibilidadProfesional(laura, SLOTS, vacio, 20, '11:00', viernes).slots, ['10:00', '10:20', '10:40'])
+  assert.deepEqual(disponibilidadProfesional(laura, SLOTS, vacio, 20, '11:00', jueves).slots, ['09:00', '09:20', '09:40'])
+  assert.equal(resumenHorario(laura), 'Horario según el día')
+  assert.equal(resumenHorario(laura, 5), '10:00 a. m. – 11:00 a. m.')
 })

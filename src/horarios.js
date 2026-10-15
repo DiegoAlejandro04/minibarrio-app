@@ -47,6 +47,11 @@ export function bloqueDe(horarios, key) {
   return bloque
 }
 
+/** Bloque de atención de un día de la semana (0 = domingo … 6 = sábado). */
+export function bloqueDeDia(horarios, dia) {
+  return bloqueDe(horarios, KEY_POR_DIA[dia])
+}
+
 /** Días de la semana que atiende el negocio, como números de Date.getDay(). */
 export function diasAbiertos(horarios) {
   return KEY_POR_DIA.map((key, dia) => (bloqueDe(horarios, key) ? dia : null)).filter((d) => d != null)

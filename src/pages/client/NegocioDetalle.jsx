@@ -20,7 +20,8 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 import useEquipo from '../../hooks/useEquipo.js'
 import AvatarProfesional from '../../components/AvatarProfesional.jsx'
 import {
-  disponibilidadAgenda, disponibilidadCualquiera, equipoDelDia, ocupadosDe, ocupadosDelDia, primerNombre, trabajaEl,
+  disponibilidadAgenda, disponibilidadCualquiera, disponibilidadProfesional, equipoDelDia, ocupadosDelDia,
+  primerNombre, resumenHorario as horarioPersona, trabajaEl, ventanaProfesional,
 } from '../../equipo.js'
 
 // Perfil público del negocio + reserva de citas (RF-05, RF-06, RF-07, RF-08,
@@ -243,14 +244,17 @@ export default function NegocioDetalle() {
   }, [profesionalId, conEquipo, equipoActivo])
 
   // Próximos días para reservar (desde mañana), con si se puede ese día: el
-  // negocio abre y, con equipo, la persona elegida (o alguien) trabaja.
+  // negocio abre y, con equipo, la persona elegida (o alguien) trabaja ese
+  // día y su horario cae dentro del horario del negocio.
   const diasReserva = useMemo(() => Array.from({ length: DIAS_RESERVABLES }, (_, i) => {
     const d = new Date(manana)
     d.setDate(d.getDate() + i)
     d.setHours(0, 0, 0, 0)
-    const abre = !!bloqueDelDia(negocio?.horarios, d)
-    const atiende = !conEquipo || (profesionalElegido ? trabajaEl(profesionalElegido, d) : equipoDelDia(equipoActivo, d).length > 0)
-    return { fecha: d, valor: toDateInputValue(d), disponible: abre && atiende }
+    const bloque = bloqueDelDia(negocio?.horarios, d)
+    const slots = generarSlots(bloque)
+    const atiendeEse = (p) => trabajaEl(p, d) && ventanaProfesional(p, slots, bloque?.cierre, d).slots.length > 0
+    const atiende = !conEquipo || (profesionalElegido ? atiendeEse(profesionalElegido) : equipoActivo.some(atiendeEse))
+    return { fecha: d, valor: toDateInputValue(d), disponible: !!bloque && atiende }
   }), [manana, negocio, conEquipo, profesionalElegido, equipoActivo])
 
   // Si el día elegido deja de servir (otra persona elegida), pasa al primero
@@ -268,34 +272,31 @@ export default function NegocioDetalle() {
   const fechaObj = useMemo(() => new Date(`${fecha}T00:00:00`), [fecha])
   const bloqueHorario = useMemo(() => bloqueDelDia(negocio?.horarios, fechaObj), [negocio, fechaObj])
   const equipoHoy = useMemo(() => equipoDelDia(equipoActivo, fechaObj), [equipoActivo, fechaObj])
-  const slotsDelDia = useMemo(() => {
-    if (conEquipo && (profesionalElegido ? !trabajaEl(profesionalElegido, fechaObj) : equipoHoy.length === 0)) return []
-    return generarSlots(bloqueHorario)
-  }, [bloqueHorario, conEquipo, profesionalElegido, fechaObj, equipoHoy])
+  const slotsNegocio = useMemo(() => generarSlots(bloqueHorario), [bloqueHorario])
 
   const ocupados = useMemo(() => ocupadosDelDia(ocupadosDocs, fecha), [ocupadosDocs, fecha])
 
-  // Un turno se ofrece solo si cabe la duración COMPLETA del servicio elegido
-  // en la agenda que corresponde: la de la persona elegida, la de alguien del
-  // equipo ("Cualquiera") o la única del negocio. Ver equipo.js.
-  const { disponibilidad, asignarProfesional } = useMemo(() => {
+  // Turnos que se ofrecen y si cabe en cada uno la duración COMPLETA del
+  // servicio elegido, en la agenda que corresponde: la de la persona elegida
+  // (solo dentro de su horario), la de alguien del equipo ("Cualquiera",
+  // sumando los horarios de todos) o la única del negocio. Ver equipo.js.
+  const { slotsDelDia, disponibilidad, asignarProfesional } = useMemo(() => {
     const duracion = servicioSeleccionado?.duracionMinutos || MINUTOS_TURNO
     const cierre = bloqueHorario?.cierre
     if (!conEquipo) {
       // Sin equipo cuenta cualquier turno tomado (también los de personas
       // que ya no están en el equipo).
       const todos = new Set([...ocupados.general, ...[...ocupados.porProfesional.values()].flatMap((s) => [...s])])
-      return { disponibilidad: disponibilidadAgenda(slotsDelDia, todos, duracion, cierre), asignarProfesional: () => null }
+      return { slotsDelDia: slotsNegocio, disponibilidad: disponibilidadAgenda(slotsNegocio, todos, duracion, cierre), asignarProfesional: () => null }
     }
     if (profesionalElegido) {
-      return {
-        disponibilidad: disponibilidadAgenda(slotsDelDia, ocupadosDe(ocupados, profesionalElegido.id), duracion, cierre),
-        asignarProfesional: () => profesionalElegido,
-      }
+      if (!trabajaEl(profesionalElegido, fechaObj)) return { slotsDelDia: [], disponibilidad: new Map(), asignarProfesional: () => null }
+      const { slots, mapa } = disponibilidadProfesional(profesionalElegido, slotsNegocio, ocupados, duracion, cierre, fechaObj)
+      return { slotsDelDia: slots, disponibilidad: mapa, asignarProfesional: () => profesionalElegido }
     }
-    const { mapa, asignar } = disponibilidadCualquiera(slotsDelDia, ocupados, equipoHoy, duracion, cierre)
-    return { disponibilidad: mapa, asignarProfesional: asignar }
-  }, [slotsDelDia, ocupados, servicioSeleccionado, bloqueHorario, conEquipo, profesionalElegido, equipoHoy])
+    const { slots, mapa, asignar } = disponibilidadCualquiera(slotsNegocio, ocupados, equipoHoy, duracion, cierre, fechaObj)
+    return { slotsDelDia: slots, disponibilidad: mapa, asignarProfesional: asignar }
+  }, [slotsNegocio, ocupados, servicioSeleccionado, bloqueHorario, conEquipo, profesionalElegido, equipoHoy, fechaObj])
 
   // Si al cambiar de servicio la hora elegida deja de caber, se deselecciona.
   useEffect(() => {
@@ -892,6 +893,11 @@ export default function NegocioDetalle() {
             <div className="reserva-etiqueta">
               Día{profesionalElegido ? ` · los que trabaja ${primerNombre(profesionalElegido.nombre)}` : ''}
             </div>
+            {profesionalElegido && trabajaEl(profesionalElegido, fechaObj) && horarioPersona(profesionalElegido, fechaObj) !== 'Horario del negocio' && (
+              <div className="reserva-horario-persona">
+                <Icon name="clock" size={13} /> {primerNombre(profesionalElegido.nombre)} atiende ese día de {horarioPersona(profesionalElegido, fechaObj)}
+              </div>
+            )}
             <div className="reserva-dias" role="radiogroup" aria-label="Día de la cita">
               {diasReserva.map((d) => (
                 <button

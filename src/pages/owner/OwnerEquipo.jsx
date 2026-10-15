@@ -10,9 +10,10 @@ import AvatarProfesional from '../../components/AvatarProfesional.jsx'
 import useEquipo from '../../hooks/useEquipo.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { cargarImagen, pesoKb } from '../../imagenes.js'
-import { diasAbiertos } from '../../horarios.js'
+import { bloqueDeDia, diasAbiertos, formatoHora12 } from '../../horarios.js'
 import {
-  CARGOS_SUGERIDOS, DIAS_SEMANA, MAX_CARGO, MAX_EQUIPO, MAX_NOMBRE_PROFESIONAL, resumenDias,
+  CARGOS_SUGERIDOS, DIAS_SEMANA, MAX_CARGO, MAX_EQUIPO, MAX_NOMBRE_PROFESIONAL,
+  horarioDe, resumenDias, resumenHorario, tieneHorarioPorDia, textoRango,
 } from '../../equipo.js'
 
 // Panel del negocio → "Equipo": las personas que atienden, con su foto (o
@@ -20,6 +21,9 @@ import {
 // menos una persona activa, el cliente elige con quién reservar y cada
 // persona tiene su propia agenda (NegocioDetalle.jsx, turnosOcupados.js).
 // Pausar a alguien (vacaciones) lo oculta al reservar sin borrar sus citas.
+// Cada persona atiende en el horario del negocio o en uno propio (hora de
+// entrada y salida), que puede cambiar en días puntuales; al reservar solo
+// se ofrecen los turnos dentro de su horario.
 
 const MAX_FOTO_KB = 140 // mismo tope que el logo en firestore.rules
 
@@ -64,6 +68,7 @@ export default function OwnerEquipo() {
         <FormularioProfesional
           uid={uid}
           profesional={editando === 'nuevo' ? null : editando}
+          horariosNegocio={negocio.horarios}
           diasPorDefecto={abiertos}
           diasAbiertos={abiertos}
           isMobile={isMobile}
@@ -143,9 +148,21 @@ function TarjetaProfesional({ profesional, uid, onEditar, onEliminar }) {
           {profesional.cargo || 'Sin cargo'} · {resumenDias(profesional.dias)}
         </div>
         <div className="equipo-dias" aria-label={`Trabaja: ${resumenDias(profesional.dias)}`}>
-          {DIAS_SEMANA.map((d) => (
-            <span key={d.dia} className={dias.has(d.dia) ? 'on' : ''} title={d.nombre}>{d.corto}</span>
-          ))}
+          {DIAS_SEMANA.map((d) => {
+            const propio = dias.has(d.dia) && horarioDe(profesional, d.dia)
+            return (
+              <span
+                key={d.dia}
+                className={dias.has(d.dia) ? 'on' : ''}
+                title={dias.has(d.dia) ? `${d.nombre}: ${propio ? textoRango(propio) : 'horario del negocio'}` : `${d.nombre}: no trabaja`}
+              >
+                {d.corto}
+              </span>
+            )
+          })}
+        </div>
+        <div className="equipo-horario">
+          <Icon name="clock" size={13} /> {resumenHorario(profesional)}
         </div>
       </div>
       <div className="equipo-acciones">
@@ -167,10 +184,23 @@ function TarjetaProfesional({ profesional, uid, onEditar, onEliminar }) {
   )
 }
 
-function FormularioProfesional({ uid, profesional, diasPorDefecto, diasAbiertos: abiertos, isMobile, onListo }) {
+// Horario que se propone al activar "Horario propio": el del primer día que
+// abre el negocio, o 9:00 a 6:00 si no tiene horario publicado.
+function horarioSugerido(horariosNegocio, abiertos) {
+  const bloque = abiertos.length ? bloqueDeDia(horariosNegocio, abiertos[0]) : null
+  return { inicio: bloque?.apertura || '09:00', fin: bloque?.cierre || '18:00' }
+}
+
+function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefecto, diasAbiertos: abiertos, isMobile, onListo }) {
   const [nombre, setNombre] = useState(profesional?.nombre || '')
   const [cargo, setCargo] = useState(profesional?.cargo || '')
   const [dias, setDias] = useState(() => new Set(profesional?.dias || diasPorDefecto))
+  // Horario: el del negocio, o uno propio (entrada y salida) que se puede
+  // cambiar en días puntuales (horariosDia).
+  const [horarioPropio, setHorarioPropio] = useState(() => !!(horarioDe(profesional) || tieneHorarioPorDia(profesional)))
+  const [horario, setHorario] = useState(() => horarioDe(profesional) || horarioSugerido(horariosNegocio, abiertos))
+  const [porDia, setPorDia] = useState(() => tieneHorarioPorDia(profesional))
+  const [horariosDia, setHorariosDia] = useState(() => ({ ...(profesional?.horariosDia || {}) }))
   const [foto, setFoto] = useState(profesional?.foto || null)
   const [imagen, setImagen] = useState(null) // imagen recién elegida, para recortar
   const [guardando, setGuardando] = useState(false)
@@ -213,6 +243,13 @@ function FormularioProfesional({ uid, profesional, diasPorDefecto, diasAbiertos:
     descartarImagen()
   }
 
+  // Horario de un día en el formulario: el suyo si lo cambió, o el general.
+  const horarioDelDia = (dia) => horariosDia[dia] || horario
+
+  function cambiarHorarioDia(dia, campo, valor) {
+    setHorariosDia((prev) => ({ ...prev, [dia]: { ...horarioDelDia(dia), [campo]: valor } }))
+  }
+
   async function guardar(e) {
     e.preventDefault()
     const limpio = nombre.trim().replace(/\s+/g, ' ')
@@ -224,24 +261,45 @@ function FormularioProfesional({ uid, profesional, diasPorDefecto, diasAbiertos:
       setError('Marca al menos un día de trabajo.')
       return
     }
+    const diasOrdenados = DIAS_SEMANA.map((d) => d.dia).filter((d) => dias.has(d))
+    // Solo se guardan los días con un horario distinto al general.
+    const excepciones = {}
+    if (horarioPropio && porDia) {
+      diasOrdenados.forEach((d) => {
+        const h = horariosDia[d]
+        if (h && (h.inicio !== horario.inicio || h.fin !== horario.fin)) excepciones[String(d)] = { inicio: h.inicio, fin: h.fin }
+      })
+    }
+    if (horarioPropio) {
+      const rangos = [horario, ...Object.values(excepciones)]
+      if (rangos.some((h) => !h.inicio || !h.fin || h.inicio >= h.fin)) {
+        setError('Revisa el horario: la hora de salida tiene que ser después de la de entrada.')
+        return
+      }
+    }
     setError('')
     setGuardando(true)
     const datos = {
       nombre: limpio,
       cargo: cargo.trim(),
-      dias: DIAS_SEMANA.map((d) => d.dia).filter((d) => dias.has(d)),
+      dias: diasOrdenados,
     }
+    const conExcepciones = Object.keys(excepciones).length > 0
     try {
       if (profesional) {
         await updateDoc(doc(db, 'negocios', uid, 'profesionales', profesional.id), {
           ...datos,
           foto: foto || deleteField(),
+          horario: horarioPropio ? { inicio: horario.inicio, fin: horario.fin } : deleteField(),
+          horariosDia: conExcepciones ? excepciones : deleteField(),
         })
       } else {
         await addDoc(collection(db, 'negocios', uid, 'profesionales'), {
           ...datos,
           activo: true,
           ...(foto ? { foto } : {}),
+          ...(horarioPropio ? { horario: { inicio: horario.inicio, fin: horario.fin } } : {}),
+          ...(conExcepciones ? { horariosDia: excepciones } : {}),
           creadoEn: serverTimestamp(),
         })
       }
@@ -334,8 +392,65 @@ function FormularioProfesional({ uid, profesional, diasPorDefecto, diasAbiertos:
                 })}
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 6 }}>
-                {resumenDias([...dias])}. Atiende en el horario de tu negocio; los días que el negocio no abre no se ofrecen.
+                {resumenDias([...dias])}. Los días que tu negocio no abre no se ofrecen al reservar.
               </div>
+            </div>
+
+            <div>
+              <span className="equipo-etiqueta">Horario</span>
+              <div className="equipo-segmentado" role="radiogroup" aria-label="Horario de la persona">
+                <button type="button" role="radio" aria-checked={!horarioPropio} className={!horarioPropio ? 'on' : ''} onClick={() => setHorarioPropio(false)}>
+                  Igual que el negocio
+                </button>
+                <button type="button" role="radio" aria-checked={horarioPropio} className={horarioPropio ? 'on' : ''} onClick={() => setHorarioPropio(true)}>
+                  Horario propio
+                </button>
+              </div>
+
+              {horarioPropio && (
+                <div className="equipo-horario-editor">
+                  <div className="equipo-horas">
+                    <label>
+                      <span>Entra</span>
+                      <input type="time" step={1200} value={horario.inicio} onChange={(e) => setHorario((h) => ({ ...h, inicio: e.target.value }))} />
+                    </label>
+                    <span className="equipo-horas__guion" aria-hidden="true">–</span>
+                    <label>
+                      <span>Sale</span>
+                      <input type="time" step={1200} value={horario.fin} onChange={(e) => setHorario((h) => ({ ...h, fin: e.target.value }))} />
+                    </label>
+                  </div>
+
+                  <label className="equipo-check">
+                    <input type="checkbox" checked={porDia} onChange={(e) => setPorDia(e.target.checked)} />
+                    <span>Algún día tiene otro horario</span>
+                  </label>
+
+                  {porDia && (
+                    <div className="equipo-dias-horario">
+                      {DIAS_SEMANA.filter((d) => dias.has(d.dia)).map((d) => {
+                        const h = horarioDelDia(d.dia)
+                        const bloque = bloqueDeDia(horariosNegocio, d.dia)
+                        const distinto = h.inicio !== horario.inicio || h.fin !== horario.fin
+                        return (
+                          <div key={d.dia} className={`equipo-dia-fila${distinto ? ' distinto' : ''}`}>
+                            <span className="equipo-dia-fila__nombre">{d.nombre}</span>
+                            <input type="time" step={1200} value={h.inicio} onChange={(e) => cambiarHorarioDia(d.dia, 'inicio', e.target.value)} aria-label={`${d.nombre}: entra`} />
+                            <span aria-hidden="true">–</span>
+                            <input type="time" step={1200} value={h.fin} onChange={(e) => cambiarHorarioDia(d.dia, 'fin', e.target.value)} aria-label={`${d.nombre}: sale`} />
+                            <span className="equipo-dia-fila__negocio">
+                              {bloque ? `Negocio: ${formatoHora12(bloque.apertura)} – ${formatoHora12(bloque.cierre)}` : 'El negocio no abre'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 8 }}>
+                    Solo se le reservan turnos dentro de este horario y del horario del negocio.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
