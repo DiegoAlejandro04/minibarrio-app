@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 import { deleteDoc, deleteField, doc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
@@ -7,6 +7,9 @@ import RecorteImagen from '../../components/RecorteImagen.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { cargarImagen, pesoKb } from '../../imagenes.js'
 import { METODOS_PAGO, MAX_USUARIO_RED, limpiarUsuarioRed } from '../../perfilNegocio.js'
+import FotoNegocio from '../../components/FotoNegocio.jsx'
+import { estadoApertura } from '../../horarios.js'
+import { acortarDireccion } from '../../maps/osm.js'
 
 // Identidad del negocio: logo, foto de portada, métodos de pago y redes. Lo
 // que se configura aquí se ve en el mapa, en las tarjetas de la vitrina y en
@@ -22,12 +25,14 @@ import { METODOS_PAGO, MAX_USUARIO_RED, limpiarUsuarioRed } from '../../perfilNe
 const MAX_LOGO_KB = 140
 const MAX_PORTADA_KB = 650
 
+const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
+
 function iniciales(nombre) {
   return (nombre || '?').trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('')
 }
 
 export default function OwnerIdentidad() {
-  const { negocio, uid, portada } = useOutletContext()
+  const { negocio, uid, portada, servicios } = useOutletContext()
   const isMobile = useIsMobile()
 
   return (
@@ -37,6 +42,7 @@ export default function OwnerIdentidad() {
         Así te reconocen los clientes en el mapa, en la vitrina y en tu portafolio.
       </p>
 
+      <VistaPrevia negocio={negocio} servicios={servicios} uid={uid} isMobile={isMobile} />
       <SeccionLogo negocio={negocio} uid={uid} />
       <SeccionPortada uid={uid} portada={portada} isMobile={isMobile} />
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
@@ -44,6 +50,84 @@ export default function OwnerIdentidad() {
         <SeccionRedes negocio={negocio} uid={uid} />
       </div>
     </div>
+  )
+}
+
+// "Así te ven los clientes": el pin del mapa y la tarjeta de la vitrina con
+// los datos guardados del negocio, dibujados con los mismos estilos que en
+// ClientHome.jsx (.pin-negocio, .tarjeta-negocio). Se actualiza sola al
+// guardar un logo o una foto, porque el negocio llega en tiempo real
+// (OwnerLayout.jsx).
+function VistaPrevia({ negocio, servicios = [], uid, isMobile }) {
+  const estado = estadoApertura(negocio.horarios)
+  const abierto = estado === 'abierto' || estado === 'cierra-pronto'
+  const precios = servicios.filter((s) => s.visible !== false).map((s) => s.precio || 0)
+  const precioDesde = precios.length ? Math.min(...precios) : null
+  const fotoPin = negocio.logo || negocio.miniatura || negocio.fotos?.[0]
+
+  return (
+    <section className="card" style={{ padding: 20, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="eye" size={17} /> Así te ven los clientes
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.45 }}>
+            Tu pin en el mapa y tu tarjeta en la vitrina. Cambian al guardar tu logo o tus fotos.
+          </div>
+        </div>
+        <Link to={`/negocio/${uid}`} className="vista-previa__enlace">
+          Ver portafolio completo <Icon name="chevronRight" size={15} />
+        </Link>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.15fr', gap: 14, marginTop: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="vista-previa__etiqueta">En el mapa</div>
+          <div className="vista-previa__mapa" aria-hidden="true">
+            <div className="vista-previa__pin">
+              <div className="pin-negocio pin-negocio--destacado">
+                <div className="pin-negocio__burbuja">
+                  {fotoPin
+                    ? <img src={fotoPin} alt="" />
+                    : <span className="pin-negocio__iniciales">{iniciales(negocio.nombre)}</span>}
+                </div>
+                {abierto && <span className="pin-negocio__abierto" />}
+              </div>
+              <span className="vista-previa__nombre-pin">{negocio.nombre}</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="vista-previa__etiqueta">En la vitrina</div>
+          <div className="card tarjeta-negocio" style={{ overflow: 'hidden', pointerEvents: 'none' }} aria-hidden="true">
+            <FotoNegocio negocio={negocio} estado={estado} alto={118} />
+            <div className="tarjeta-negocio__cuerpo" style={{ padding: 14 }}>
+              <div style={{ fontWeight: 800, fontSize: 14.5 }}>{negocio.nombre}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {negocio.descripcion || negocio.categoria}
+              </div>
+              {negocio.direccion && (
+                <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {acortarDireccion(negocio.direccion)}
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, gap: 8 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+                  {precioDesde != null ? `Desde ${COP.format(precioDesde)}` : 'Consulta precios'}
+                </span>
+                {negocio.especialidades?.[0] && (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
+                    {negocio.especialidades[0]}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 

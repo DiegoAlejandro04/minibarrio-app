@@ -354,13 +354,32 @@ export default function NegocioDetalle() {
   const tiktok = negocio.canalesContacto?.tiktok
   const metodosPago = negocio.metodosPago || []
 
+  // El dueño viendo su propio portafolio (botón "Ver como cliente" del
+  // panel): una franja arriba le recuerda que es la vista pública y lo
+  // devuelve al panel.
+  const esMiNegocio = !!currentUser && currentUser.uid === id
+
   return (
     <div className="vitrina">
       {/* Manchas de color de fondo para el cristal (ver .vitrina en index.css). */}
       <div className="vitrina-fondo" aria-hidden="true"><span /><span /><span /><span /></div>
+      {esMiNegocio && (
+        <div className="franja-vista-cliente" role="status">
+          <span className="franja-vista-cliente__icono" aria-hidden="true"><Icon name="eye" size={16} /></span>
+          <span className="franja-vista-cliente__texto">
+            <strong>Vista de cliente</strong>
+            <span> · Así ven tu negocio los clientes</span>
+          </span>
+          <Link to="/panel" className="franja-vista-cliente__volver">
+            <Icon name="arrowLeft" size={15} /> Volver al panel
+          </Link>
+        </div>
+      )}
       <div className="vitrina-portada" style={{ padding: isMobile ? '18px 16px 20px' : '24px 32px 28px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <Link to="/" className="vitrina-volver">← Volver a la vitrina</Link>
+          {/* En la vista de cliente del dueño sobra: ya tiene "Volver al panel"
+              en la franja de arriba. */}
+          {!esMiNegocio && <Link to="/" className="vitrina-volver">← Volver a la vitrina</Link>}
 
           {portada ? (
             <div style={{ position: 'relative', marginTop: 14 }}>

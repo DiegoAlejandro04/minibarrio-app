@@ -6,6 +6,7 @@ import { db } from '../../firebase/config'
 import PanelConMenu from '../../components/PanelConMenu.jsx'
 import CampanaNotificaciones from '../../components/CampanaNotificaciones.jsx'
 import Splash from '../../components/Splash.jsx'
+import Icon from '../../components/Icon.jsx'
 import { pasosPerfil } from '../../perfilNegocio.js'
 import { crearAvisoPropio } from '../../notificaciones.js'
 import useNotificaciones from '../../hooks/useNotificaciones.js'
@@ -153,8 +154,18 @@ export default function OwnerLayout() {
       grupos={GRUPOS_NAV}
       claveColapsado="minibarrio:panelColapsado"
       onSalir={handleLogout}
-      // La campana queda arriba a la derecha en todas las secciones del panel.
-      acciones={<CampanaNotificaciones uid={uid} notificaciones={notificaciones} sinLeer={sinLeer} />}
+      // Arriba a la derecha en todas las secciones del panel: "Ver como
+      // cliente" (abre el portafolio público, con la franja de vista previa
+      // de NegocioDetalle.jsx) y la campana.
+      acciones={(
+        <>
+          <Link to={`/negocio/${uid}`} className="boton-ver-cliente" title="Ver tu portafolio como lo ven los clientes">
+            <Icon name="eye" size={17} />
+            <span>Ver como cliente</span>
+          </Link>
+          <CampanaNotificaciones uid={uid} notificaciones={notificaciones} sinLeer={sinLeer} />
+        </>
+      )}
       pie={({ colapsado, alNavegar }) => (
         colapsado ? (
           <Link
