@@ -3,10 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { collection, collectionGroup, onSnapshot, query, where } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { db } from '../../firebase/config'
-import {
-  L, geocodeDireccion, acortarDireccion, CENTRO_BRITALIA, crearCapaTiles,
-  crearIconoNegocio, crearIconoGrupo, crearIconoUsuario, crearMapa,
-} from '../../maps/osm.js'
+// El mapa (Leaflet, maps/osm.js) se descarga aparte, después de mostrar la
+// página (ver "osm" más abajo): es la librería más pesada de la vitrina y no
+// hace falta para ver el contenido principal.
+import { geocodeDireccion, acortarDireccion, CENTRO_BRITALIA } from '../../maps/direcciones.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { recomendar, distanciaKm } from '../../recomendador.js'
 import { ESPECIALIDADES } from '../../especialidades.js'
@@ -279,9 +279,42 @@ export default function ClientHome() {
   const primerEncuadreHechoRef = useRef(false)
   const [mapError, setMapError] = useState(false)
 
+  // Módulo del mapa (Leaflet), cargado con import() dinámico cuando el
+  // navegador queda desocupado después del primer dibujo (requestIdleCallback):
+  // así ni Leaflet ni la imagen fija compiten con el contenido principal, y
+  // no inflan el LCP del celular.
+  const [osm, setOsm] = useState(null)
+  const osmRef = useRef(null)
+  useEffect(() => {
+    let vivo = true
+    const cargar = () => {
+      if (!vivo) return
+      import('../../maps/osm.js')
+        .then((modulo) => {
+          if (!vivo) return
+          osmRef.current = modulo
+          setOsm(modulo)
+        })
+        .catch((err) => {
+          if (vivo) setMapError(true)
+          // eslint-disable-next-line no-console
+          console.error(err)
+        })
+    }
+    // Safari no tiene requestIdleCallback: ahí, un momento después.
+    const conIdle = typeof window.requestIdleCallback === 'function'
+    const id = conIdle ? window.requestIdleCallback(cargar, { timeout: 1500 }) : setTimeout(cargar, 300)
+    return () => {
+      vivo = false
+      if (conIdle) window.cancelIdleCallback(id)
+      else clearTimeout(id)
+    }
+  }, [])
+
   useEffect(() => {
     let cancelado = false
-    if (!mapDivRef.current) return undefined
+    if (!osm || !mapDivRef.current) return undefined
+    const { L, crearMapa, crearCapaTiles, crearIconoGrupo, crearIconoNegocio } = osm
 
     try {
       if (!mapRef.current) {
@@ -368,7 +401,7 @@ export default function ClientHome() {
     }
 
     return () => { cancelado = true }
-  }, [negociosConDatos, navigate])
+  }, [osm, negociosConDatos, navigate])
 
   // El negocio de la tarjeta de abajo del mapa (el primero que recomienda el
   // motor) se ve más grande y con anillo de acento, para que la tarjeta y su
@@ -384,7 +417,8 @@ export default function ClientHome() {
   // Encuadra los negocios y, si el cliente compartió su ubicación, a él con
   // los negocios más cercanos: lo que importa es ver qué queda cerca de uno.
   function encuadrar({ animar = true } = {}) {
-    if (!mapRef.current) return
+    const L = osmRef.current?.L
+    if (!mapRef.current || !L) return
     const usuario = ubicacionEncuadreRef.current
     let coords = puntosRef.current.map((p) => [p.posicion.lat, p.posicion.lng])
     if (usuario) {
@@ -435,11 +469,12 @@ export default function ClientHome() {
   // ubicación" (nunca se pide sola, ver arriba).
   useEffect(() => {
     ubicacionEncuadreRef.current = ubicacionCliente && !problemaUbicacion ? ubicacionCliente : null
-    if (!mapRef.current) return
+    if (!mapRef.current || !osm) return
     usuarioCapaRef.current?.remove()
     usuarioCapaRef.current = null
     if (!ubicacionCliente) return
 
+    const { L, crearIconoUsuario } = osm
     const capa = L.layerGroup()
     const centro = [ubicacionCliente.lat, ubicacionCliente.lng]
     // Halo de precisión, como en Google Maps: dice "estás por aquí" en vez
@@ -460,7 +495,7 @@ export default function ClientHome() {
     }).addTo(capa)
     usuarioCapaRef.current = capa.addTo(mapRef.current)
     encuadrar()
-  }, [ubicacionCliente, precisionUbicacion, problemaUbicacion])
+  }, [osm, ubicacionCliente, precisionUbicacion, problemaUbicacion])
 
   // Leaflet mide su contenedor una sola vez, al crearse. Si el layout
   // (grid de dos columnas, fuentes que todavía cargan) termina de acomodarse

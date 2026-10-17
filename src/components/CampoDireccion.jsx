@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { buscarSugerenciasDireccion } from '../maps/osm.js'
+import { buscarSugerenciasDireccion } from '../maps/direcciones.js'
 
 // Input de dirección con autocompletado de Nominatim/OpenStreetMap: mientras
 // se escribe, sugiere direcciones reales de Bogotá para elegir, en vez de

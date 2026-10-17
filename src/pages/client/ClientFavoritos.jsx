@@ -1,7 +1,7 @@
 import { Link, useOutletContext } from 'react-router-dom'
 import Icon from '../../components/Icon.jsx'
 import FotoNegocio from '../../components/FotoNegocio.jsx'
-import { acortarDireccion } from '../../maps/osm.js'
+import { acortarDireccion } from '../../maps/direcciones.js'
 import { estadoApertura } from '../../horarios.js'
 
 export default function ClientFavoritos() {

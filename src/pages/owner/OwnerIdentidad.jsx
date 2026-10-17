@@ -9,7 +9,7 @@ import { cargarImagen, pesoKb } from '../../imagenes.js'
 import { METODOS_PAGO, MAX_USUARIO_RED, limpiarUsuarioRed } from '../../perfilNegocio.js'
 import FotoNegocio from '../../components/FotoNegocio.jsx'
 import { estadoApertura } from '../../horarios.js'
-import { acortarDireccion } from '../../maps/osm.js'
+import { acortarDireccion } from '../../maps/direcciones.js'
 
 // Identidad del negocio: logo, foto de portada, métodos de pago y redes. Lo
 // que se configura aquí se ve en el mapa, en las tarjetas de la vitrina y en

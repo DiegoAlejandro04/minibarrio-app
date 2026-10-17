@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import Icon from './Icon.jsx'
 import useIsMobile from '../hooks/useIsMobile.js'
@@ -131,7 +131,12 @@ export default function PanelConMenu({ grupos, claveColapsado, reemplazar = fals
 
       <main className="panel-contenido vitrina">
         {acciones && <div className="panel-acciones">{acciones}</div>}
-        {children}
+        {/* Cada sección del panel se descarga aparte (React.lazy en App.jsx):
+            mientras llega, solo el contenido queda vacío un instante; el
+            menú lateral no desaparece. */}
+        <Suspense fallback={<div className="panel-cargando" aria-busy="true" />}>
+          {children}
+        </Suspense>
       </main>
     </div>
   )

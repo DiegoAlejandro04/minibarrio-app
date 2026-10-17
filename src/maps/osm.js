@@ -28,6 +28,12 @@ import 'leaflet.markercluster'
 
 export { L }
 
+// Las funciones de direcciones viven en direcciones.js (sin Leaflet); se
+// reexportan para quien ya usa el mapa.
+export {
+  CENTRO_BRITALIA, acortarDireccion, geocodeDireccion, buscarSugerenciasDireccion, reverseGeocodeDireccion,
+} from './direcciones.js'
+
 /**
  * Marcador de negocio para el mapa de la vitrina: la primera foto del
  * portafolio en un círculo con punta, o las iniciales del negocio si no hay
@@ -88,18 +94,38 @@ export function crearIconoUsuario() {
   return L.divIcon({ html: raiz, className: '', iconSize: [18, 18], iconAnchor: [9, 9] })
 }
 
-// Centro aproximado de Britalia, Kennedy — único barrio donde opera este
-// prototipo (ver ClientHome.jsx). Se usa como punto de partida del mapa de
-// ubicación cuando un negocio todavía no tiene coordenadas guardadas.
-export const CENTRO_BRITALIA = { lat: 4.628, lng: -74.172 }
 
 // Tiles estándar de OpenStreetMap — no hay una fuente de tiles oscuros
 // realmente gratis y sin API key (CARTO, que sí la ofrecía, ahora la exige).
 // El modo oscuro del mapa se logra aparte con un filtro CSS sobre estos
 // mismos tiles (ver ".leaflet-tile-pane" en index.css), no cambiando de
 // servidor.
+//
+// Cada cuadro se dibuja en un <canvas> en vez de un <img>: se ve igual, pero
+// el navegador no cuenta un canvas como "contenido más grande" (LCP). Con
+// <img>, en el celular el LCP era un cuadro del mapa — lo último en llegar —
+// y la vitrina medía ~7-9 s en Lighthouse. OpenStreetMap permite dibujar sus
+// cuadros en canvas (responde con CORS abierto).
+const CapaCuadrosCanvas = L.GridLayer.extend({
+  createTile(coords, listo) {
+    const lienzo = document.createElement('canvas')
+    const tamano = this.getTileSize()
+    lienzo.width = tamano.x
+    lienzo.height = tamano.y
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      lienzo.getContext('2d').drawImage(img, 0, 0, tamano.x, tamano.y)
+      listo(null, lienzo)
+    }
+    img.onerror = (err) => listo(err, lienzo)
+    img.src = `https://tile.openstreetmap.org/${coords.z}/${coords.x}/${coords.y}.png`
+    return lienzo
+  },
+})
+
 export function crearCapaTiles() {
-  return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  return new CapaCuadrosCanvas({
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 19,
   })
@@ -116,69 +142,4 @@ export function crearMapa(div, opciones = {}) {
   const mapa = L.map(div, { zoomControl: true, attributionControl: false, ...opciones })
   L.control.attribution({ prefix: false, position: 'topleft' }).addTo(mapa)
   return mapa
-}
-
-const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search'
-const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
-
-async function buscarNominatim(texto, limite) {
-  const url = `${NOMINATIM_SEARCH_URL}?format=json&limit=${limite}&countrycodes=co&q=${encodeURIComponent(`${texto}, Bogotá, Colombia`)}`
-  const resp = await fetch(url, { headers: { Accept: 'application/json' } })
-  if (!resp.ok) throw new Error(`Nominatim respondió ${resp.status}`)
-  return resp.json()
-}
-
-// Nominatim devuelve la jerarquía administrativa completa (calle, barrio,
-// UPZ, localidad, ciudad, departamento, código postal, país...). Para un
-// campo de formulario eso es ilegible — solo interesan los primeros
-// componentes útiles, descartando las etiquetas genéricas de relleno.
-const SEGMENTOS_GENERICOS = /^(upzs? de .+|bogot[áa] ciudad|distrito capital|rap \(especial\) central|colombia)$/i
-
-/**
- * Recorta una dirección a sus primeros componentes útiles (calle + barrio),
- * descartando jerarquía administrativa de relleno. Se usa tanto al guardar
- * (autocompletado y pin, ver abajo) como al mostrar en espacios compactos —
- * ahí sirve además de respaldo para direcciones largas guardadas antes de
- * este recorte, o escritas a mano con ese mismo estilo verboso.
- */
-export function acortarDireccion(displayName) {
-  const partes = displayName
-    .split(',')
-    .map((p) => p.trim())
-    .filter((p) => p && !/^\d+$/.test(p) && !SEGMENTOS_GENERICOS.test(p))
-  return partes.slice(0, 2).join(', ') || displayName
-}
-
-/** Geocodifica una dirección de texto a { lat, lng }. */
-export async function geocodeDireccion(direccion) {
-  const resultados = await buscarNominatim(direccion, 1)
-  if (!resultados.length) throw new Error('No se pudo geocodificar la dirección.')
-  return { lat: Number(resultados[0].lat), lng: Number(resultados[0].lon) }
-}
-
-/**
- * Sugerencias de direcciones para autocompletado: [{ label, direccion, lat,
- * lng }]. `label` es el texto completo (sirve para diferenciar sugerencias
- * parecidas en el dropdown); `direccion` es la versión corta que se guarda y
- * se muestra en el campo una vez elegida.
- */
-export async function buscarSugerenciasDireccion(texto) {
-  if (!texto || texto.trim().length < 3) return []
-  const resultados = await buscarNominatim(texto, 5)
-  return resultados.map((r) => ({
-    label: r.display_name,
-    direccion: acortarDireccion(r.display_name),
-    lat: Number(r.lat),
-    lng: Number(r.lon),
-  }))
-}
-
-/** Geocodificación inversa: de { lat, lng } a una dirección en texto (corta). */
-export async function reverseGeocodeDireccion({ lat, lng }) {
-  const url = `${NOMINATIM_REVERSE_URL}?format=json&lat=${lat}&lon=${lng}`
-  const resp = await fetch(url, { headers: { Accept: 'application/json' } })
-  if (!resp.ok) throw new Error(`Nominatim respondió ${resp.status}`)
-  const resultado = await resp.json()
-  if (!resultado?.display_name) throw new Error('No se pudo obtener la dirección de ese punto.')
-  return acortarDireccion(resultado.display_name)
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { acortarDireccion } from '../maps/osm.js'
+import { acortarDireccion } from '../maps/direcciones.js'
 import { codigoReserva } from '../reservas.js'
 
 // Comprobante de reserva con animación de "impresora de recibos": aparece

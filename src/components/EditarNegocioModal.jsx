@@ -7,7 +7,7 @@ import ToggleIOS from './ToggleIOS.jsx'
 import CampoDireccion from './CampoDireccion.jsx'
 import MapaUbicacion from './MapaUbicacion.jsx'
 import useIsMobile from '../hooks/useIsMobile.js'
-import { geocodeDireccion } from '../maps/osm.js'
+import { geocodeDireccion } from '../maps/direcciones.js'
 import { DIAS_ENTRE_SEMANA, DIAS_ESPECIALES, HORARIO_INICIAL, bloqueGuardado } from '../horarios.js'
 
 // Modal de edición de la información pública del negocio (RF-06/RF-11):

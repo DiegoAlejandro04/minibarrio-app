@@ -1,31 +1,36 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import Splash from './components/Splash.jsx'
-import Acceso from './pages/Acceso.jsx'
-import RegisterBusiness from './pages/RegisterBusiness.jsx'
 import ClientHome from './pages/client/ClientHome.jsx'
-import NegocioDetalle from './pages/client/NegocioDetalle.jsx'
-import ClientLayout from './pages/client/ClientLayout.jsx'
-import ClientResumen from './pages/client/ClientResumen.jsx'
-import ClientCitas from './pages/client/ClientCitas.jsx'
-import ClientFavoritos from './pages/client/ClientFavoritos.jsx'
-import ClientResenas from './pages/client/ClientResenas.jsx'
-import ClientDatosPersonales from './pages/client/ClientDatosPersonales.jsx'
-import ClientConfiguracion from './pages/client/ClientConfiguracion.jsx'
-import OwnerLayout from './pages/owner/OwnerLayout.jsx'
-import OwnerResumen from './pages/owner/OwnerResumen.jsx'
-import OwnerAgenda from './pages/owner/OwnerAgenda.jsx'
-import OwnerServicios from './pages/owner/OwnerServicios.jsx'
-import OwnerEquipo from './pages/owner/OwnerEquipo.jsx'
-import OwnerPortafolio from './pages/owner/OwnerPortafolio.jsx'
-import OwnerIdentidad from './pages/owner/OwnerIdentidad.jsx'
-import OwnerClientes from './pages/owner/OwnerClientes.jsx'
-import OwnerResenas from './pages/owner/OwnerResenas.jsx'
-import OwnerConfiguracion from './pages/owner/OwnerConfiguracion.jsx'
-import ClientNotificaciones from './pages/client/ClientNotificaciones.jsx'
-import NotFound from './pages/NotFound.jsx'
+
+// División del código: cada página de abajo se descarga solo cuando se entra
+// a ella (React.lazy). Así el primer arranque, casi siempre en la vitrina,
+// no carga el login, los registros ni los paneles. Mientras llega una, se ve
+// el splash (ver <Suspense> abajo).
+const Acceso = lazy(() => import('./pages/Acceso.jsx'))
+const RegisterBusiness = lazy(() => import('./pages/RegisterBusiness.jsx'))
+const NegocioDetalle = lazy(() => import('./pages/client/NegocioDetalle.jsx'))
+const ClientLayout = lazy(() => import('./pages/client/ClientLayout.jsx'))
+const ClientResumen = lazy(() => import('./pages/client/ClientResumen.jsx'))
+const ClientCitas = lazy(() => import('./pages/client/ClientCitas.jsx'))
+const ClientFavoritos = lazy(() => import('./pages/client/ClientFavoritos.jsx'))
+const ClientResenas = lazy(() => import('./pages/client/ClientResenas.jsx'))
+const ClientDatosPersonales = lazy(() => import('./pages/client/ClientDatosPersonales.jsx'))
+const ClientConfiguracion = lazy(() => import('./pages/client/ClientConfiguracion.jsx'))
+const OwnerLayout = lazy(() => import('./pages/owner/OwnerLayout.jsx'))
+const OwnerResumen = lazy(() => import('./pages/owner/OwnerResumen.jsx'))
+const OwnerAgenda = lazy(() => import('./pages/owner/OwnerAgenda.jsx'))
+const OwnerServicios = lazy(() => import('./pages/owner/OwnerServicios.jsx'))
+const OwnerEquipo = lazy(() => import('./pages/owner/OwnerEquipo.jsx'))
+const OwnerPortafolio = lazy(() => import('./pages/owner/OwnerPortafolio.jsx'))
+const OwnerIdentidad = lazy(() => import('./pages/owner/OwnerIdentidad.jsx'))
+const OwnerClientes = lazy(() => import('./pages/owner/OwnerClientes.jsx'))
+const OwnerResenas = lazy(() => import('./pages/owner/OwnerResenas.jsx'))
+const OwnerConfiguracion = lazy(() => import('./pages/owner/OwnerConfiguracion.jsx'))
+const ClientNotificaciones = lazy(() => import('./pages/client/ClientNotificaciones.jsx'))
+const NotFound = lazy(() => import('./pages/NotFound.jsx'))
 // Página inactiva a futuro (enlaces de los correos de Firebase con diseño
 // propio). Ver el encabezado de AccionCuenta.jsx para saber cómo activarla.
 // import AccionCuenta from './pages/AccionCuenta.jsx'
@@ -40,6 +45,18 @@ const DURACION_SPLASH_MS = 900
 // página, entrar al panel del cliente desde fuera de él, o entrar al
 // portafolio público de un negocio. Moverse entre las secciones del propio
 // panel (Principal, Mis citas, Datos personales…) no lo muestra.
+// El splash animado del arranque se ve una sola vez por sesión del navegador
+// (pestaña): al recargar o volver después, solo se espera a la sesión.
+const CLAVE_SPLASH_VISTO = 'minibarrio:splashVisto'
+
+function splashYaVisto() {
+  try {
+    return sessionStorage.getItem(CLAVE_SPLASH_VISTO) === '1'
+  } catch {
+    return false
+  }
+}
+
 function muestraSplash(desde, hacia) {
   if (desde === hacia) return false
   if (hacia === '/') return true
@@ -93,19 +110,29 @@ export default function App() {
   // el splash solo se queda encima el tiempo justo para que su animación
   // termine, en vez de cortarse apenas los datos ya estén listos.
   //
-  // Se muestra completo también sin sesión: es la entrada de la marca para
-  // quien llega por primera vez, no solo una pantalla de espera.
-  const [splashInicial, setSplashInicial] = useState(true)
+  // Rendimiento en el celular: la animación corre MIENTRAS Firebase confirma
+  // la sesión (no después, como antes, que sumaba los dos tiempos), y solo la
+  // primera vez por sesión del navegador. Al recargar, el splash queda solo
+  // hasta saber si hay sesión, sin animar.
+  const [primeraVez] = useState(() => !splashYaVisto())
+  const [animacionLista, setAnimacionLista] = useState(!primeraVez)
   useEffect(() => {
-    if (!authReady) return undefined
-    const t = setTimeout(() => setSplashInicial(false), DURACION_SPLASH_MS)
+    if (!primeraVez) return undefined
+    try {
+      sessionStorage.setItem(CLAVE_SPLASH_VISTO, '1')
+    } catch {
+      // Sin almacenamiento: se anima cada vez, como antes.
+    }
+    const t = setTimeout(() => setAnimacionLista(true), DURACION_SPLASH_MS)
     return () => clearTimeout(t)
-  }, [authReady])
+  }, [primeraVez])
+  const splashInicial = !authReady || !animacionLista
 
   const mostrarSplash = splashInicial || splashNavegacion
 
   return (
     <>
+      <Suspense fallback={<Splash animar={false} />}>
       <Routes>
         {/* Rutas públicas */}
         {/* Inicio de sesión y registro de cliente: la misma tarjeta que gira (ver Acceso.jsx) */}
@@ -158,6 +185,7 @@ export default function App() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
 
       {/* Fondo opaco propio: el Splash entra con un fade desde transparente
           (".splash-arranque" en index.css) y, sin este fondo, durante ese
@@ -167,7 +195,8 @@ export default function App() {
         // zIndex por encima de todo lo de la página: controles de Leaflet
         // (hasta 1001) y el encabezado de la vitrina con su menú móvil (1100).
         <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'var(--bg)' }}>
-          <Splash />
+          {/* Animado la primera vez y al navegar; al recargar, quieto. */}
+          <Splash animar={primeraVez || splashNavegacion} />
         </div>
       )}
     </>
