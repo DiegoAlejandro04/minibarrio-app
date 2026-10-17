@@ -435,6 +435,9 @@ export default function NegocioDetalle() {
   const fotos = fotosPortafolio
   const servicioDe = (foto) => foto.servicioId && servicios.find((s) => s.id === foto.servicioId)
   const whatsapp = negocio.canalesContacto?.whatsapp
+  // Llamada (RF-11, tercer canal junto a la página y WhatsApp): el teléfono
+  // del negocio, o su WhatsApp si no registró otro.
+  const telefonoLlamada = (negocio.canalesContacto?.telefono || whatsapp || '').replace(/\D/g, '')
   const instagram = negocio.canalesContacto?.instagram
   const tiktok = negocio.canalesContacto?.tiktok
   const metodosPago = negocio.metodosPago || []
@@ -845,7 +848,8 @@ export default function NegocioDetalle() {
                       </span>
                     </div>
                   ))}
-                  {negocio.canalesContacto?.telefono && (
+                  {/* Como WhatsApp y Llamar: el teléfono solo con sesión iniciada. */}
+                  {negocio.canalesContacto?.telefono && currentUser && (
                     <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
                       {negocio.canalesContacto.telefono}
                     </div>
@@ -1061,27 +1065,40 @@ export default function NegocioDetalle() {
               : 'Confirmar cita'}
           </button>
 
-          {/* Por privacidad del negocio, su WhatsApp solo se abre con sesión iniciada. */}
-          {whatsapp && !currentUser && (
+          {/* Canales de contacto (RF-11): WhatsApp y llamada, uno al lado del
+              otro. Por privacidad del negocio, solo con sesión iniciada. */}
+          {(whatsapp || telefonoLlamada) && !currentUser && (
             <button
               type="button"
               disabled
               className="btn btn-outline"
               style={{ width: '100%', marginTop: 10, opacity: 0.5, cursor: 'not-allowed' }}
             >
-              Inicia sesión para escribir por WhatsApp
+              Inicia sesión para escribir o llamar al negocio
             </button>
           )}
-          {whatsapp && currentUser && (
-            <a
-              href={`https://wa.me/57${whatsapp.replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-outline"
-              style={{ width: '100%', marginTop: 10, display: 'block', textAlign: 'center' }}
-            >
-              Escribir por WhatsApp
-            </a>
+          {(whatsapp || telefonoLlamada) && currentUser && (
+            <div className="reserva-contacto">
+              {whatsapp && (
+                <a
+                  href={`https://wa.me/57${whatsapp.replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-outline reserva-contacto__boton whatsapp"
+                >
+                  <Icon name="chat" size={16} /> WhatsApp
+                </a>
+              )}
+              {telefonoLlamada && (
+                <a
+                  href={`tel:+57${telefonoLlamada}`}
+                  className="btn btn-outline reserva-contacto__boton llamar"
+                  title={`Llamar al ${telefonoLlamada}`}
+                >
+                  <Icon name="telefono" size={16} /> Llamar
+                </a>
+              )}
+            </div>
           )}
 
           <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 12, textAlign: 'center' }}>

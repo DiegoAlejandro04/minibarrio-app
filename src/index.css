@@ -4130,6 +4130,31 @@ option:disabled { color: var(--text-faint); }
    vacío del alto de la pantalla, para que el pie no salte hacia arriba. */
 .panel-cargando { min-height: 60vh; }
 
+/* WhatsApp y Llamar bajo "Confirmar cita" (NegocioDetalle.jsx). */
+.reserva-contacto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.reserva-contacto__boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.vitrina .reserva-contacto__boton.whatsapp:hover {
+  color: oklch(55% 0.15 150);
+  border-color: oklch(60% 0.15 150);
+  background: oklch(60% 0.15 150 / 0.1);
+}
+.vitrina .reserva-contacto__boton.llamar:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 10%, transparent);
+}
+
 /* Cita "En proceso" (OwnerAgenda.jsx): cronómetro con números de ancho fijo
    para que no "baile" al contar, y la franja azul con un punto que late. */
 .cronometro { font-variant-numeric: tabular-nums; }
