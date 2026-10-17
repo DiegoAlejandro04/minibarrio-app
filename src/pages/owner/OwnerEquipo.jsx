@@ -13,7 +13,7 @@ import { cargarImagen, pesoKb } from '../../imagenes.js'
 import { bloqueDeDia, diasAbiertos, formatoHora12 } from '../../horarios.js'
 import {
   CARGOS_SUGERIDOS, DIAS_SEMANA, MAX_CARGO, MAX_EQUIPO, MAX_NOMBRE_PROFESIONAL,
-  horarioDe, resumenDias, resumenHorario, tieneHorarioPorDia, textoRango,
+  almuerzoDe, horarioDe, resumenAlmuerzo, resumenDias, resumenHorario, tieneAlmuerzoPorDia, tieneHorarioPorDia, textoRango,
 } from '../../equipo.js'
 
 // Panel del negocio → "Equipo": las personas que atienden, con su foto (o
@@ -26,6 +26,7 @@ import {
 // se ofrecen los turnos dentro de su horario.
 
 const MAX_FOTO_KB = 140 // mismo tope que el logo en firestore.rules
+const ALMUERZO_SUGERIDO = { inicio: '12:00', fin: '13:00' }
 
 export default function OwnerEquipo() {
   const { negocio, uid } = useOutletContext()
@@ -164,6 +165,11 @@ function TarjetaProfesional({ profesional, uid, onEditar, onEliminar }) {
         <div className="equipo-horario">
           <Icon name="clock" size={13} /> {resumenHorario(profesional)}
         </div>
+        {resumenAlmuerzo(profesional) && (
+          <div className="equipo-horario equipo-horario--almuerzo">
+            <Icon name="almuerzo" size={13} /> {resumenAlmuerzo(profesional)}
+          </div>
+        )}
       </div>
       <div className="equipo-acciones">
         <ToggleIOS
@@ -194,6 +200,8 @@ function horarioSugerido(horariosNegocio, abiertos) {
 function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefecto, diasAbiertos: abiertos, isMobile, onListo }) {
   const [nombre, setNombre] = useState(profesional?.nombre || '')
   const [cargo, setCargo] = useState(profesional?.cargo || '')
+  // "Personalizado": un cargo que no está entre los sugeridos, escrito a mano.
+  const [cargoPropio, setCargoPropio] = useState(() => !!profesional?.cargo && !CARGOS_SUGERIDOS.includes(profesional.cargo))
   const [dias, setDias] = useState(() => new Set(profesional?.dias || diasPorDefecto))
   // Horario: el del negocio, o uno propio (entrada y salida) que se puede
   // cambiar en días puntuales (horariosDia).
@@ -201,6 +209,14 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
   const [horario, setHorario] = useState(() => horarioDe(profesional) || horarioSugerido(horariosNegocio, abiertos))
   const [porDia, setPorDia] = useState(() => tieneHorarioPorDia(profesional))
   const [horariosDia, setHorariosDia] = useState(() => ({ ...(profesional?.horariosDia || {}) }))
+  // Hora del almuerzo (opcional): la misma todos los días o distinta según
+  // el día. En ella no se le reservan turnos (ver almuerzoDe en equipo.js).
+  const [conAlmuerzo, setConAlmuerzo] = useState(() => !!(almuerzoDe(profesional) || tieneAlmuerzoPorDia(profesional)))
+  const [almuerzoPorDia, setAlmuerzoPorDia] = useState(() => tieneAlmuerzoPorDia(profesional))
+  const [almuerzo, setAlmuerzo] = useState(() => almuerzoDe(profesional)
+    || Object.values(profesional?.almuerzosDia || {})[0]
+    || ALMUERZO_SUGERIDO)
+  const [almuerzosDia, setAlmuerzosDia] = useState(() => ({ ...(profesional?.almuerzosDia || {}) }))
   const [foto, setFoto] = useState(profesional?.foto || null)
   const [imagen, setImagen] = useState(null) // imagen recién elegida, para recortar
   const [guardando, setGuardando] = useState(false)
@@ -250,6 +266,30 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
     setHorariosDia((prev) => ({ ...prev, [dia]: { ...horarioDelDia(dia), [campo]: valor } }))
   }
 
+  // Almuerzo de un día en el formulario: el suyo si lo cambió, o el general.
+  const almuerzoDelDia = (dia) => almuerzosDia[dia] || almuerzo
+
+  function cambiarAlmuerzoDia(dia, campo, valor) {
+    setAlmuerzosDia((prev) => ({ ...prev, [dia]: { ...almuerzoDelDia(dia), [campo]: valor } }))
+  }
+
+  // Horario en que trabaja ese día (para mostrarlo junto a su almuerzo).
+  function jornadaDelDia(dia) {
+    if (horarioPropio) return porDia ? horarioDelDia(dia) : horario
+    const bloque = bloqueDeDia(horariosNegocio, dia)
+    return bloque ? { inicio: bloque.apertura, fin: bloque.cierre } : null
+  }
+
+  function elegirCargo(c) {
+    setCargoPropio(false)
+    setCargo((actual) => (actual === c ? '' : c))
+  }
+
+  function elegirCargoPropio() {
+    setCargoPropio(true)
+    setCargo((actual) => (CARGOS_SUGERIDOS.includes(actual) ? '' : actual))
+  }
+
   async function guardar(e) {
     e.preventDefault()
     const limpio = nombre.trim().replace(/\s+/g, ' ')
@@ -277,6 +317,19 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
         return
       }
     }
+    // Almuerzo: uno general, o uno por cada día que trabaja.
+    let almuerzoGeneral = null
+    const almuerzosPorDia = {}
+    if (conAlmuerzo) {
+      if (almuerzoPorDia) diasOrdenados.forEach((d) => { almuerzosPorDia[String(d)] = { ...almuerzoDelDia(d) } })
+      else almuerzoGeneral = { inicio: almuerzo.inicio, fin: almuerzo.fin }
+      const rangos = almuerzoGeneral ? [almuerzoGeneral] : Object.values(almuerzosPorDia)
+      if (rangos.some((h) => !h.inicio || !h.fin || h.inicio >= h.fin)) {
+        setError('Revisa la hora del almuerzo: la hora de regreso tiene que ser después de la de salida.')
+        return
+      }
+    }
+    const conAlmuerzosDia = Object.keys(almuerzosPorDia).length > 0
     setError('')
     setGuardando(true)
     const datos = {
@@ -292,6 +345,8 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
           foto: foto || deleteField(),
           horario: horarioPropio ? { inicio: horario.inicio, fin: horario.fin } : deleteField(),
           horariosDia: conExcepciones ? excepciones : deleteField(),
+          almuerzo: almuerzoGeneral || deleteField(),
+          almuerzosDia: conAlmuerzosDia ? almuerzosPorDia : deleteField(),
         })
       } else {
         await addDoc(collection(db, 'negocios', uid, 'profesionales'), {
@@ -300,6 +355,8 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
           ...(foto ? { foto } : {}),
           ...(horarioPropio ? { horario: { inicio: horario.inicio, fin: horario.fin } } : {}),
           ...(conExcepciones ? { horariosDia: excepciones } : {}),
+          ...(almuerzoGeneral ? { almuerzo: almuerzoGeneral } : {}),
+          ...(conAlmuerzosDia ? { almuerzosDia: almuerzosPorDia } : {}),
           creadoEn: serverTimestamp(),
         })
       }
@@ -363,13 +420,29 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
               <input id="equipo-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={MAX_NOMBRE_PROFESIONAL} placeholder="Carlos Méndez" autoComplete="off" />
             </div>
             <div>
-              <label className="equipo-etiqueta" htmlFor="equipo-cargo">Cargo <span style={{ fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>(opcional)</span></label>
-              <input id="equipo-cargo" value={cargo} onChange={(e) => setCargo(e.target.value)} maxLength={MAX_CARGO} placeholder="Barbero" autoComplete="off" />
-              <div className="equipo-sugerencias">
+              <label className="equipo-etiqueta" htmlFor={cargoPropio ? 'equipo-cargo' : undefined}>Cargo <span style={{ fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>(opcional)</span></label>
+              <div className="equipo-sugerencias" style={{ marginTop: 0 }}>
                 {CARGOS_SUGERIDOS.map((c) => (
-                  <button type="button" key={c} className={cargo === c ? 'on' : ''} onClick={() => setCargo(c)}>{c}</button>
+                  <button type="button" key={c} className={!cargoPropio && cargo === c ? 'on' : ''} onClick={() => elegirCargo(c)} aria-pressed={!cargoPropio && cargo === c}>{c}</button>
                 ))}
+                <button type="button" className={`personalizado${cargoPropio ? ' on' : ''}`} onClick={elegirCargoPropio} aria-pressed={cargoPropio}>
+                  <Icon name="edit" size={12} /> Personalizado
+                </button>
               </div>
+              {cargoPropio && (
+                <div className="equipo-cargo-propio">
+                  <input
+                    id="equipo-cargo"
+                    value={cargo}
+                    onChange={(e) => setCargo(e.target.value)}
+                    maxLength={MAX_CARGO}
+                    placeholder="Escribe su cargo, p. ej. Barbero senior"
+                    autoComplete="off"
+                    autoFocus
+                  />
+                  <span>{cargo.length}/{MAX_CARGO}</span>
+                </div>
+              )}
             </div>
             <div>
               <span className="equipo-etiqueta">Días que trabaja</span>
@@ -448,6 +521,64 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
                   )}
                   <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 8 }}>
                     Solo se le reservan turnos dentro de este horario y del horario del negocio.
+                  </div>
+                </div>
+              )}
+
+              <label className="equipo-check equipo-check--almuerzo">
+                <input type="checkbox" checked={conAlmuerzo} onChange={(e) => setConAlmuerzo(e.target.checked)} />
+                <Icon name="almuerzo" size={15} />
+                <span>¿Quieres agregar la hora del almuerzo?</span>
+              </label>
+
+              {conAlmuerzo && (
+                <div className="equipo-horario-editor equipo-almuerzo">
+                  <div className="equipo-almuerzo__pregunta">¿Almuerza a la misma hora todos los días?</div>
+                  <div className="equipo-segmentado" role="radiogroup" aria-label="Hora del almuerzo">
+                    <button type="button" role="radio" aria-checked={!almuerzoPorDia} className={!almuerzoPorDia ? 'on' : ''} onClick={() => setAlmuerzoPorDia(false)}>
+                      Sí, todos los días
+                    </button>
+                    <button type="button" role="radio" aria-checked={almuerzoPorDia} className={almuerzoPorDia ? 'on' : ''} onClick={() => setAlmuerzoPorDia(true)}>
+                      Cambia según el día
+                    </button>
+                  </div>
+
+                  {!almuerzoPorDia ? (
+                    <div className="equipo-horas" style={{ marginTop: 14 }}>
+                      <label>
+                        <span>Sale a almorzar</span>
+                        <input type="time" step={1200} value={almuerzo.inicio} onChange={(e) => setAlmuerzo((a) => ({ ...a, inicio: e.target.value }))} />
+                      </label>
+                      <span className="equipo-horas__guion" aria-hidden="true">–</span>
+                      <label>
+                        <span>Regresa</span>
+                        <input type="time" step={1200} value={almuerzo.fin} onChange={(e) => setAlmuerzo((a) => ({ ...a, fin: e.target.value }))} />
+                      </label>
+                    </div>
+                  ) : dias.size === 0 ? (
+                    <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 12 }}>Primero marca los días que trabaja.</div>
+                  ) : (
+                    <div className="equipo-dias-horario" style={{ marginTop: 12 }}>
+                      {DIAS_SEMANA.filter((d) => dias.has(d.dia)).map((d) => {
+                        const a = almuerzoDelDia(d.dia)
+                        const jornada = jornadaDelDia(d.dia)
+                        const distinto = a.inicio !== almuerzo.inicio || a.fin !== almuerzo.fin
+                        return (
+                          <div key={d.dia} className={`equipo-dia-fila${distinto ? ' distinto' : ''}`}>
+                            <span className="equipo-dia-fila__nombre">{d.nombre}</span>
+                            <input type="time" step={1200} value={a.inicio} onChange={(e) => cambiarAlmuerzoDia(d.dia, 'inicio', e.target.value)} aria-label={`${d.nombre}: sale a almorzar`} />
+                            <span aria-hidden="true">–</span>
+                            <input type="time" step={1200} value={a.fin} onChange={(e) => cambiarAlmuerzoDia(d.dia, 'fin', e.target.value)} aria-label={`${d.nombre}: regresa`} />
+                            <span className="equipo-dia-fila__negocio">
+                              {jornada ? `Trabaja: ${formatoHora12(jornada.inicio)} – ${formatoHora12(jornada.fin)}` : 'El negocio no abre'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 8 }}>
+                    Durante el almuerzo no se le reservan turnos, y tus clientes no verán esas horas disponibles.
                   </div>
                 </div>
               )}

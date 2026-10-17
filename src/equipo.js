@@ -5,8 +5,10 @@
 // domingo … 6 = sábado). `horario` ({ inicio, fin }, "HH:MM") es su horario
 // propio, el mismo todos sus días; `horariosDia` ({ "6": { inicio, fin } })
 // cambia el de días puntuales (p. ej. los sábados en la tarde). Sin ninguno
-// de los dos atiende en todo el horario del negocio. Lo configura el dueño
-// en OwnerEquipo.jsx.
+// de los dos atiende en todo el horario del negocio. La hora del almuerzo
+// es `almuerzo` ({ inicio, fin }, igual todos los días) o `almuerzosDia`
+// ({ "1": { inicio, fin } }, distinta según el día); en ella no se le
+// reservan turnos. Lo configura el dueño en OwnerEquipo.jsx.
 //
 // Con equipo, cada persona tiene su propia agenda: el turno ocupado de una
 // cita lleva el id "{ms}_{profesionalId}" (ver idTurno en turnosOcupados.js)
@@ -62,6 +64,11 @@ export function primerNombre(nombre = '') {
   return nombre.trim().split(/\s+/)[0] || nombre
 }
 
+const aMinutos = (hhmm) => {
+  const [h, m] = hhmm.split(':').map(Number)
+  return h * 60 + m
+}
+
 const horarioValido = (h) => (h?.inicio && h?.fin && h.inicio < h.fin ? h : null)
 
 /**
@@ -76,6 +83,31 @@ export function horarioDe(profesional, fecha) {
     if (delDia) return delDia
   }
   return horarioValido(profesional?.horario)
+}
+
+/**
+ * Hora del almuerzo ({ inicio, fin }) de la persona ese día, o null si no
+ * tiene. Con almuerzo por día (almuerzosDia) solo cuenta el de ese día.
+ */
+export function almuerzoDe(profesional, fecha) {
+  const porDia = profesional?.almuerzosDia
+  if (fecha != null && porDia && Object.keys(porDia).length > 0) {
+    const dia = typeof fecha === 'number' ? fecha : fecha.getDay()
+    return horarioValido(porDia[dia])
+  }
+  return horarioValido(profesional?.almuerzo)
+}
+
+/** ¿El almuerzo cambia según el día? */
+export function tieneAlmuerzoPorDia(profesional) {
+  return Object.values(profesional?.almuerzosDia || {}).some(horarioValido)
+}
+
+/** "Almuerzo 12:00 p. m. – 1:00 p. m.", "Almuerzo según el día" o null. */
+export function resumenAlmuerzo(profesional) {
+  if (tieneAlmuerzoPorDia(profesional)) return 'Almuerzo según el día'
+  const a = almuerzoDe(profesional)
+  return a ? `Almuerzo ${textoRango(a)}` : null
 }
 
 /** ¿Algún día tiene un horario distinto al general? */
@@ -110,11 +142,25 @@ export function resumenHorario(profesional, fecha) {
  */
 export function ventanaProfesional(profesional, slots, cierre, fecha) {
   const h = horarioDe(profesional, fecha)
-  if (!h) return { slots, cierre }
+  const almuerzo = turnosDeAlmuerzo(profesional, slots, fecha)
+  const sinAlmuerzo = (lista) => (almuerzo.size ? lista.filter((s) => !almuerzo.has(s)) : lista)
+  if (!h) return { slots: sinAlmuerzo(slots), cierre }
   return {
-    slots: slots.filter((s) => s >= h.inicio && s < h.fin),
+    slots: sinAlmuerzo(slots.filter((s) => s >= h.inicio && s < h.fin)),
     cierre: cierre && cierre < h.fin ? cierre : h.fin,
   }
+}
+
+/**
+ * Turnos del día que se cruzan con la hora del almuerzo de la persona (un
+ * turno de 20 min que empieza antes pero termina dentro también cuenta).
+ */
+export function turnosDeAlmuerzo(profesional, slots, fecha) {
+  const a = almuerzoDe(profesional, fecha)
+  if (!a) return new Set()
+  const inicio = aMinutos(a.inicio)
+  const fin = aMinutos(a.fin)
+  return new Set(slots.filter((s) => aMinutos(s) < fin && aMinutos(s) + MINUTOS_TURNO > inicio))
 }
 
 /** "L, M, X, J, V" o "Todos los días" / "Lunes a viernes" cuando aplica. */
@@ -137,10 +183,6 @@ export function equipoDelDia(equipo, fecha) {
   return equipo.filter((p) => trabajaEl(p, fecha))
 }
 
-const aMinutos = (hhmm) => {
-  const [h, m] = hhmm.split(':').map(Number)
-  return h * 60 + m
-}
 const aHora = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
 
 /**
@@ -206,9 +248,13 @@ export function ocupadosDe(ocupados, profesionalId) {
  */
 export function disponibilidadProfesional(profesional, slots, ocupados, duracionMinutos, cierre, fecha) {
   const ventana = ventanaProfesional(profesional, slots, cierre, fecha)
+  // El almuerzo cuenta como ocupado: un servicio que alcanzaría a cruzarlo
+  // queda como 'no-cabe' (sus turnos ya se quitaron de la lista).
+  const ocupadosPersona = ocupadosDe(ocupados, profesional.id)
+  turnosDeAlmuerzo(profesional, slots, fecha).forEach((s) => ocupadosPersona.add(s))
   return {
     slots: ventana.slots,
-    mapa: disponibilidadAgenda(ventana.slots, ocupadosDe(ocupados, profesional.id), duracionMinutos, ventana.cierre),
+    mapa: disponibilidadAgenda(ventana.slots, ocupadosPersona, duracionMinutos, ventana.cierre),
   }
 }
 

@@ -95,7 +95,11 @@ service cloud.firestore {
         && (!('horario' in datos) || rangoHorasValido(datos.horario))
         && (!('horariosDia' in datos)
             || (datos.horariosDia is map
-                && datos.horariosDia.keys().hasOnly(['0', '1', '2', '3', '4', '5', '6'])));
+                && datos.horariosDia.keys().hasOnly(['0', '1', '2', '3', '4', '5', '6'])))
+        && (!('almuerzo' in datos) || rangoHorasValido(datos.almuerzo))
+        && (!('almuerzosDia' in datos)
+            || (datos.almuerzosDia is map
+                && datos.almuerzosDia.keys().hasOnly(['0', '1', '2', '3', '4', '5', '6'])));
     }
 
     function resenaValida() {
@@ -343,11 +347,11 @@ service cloud.firestore {
       match /profesionales/{profesionalId} {
         allow read: if true;
         allow create: if esDueno(negocioId)
-                      && request.resource.data.keys().hasOnly(['nombre', 'cargo', 'dias', 'activo', 'foto', 'horario', 'horariosDia', 'creadoEn'])
+                      && request.resource.data.keys().hasOnly(['nombre', 'cargo', 'dias', 'activo', 'foto', 'horario', 'horariosDia', 'almuerzo', 'almuerzosDia', 'creadoEn'])
                       && request.resource.data.creadoEn == request.time
                       && profesionalValido();
         allow update: if esDueno(negocioId)
-                      && camposCambiados().hasOnly(['nombre', 'cargo', 'dias', 'activo', 'foto', 'horario', 'horariosDia'])
+                      && camposCambiados().hasOnly(['nombre', 'cargo', 'dias', 'activo', 'foto', 'horario', 'horariosDia', 'almuerzo', 'almuerzosDia'])
                       && profesionalValido();
         allow delete: if esDueno(negocioId);
       }

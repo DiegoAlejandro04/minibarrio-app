@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   disponibilidadAgenda, disponibilidadCualquiera, disponibilidadProfesional, ocupadosDelDia, ocupadosDe,
   resumenDias, resumenHorario, trabajaEl, inicialesProfesional, colorProfesional,
+  almuerzoDe, resumenAlmuerzo,
 } from './equipo.js'
 
 const SLOTS = ['09:00', '09:20', '09:40', '10:00', '10:20', '10:40']
@@ -90,4 +91,23 @@ test('horario por día: el del día manda sobre el general', () => {
   assert.deepEqual(disponibilidadProfesional(laura, SLOTS, vacio, 20, '11:00', jueves).slots, ['09:00', '09:20', '09:40'])
   assert.equal(resumenHorario(laura), 'Horario según el día')
   assert.equal(resumenHorario(laura, 5), '10:00 a. m. – 11:00 a. m.')
+})
+
+test('la hora del almuerzo no se reserva y un servicio no puede cruzarla', () => {
+  const sinTurnos = { general: new Set(), porProfesional: new Map() }
+  const ana = { id: 'ana', nombre: 'Ana', almuerzo: { inicio: '09:40', fin: '10:20' } }
+  const { slots, mapa } = disponibilidadProfesional(ana, SLOTS, sinTurnos, 40, '11:00', 3)
+  assert.deepEqual(slots, ['09:00', '09:20', '10:20', '10:40'])
+  assert.equal(mapa.get('09:00'), 'libre') // 9:00–9:40, justo antes del almuerzo
+  assert.equal(mapa.get('09:20'), 'no-cabe') // terminaría 10:00, ya en el almuerzo
+  assert.equal(resumenAlmuerzo(ana), 'Almuerzo 9:40 a. m. – 10:20 a. m.')
+})
+
+test('el almuerzo puede cambiar según el día', () => {
+  const sinTurnos = { general: new Set(), porProfesional: new Map() }
+  const ana = { id: 'ana', nombre: 'Ana', almuerzosDia: { 1: { inicio: '09:00', fin: '09:40' }, 6: { inicio: '10:00', fin: '10:40' } } }
+  assert.deepEqual(disponibilidadProfesional(ana, SLOTS, sinTurnos, 20, '11:00', 1).slots, ['09:40', '10:00', '10:20', '10:40'])
+  assert.deepEqual(disponibilidadProfesional(ana, SLOTS, sinTurnos, 20, '11:00', 6).slots, ['09:00', '09:20', '09:40', '10:40'])
+  assert.equal(almuerzoDe(ana, 2), null) // ese día no tiene almuerzo
+  assert.equal(resumenAlmuerzo(ana), 'Almuerzo según el día')
 })
