@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import CalificarModal from '../../components/CalificarModal.jsx'
+import { citaParaCalificar } from '../../reservas.js'
+import { nombreCorto } from '../../nombres.js'
 
 const FECHA = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
 
 export default function ClientResenas() {
-  const { citas, resenas, negociosPorId } = useOutletContext()
+  const { citas, resenas, negociosPorId, perfil } = useOutletContext()
   const [calificando, setCalificando] = useState(null) // negocio | null
 
   const resenasOrdenadas = useMemo(
@@ -70,7 +72,12 @@ export default function ClientResenas() {
       )}
 
       {calificando && (
-        <CalificarModal negocio={calificando} onClose={() => setCalificando(null)} />
+        <CalificarModal
+          negocio={calificando}
+          citaId={citaParaCalificar(citas, calificando.id)}
+          nombreCliente={nombreCorto(perfil?.nombre)}
+          onClose={() => setCalificando(null)}
+        />
       )}
     </div>
   )

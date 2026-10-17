@@ -5,7 +5,8 @@ import CalificarModal from '../../components/CalificarModal.jsx'
 import ConfirmarModal from '../../components/ConfirmarModal.jsx'
 import { inicialesDe } from '../../components/FotoNegocio.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
-import { codigoReserva } from '../../reservas.js'
+import { citaParaCalificar, codigoReserva } from '../../reservas.js'
+import { nombreCorto } from '../../nombres.js'
 
 // Panel del cliente — vista "Principal". Conectado a datos reales de
 // Firestore (citas, favoritos, reseñas) vía el contexto de ClientLayout.
@@ -295,7 +296,12 @@ export default function ClientResumen() {
       )}
 
       {calificando && (
-        <CalificarModal negocio={calificando} onClose={() => setCalificando(null)} />
+        <CalificarModal
+          negocio={calificando}
+          citaId={citaParaCalificar(citas, calificando.id)}
+          nombreCliente={nombreCorto(perfil?.nombre)}
+          onClose={() => setCalificando(null)}
+        />
       )}
     </div>
   )

@@ -11,3 +11,14 @@ export function codigoReserva(citaId) {
 export function normalizarCodigo(texto) {
   return texto.replace(/[#\s]/g, '').toUpperCase()
 }
+
+/**
+ * Cita con la que el cliente califica un negocio: la realizada más reciente
+ * en ese negocio. firestore.rules exige que la reseña indique una cita suya
+ * ya pasada y no cancelada (citaParaResena); sin ella se rechaza.
+ */
+export function citaParaCalificar(citas, negocioId) {
+  return citas
+    .filter((c) => c.negocioId === negocioId && c.estado === 'completada')
+    .sort((a, b) => (b.fechaHora?.toMillis?.() || 0) - (a.fechaHora?.toMillis?.() || 0))[0]?.id
+}
