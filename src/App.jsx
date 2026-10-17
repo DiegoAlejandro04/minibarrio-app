@@ -22,6 +22,7 @@ const ClientConfiguracion = lazy(() => import('./pages/client/ClientConfiguracio
 const OwnerLayout = lazy(() => import('./pages/owner/OwnerLayout.jsx'))
 const OwnerResumen = lazy(() => import('./pages/owner/OwnerResumen.jsx'))
 const OwnerAgenda = lazy(() => import('./pages/owner/OwnerAgenda.jsx'))
+const OwnerCaja = lazy(() => import('./pages/owner/OwnerCaja.jsx'))
 const OwnerServicios = lazy(() => import('./pages/owner/OwnerServicios.jsx'))
 const OwnerEquipo = lazy(() => import('./pages/owner/OwnerEquipo.jsx'))
 const OwnerPortafolio = lazy(() => import('./pages/owner/OwnerPortafolio.jsx'))
@@ -179,6 +180,7 @@ export default function App() {
           <Route path="portafolio" element={<OwnerPortafolio />} />
           <Route path="clientes" element={<OwnerClientes />} />
           <Route path="agenda" element={<OwnerAgenda />} />
+          <Route path="caja" element={<OwnerCaja />} />
           <Route path="resenas" element={<OwnerResenas />} />
           <Route path="configuracion" element={<OwnerConfiguracion />} />
         </Route>

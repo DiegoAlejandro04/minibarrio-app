@@ -47,6 +47,9 @@ export default function OwnerResumen() {
   const [citas, setCitas] = useState([])
   const [resenas, setResenas] = useState([])
   const [visitas, setVisitas] = useState([]) // fechas (Date) de cada visita registrada
+  // Servicios registrados a mano en "Caja" (OwnerCaja.jsx): cuentan como
+  // citas y suman lo que se cobró a los ingresos.
+  const [atenciones, setAtenciones] = useState([])
   const [clientes, setClientes] = useState({}) // uid -> nombre
   const [modoCitas, setModoCitas] = useState('semanal') // 'semanal' | 'mensual'
   const [modoIngresos, setModoIngresos] = useState('semanal') // 'semanal' | 'mensual' | 'semestre'
@@ -64,6 +67,14 @@ export default function OwnerResumen() {
       }),
       onSnapshot(query(collection(db, 'citas'), where('negocioId', '==', uid)), (snap) => {
         setCitas(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      }),
+      onSnapshot(collection(db, 'negocios', uid, 'atenciones'), (snap) => {
+        setAtenciones(snap.docs
+          .map((d) => {
+            const datos = d.data({ serverTimestamps: 'estimate' })
+            return { servicioId: datos.servicioId, cobrado: datos.cobrado || 0, fecha: datos.creadoEn?.toDate?.() }
+          })
+          .filter((a) => a.fecha))
       }),
     ]
     return () => unsubs.forEach((unsub) => unsub())
@@ -100,17 +111,25 @@ export default function OwnerResumen() {
   )
 
   // Semana de lunes a domingo (con límite superior, no solo "desde el lunes").
+  const atencionesSemana = useMemo(
+    () => atenciones.filter((a) => a.fecha >= inicioSemana && a.fecha < finSemana),
+    [atenciones, inicioSemana, finSemana]
+  )
+  const atencionesMes = useMemo(() => atenciones.filter((a) => isSameMonth(a.fecha, ahora)), [atenciones, ahora])
+  const sumaCobrado = (lista) => lista.reduce((sum, a) => sum + a.cobrado, 0)
+
   const citasEstaSemana = useMemo(
-    () => citasConFecha.filter((c) => c.fecha && c.fecha >= inicioSemana && c.fecha < finSemana).length,
-    [citasConFecha, inicioSemana, finSemana]
+    () => citasConFecha.filter((c) => c.fecha && c.fecha >= inicioSemana && c.fecha < finSemana).length + atencionesSemana.length,
+    [citasConFecha, inicioSemana, finSemana, atencionesSemana]
   )
 
   const citasEsteMes = useMemo(
-    () => citasConFecha.filter((c) => c.fecha && isSameMonth(c.fecha, ahora)).length,
-    [citasConFecha, ahora]
+    () => citasConFecha.filter((c) => c.fecha && isSameMonth(c.fecha, ahora)).length + atencionesMes.length,
+    [citasConFecha, ahora, atencionesMes]
   )
 
   const citasMostradas = modoCitas === 'semanal' ? citasEstaSemana : citasEsteMes
+  const enCajaMostradas = modoCitas === 'semanal' ? atencionesSemana.length : atencionesMes.length
 
   const serviciosPorId = useMemo(() => Object.fromEntries(servicios.map((s) => [s.id, s])), [servicios])
 
@@ -120,28 +139,27 @@ export default function OwnerResumen() {
   const ingresosSemana = useMemo(
     () => citasConFecha
       .filter((c) => c.fecha && c.fecha >= inicioSemana && c.fecha < finSemana && cuentaParaIngresos(c))
-      .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0),
-    [citasConFecha, inicioSemana, finSemana, serviciosPorId]
+      .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0) + sumaCobrado(atencionesSemana),
+    [citasConFecha, inicioSemana, finSemana, serviciosPorId, atencionesSemana]
   )
 
   const ingresosMes = useMemo(
     () => citasConFecha
       .filter((c) => c.fecha && isSameMonth(c.fecha, ahora) && cuentaParaIngresos(c))
-      .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0),
-    [citasConFecha, ahora, serviciosPorId]
+      .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0) + sumaCobrado(atencionesMes),
+    [citasConFecha, ahora, serviciosPorId, atencionesMes]
   )
 
   const ingresosSemestre = useMemo(() => {
     const anio = ahora.getFullYear()
     const mesInicio = semestre === 'primero' ? 0 : 6
     const mesFin = semestre === 'primero' ? 5 : 11
+    const enSemestre = (fecha) => fecha.getFullYear() === anio && fecha.getMonth() >= mesInicio && fecha.getMonth() <= mesFin
     return citasConFecha
-      .filter((c) => c.fecha
-        && c.fecha.getFullYear() === anio
-        && c.fecha.getMonth() >= mesInicio && c.fecha.getMonth() <= mesFin
-        && cuentaParaIngresos(c))
+      .filter((c) => c.fecha && enSemestre(c.fecha) && cuentaParaIngresos(c))
       .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0)
-  }, [citasConFecha, ahora, semestre, serviciosPorId])
+      + sumaCobrado(atenciones.filter((a) => enSemestre(a.fecha)))
+  }, [citasConFecha, ahora, semestre, serviciosPorId, atenciones])
 
   const ingresosMostrados = modoIngresos === 'semanal' ? ingresosSemana : modoIngresos === 'mensual' ? ingresosMes : ingresosSemestre
 
@@ -170,8 +188,11 @@ export default function OwnerResumen() {
         conteo[c.servicioId] = (conteo[c.servicioId] || 0) + 1
       }
     })
+    atencionesMes.forEach((a) => {
+      if (a.servicioId) conteo[a.servicioId] = (conteo[a.servicioId] || 0) + 1
+    })
     return conteo
-  }, [citasConFecha, ahora])
+  }, [citasConFecha, ahora, atencionesMes])
 
   const serieVisitasSemana = useMemo(() => {
     const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -218,7 +239,7 @@ export default function OwnerResumen() {
           icon="calendar"
           label="Citas agendadas"
           value={citasMostradas.toLocaleString('es-CO')}
-          sub={`${citasMostradas} ${modoCitas === 'semanal' ? 'esta semana' : 'este mes'}`}
+          sub={`${citasMostradas} ${modoCitas === 'semanal' ? 'esta semana' : 'este mes'}${enCajaMostradas > 0 ? ` · ${enCajaMostradas} desde Caja` : ''}`}
           extra={
             <ToggleSegmentado
               opciones={[{ value: 'semanal', label: 'Semanal' }, { value: 'mensual', label: 'Mensual' }]}

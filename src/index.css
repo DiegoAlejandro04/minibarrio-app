@@ -4050,3 +4050,179 @@ option:disabled { color: var(--text-faint); }
 /* Mientras se descarga una sección del panel (PanelConMenu.jsx): un espacio
    vacío del alto de la pantalla, para que el pie no salte hacia arriba. */
 .panel-cargando { min-height: 60vh; }
+
+/* Caja del panel del negocio (OwnerCaja.jsx): pasos numerados, opciones en
+   píldora y el valor cobrado en grande. */
+.caja-paso {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 15px;
+}
+.caja-paso__numero {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #fff;
+  background: var(--accent);
+}
+.caja-bloque {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--vidrio-linea, var(--border));
+  animation: caja-entra .25s ease;
+}
+@keyframes caja-entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.caja-opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0 0 34px;
+}
+.caja-opcion {
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1.5px solid var(--vidrio-borde, var(--border));
+  background: var(--vidrio-campo, var(--surface));
+  color: var(--text);
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.caja-opcion:hover { border-color: color-mix(in oklch, var(--accent) 45%, var(--border)); }
+.caja-opcion.activa {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+.caja-personalizado { border-style: dashed; }
+.caja-fila__nombre {
+  display: block;
+  font-weight: 800;
+  font-size: 14.5px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.caja-fila__precio-movil { color: var(--accent); font-weight: 800; }
+.caja-personalizado.servicio-fila--activo { border-style: solid; }
+.caja-monto {
+  position: relative;
+  max-width: 280px;
+  margin: 14px 0 0 34px;
+}
+.caja-monto span {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.vitrina .card .caja-monto input {
+  padding: 12px 16px 12px 34px;
+  font-size: 22px;
+  font-weight: 800;
+  border-radius: 14px;
+  background: var(--vidrio-campo);
+}
+.caja-aviso {
+  color: var(--danger);
+  font-size: 12.5px;
+  font-weight: 600;
+  margin: 8px 0 0 34px;
+}
+.caja-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--vidrio-linea, var(--border));
+}
+.caja-pie .btn { min-width: 140px; }
+.caja-listo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  color: var(--sage-text);
+  background: var(--sage-soft);
+  animation: caja-entra .25s ease;
+}
+.caja-listo__icono {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: var(--sage-text);
+}
+.caja-registro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--vidrio-linea, var(--border));
+}
+.caja-registro:last-child { border-bottom: none; padding-bottom: 0; }
+.caja-etiqueta {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 14%, transparent);
+}
+.caja-etiqueta.extra { color: var(--sage-text); background: var(--sage-soft); }
+.caja-eliminar {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.caja-eliminar:hover { color: var(--danger); background: color-mix(in oklch, var(--danger) 12%, transparent); }
+@media (max-width: 767px) {
+  .caja-fila { gap: 12px; padding: 10px 12px; border-radius: 16px; }
+  .caja-fila .servicio-fila__icono { width: 40px; height: 40px; border-radius: 11px; }
+  .caja-fila .servicio-fila__icono svg { width: 17px; height: 17px; }
+  .caja-fila .servicio-fila__marca { width: 20px; height: 20px; }
+  .caja-fila__nombre { font-size: 14px; }
+  .caja-paso { font-size: 14.5px; }
+  .caja-opciones { flex-direction: column; }
+  .caja-opcion { width: 100%; text-align: center; padding: 12px 16px; }
+  .caja-registro { gap: 10px; }
+  .caja-opciones, .caja-monto, .caja-aviso { margin-left: 0; }
+  .caja-monto { max-width: none; }
+  .caja-pie .btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .caja-bloque, .caja-listo { animation: none; }
+}

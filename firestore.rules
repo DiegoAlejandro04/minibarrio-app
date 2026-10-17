@@ -352,6 +352,22 @@ service cloud.firestore {
         allow delete: if esDueno(negocioId);
       }
 
+      match /atenciones/{atencionId} {
+        allow read, delete: if esDueno(negocioId);
+        allow create: if esDueno(negocioId)
+                      && request.resource.data.keys().hasOnly(['tipo', 'servicioId', 'servicioNombre', 'precioServicio', 'cobrado', 'creadoEn'])
+                      && request.resource.data.keys().hasAll(['tipo', 'servicioNombre', 'cobrado', 'creadoEn'])
+                      && request.resource.data.creadoEn == request.time
+                      && request.resource.data.tipo in ['catalogo', 'personalizado']
+                      && textoMax(request.resource.data, 'servicioNombre', 80)
+                      && numeroEntre(request.resource.data, 'cobrado', 1, 10000000)
+                      && (request.resource.data.tipo == 'personalizado'
+                          || (request.resource.data.servicioId is string
+                              && numeroEntre(request.resource.data, 'precioServicio', 0, 2000000)
+                              && exists(/databases/$(database)/documents/negocios/$(negocioId)/servicios/$(request.resource.data.servicioId))));
+        allow update: if false;
+      }
+
       match /resenas/{resenaId} {
         allow read: if true;
         allow create: if esDueno(resenaId)

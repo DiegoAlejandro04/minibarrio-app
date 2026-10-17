@@ -21,6 +21,7 @@ const GRUPOS_NAV = [
   [
     { to: '/panel', label: 'Resumen', icon: 'grid', end: true },
     { to: '/panel/agenda', label: 'Agenda', icon: 'calendar' },
+    { to: '/panel/caja', label: 'Caja', icon: 'caja' },
   ],
   [
     { to: '/panel/servicios', label: 'Servicios', icon: 'scissors' },
