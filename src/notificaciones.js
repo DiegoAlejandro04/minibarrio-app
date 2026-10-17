@@ -28,6 +28,8 @@ export const TIPOS_NOTIFICACION = {
   'citas-hoy': { icono: 'calendar', tono: 'exito' },
   'citas-por-cerrar': { icono: 'check', tono: 'aviso' },
   perfil: { icono: 'store', tono: 'aviso' },
+  'siguiente-cita': { icono: 'clock', tono: 'acento' },
+  contratiempo: { icono: 'clock', tono: 'aviso' },
 }
 
 const FECHA_CITA = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })

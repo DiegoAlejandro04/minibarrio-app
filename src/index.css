@@ -4051,6 +4051,120 @@ option:disabled { color: var(--text-faint); }
    vacío del alto de la pantalla, para que el pie no salte hacia arriba. */
 .panel-cargando { min-height: 60vh; }
 
+/* Cita "En proceso" (OwnerAgenda.jsx): cronómetro con números de ancho fijo
+   para que no "baile" al contar, y la franja azul con un punto que late. */
+.cronometro { font-variant-numeric: tabular-nums; }
+.en-proceso-aviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  text-align: left;
+  color: oklch(50% 0.14 250);
+  background: oklch(60% 0.13 250 / 0.12);
+}
+[data-theme="dark"] .en-proceso-aviso { color: oklch(80% 0.1 250); background: oklch(60% 0.13 250 / 0.2); }
+.en-proceso-punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: oklch(60% 0.15 250);
+  animation: en-proceso-late 1.6s ease-in-out infinite;
+}
+@keyframes en-proceso-late {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(60% 0.15 250 / 0.5); }
+  50% { box-shadow: 0 0 0 5px oklch(60% 0.15 250 / 0); }
+}
+
+/* Aviso de la siguiente cita (ModalSiguiente en OwnerAgenda.jsx). */
+.siguiente-icono { color: var(--accent); background: var(--accent-soft); }
+.siguiente-titulo { font-weight: 800; font-size: 17px; margin-top: 12px; }
+.siguiente-texto { font-size: 13.5px; color: var(--text-muted); line-height: 1.5; margin: 12px 0 0; }
+.siguiente-error { font-size: 12.5px; font-weight: 600; color: var(--danger); margin: 10px 0 0; }
+.siguiente-cita {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  text-align: left;
+  background: var(--vidrio-campo, var(--surface-2));
+  border: 1px solid var(--vidrio-borde, var(--border));
+}
+.siguiente-botones { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.siguiente-botones .btn,
+.siguiente-boton {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-radius: 999px;
+}
+.siguiente-boton { margin-top: 18px; }
+.siguiente-contratiempo:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in oklch, var(--danger) 10%, transparent);
+}
+
+/* Contratiempo en Mis citas del cliente (ClientCitas.jsx). */
+.chip-contratiempo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  color: oklch(50% 0.13 65);
+  background: oklch(78% 0.15 65 / 0.2);
+  transition: background .15s;
+}
+[data-theme="dark"] .chip-contratiempo { color: oklch(82% 0.13 70); background: oklch(78% 0.15 65 / 0.16); }
+.chip-contratiempo:hover { background: oklch(78% 0.15 65 / 0.32); }
+.contratiempo-opcion {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: none;
+  border: 1.5px solid var(--vidrio-borde, var(--border));
+  background: var(--vidrio-campo, var(--surface));
+  transition: border-color .15s, background .15s;
+}
+.contratiempo-opcion:hover { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 8%, transparent); }
+.contratiempo-opcion:disabled { opacity: .6; cursor: wait; }
+.contratiempo-opcion__icono {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.contratiempo-opcion.whatsapp .contratiempo-opcion__icono { color: oklch(55% 0.15 150); background: oklch(60% 0.15 150 / 0.15); }
+.contratiempo-opcion.whatsapp:hover { border-color: oklch(60% 0.15 150); background: oklch(60% 0.15 150 / 0.08); }
+@media (prefers-reduced-motion: reduce) {
+  .en-proceso-punto { animation: none; }
+}
+
 /* Caja del panel del negocio (OwnerCaja.jsx): pasos numerados, opciones en
    píldora y el valor cobrado en grande. */
 .caja-paso {

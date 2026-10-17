@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link, useOutletContext } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import Icon from '../../components/Icon.jsx'
 import ConfirmarModal from '../../components/ConfirmarModal.jsx'
 import PaginadorPeine from '../../components/PaginadorPeine.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva } from '../../reservas.js'
+import ContratiempoModal from '../../components/ContratiempoModal.jsx'
 
 const FECHA_LARGA = new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
 const HORA = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', hour12: true })
@@ -14,6 +15,7 @@ const ESTADO_STYLES = {
   // "pendiente" es el estado guardado de una cita activa; se muestra como
   // "Reservada" porque el turno ya quedó apartado (reserva inmediata).
   pendiente: { bg: 'var(--sage-soft)', text: 'var(--sage-text)', label: 'Reservada' },
+  'en-proceso': { bg: 'oklch(60% 0.13 250 / 0.16)', text: 'oklch(55% 0.14 250)', label: 'En proceso' },
   cancelada: { bg: 'var(--danger-soft)', text: 'var(--danger)', label: 'Cancelada' },
   completada: { bg: 'var(--surface-2)', text: 'var(--text-muted)', label: 'Completada' },
 }
@@ -33,6 +35,31 @@ export default function ClientCitas() {
   const [pagina, setPagina] = useState(1)
   const historialRef = useRef(null)
   const isMobile = useIsMobile()
+  const navigate = useNavigate()
+
+  // Aviso de contratiempo del negocio (OwnerAgenda.jsx): la notificación
+  // abre esta página con ?contratiempo={citaId} y se muestran las opciones.
+  const [params, setParams] = useSearchParams()
+  const idContratiempo = params.get('contratiempo')
+  const citaContratiempo = useMemo(() => {
+    const c = idContratiempo && citas.find((x) => x.id === idContratiempo)
+    return c ? { ...c, fecha: c.fechaHora?.toDate?.() || null } : null
+  }, [citas, idContratiempo])
+
+  function abrirContratiempo(citaId) {
+    setParams({ contratiempo: citaId }, { replace: true })
+  }
+
+  function cerrarContratiempo() {
+    setParams({}, { replace: true })
+  }
+
+  // Reprogramar: se cancela la cita (libera el turno y avisa al negocio) y
+  // se abre el portafolio del negocio para elegir otra hora.
+  async function reprogramar(cita) {
+    await cancelarCita(cita.id)
+    navigate(`/negocio/${cita.negocioId}`)
+  }
 
   const ahora = useMemo(() => new Date(), [])
 
@@ -109,6 +136,12 @@ export default function ClientCitas() {
       </div>
     )
 
+    const contratiempo = mostrarCancelar && c.contratiempoAvisado && c.estado === 'pendiente' && (
+      <button type="button" className="chip-contratiempo" onClick={() => abrirContratiempo(c.id)}>
+        <Icon name="clock" size={13} /> El negocio tiene un contratiempo · Ver opciones
+      </button>
+    )
+
     const texto = (
       <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14 }}>{negociosPorId[c.negocioId]?.nombre || 'Negocio'}</div>
@@ -120,6 +153,7 @@ export default function ClientCitas() {
         <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 3, fontFamily: 'ui-monospace, Consolas, monospace' }}>
           Reserva #{codigoReserva(c.id)}
         </div>
+        {contratiempo}
       </div>
     )
 
@@ -182,6 +216,16 @@ export default function ClientCitas() {
         </div>
       )}
       <PaginadorPeine pagina={paginaActual} total={totalPaginas} onCambiar={irAPagina} visibles={isMobile ? 5 : 10} />
+
+      {idContratiempo && (
+        <ContratiempoModal
+          cita={citaContratiempo}
+          negocio={citaContratiempo && negociosPorId[citaContratiempo.negocioId]}
+          servicio={citaContratiempo && serviciosPorId[`${citaContratiempo.negocioId}:${citaContratiempo.servicioId}`]}
+          onReprogramar={reprogramar}
+          onCerrar={cerrarContratiempo}
+        />
+      )}
 
       {porCancelar && (
         <ConfirmarModal

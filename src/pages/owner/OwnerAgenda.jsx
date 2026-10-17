@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
-import { collection, onSnapshot, query, where } from 'firebase/firestore'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
+import { collection, doc, onSnapshot, query, serverTimestamp, where, writeBatch } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { leerPerfilCliente } from '../../perfilesClientes.js'
 import { cambiarEstadoCita, sincronizarOcupados } from '../../turnosOcupados.js'
-import { textoFechaCita } from '../../notificaciones.js'
+import { agregarAvisos, textoFechaCita } from '../../notificaciones.js'
 import Icon from '../../components/Icon.jsx'
+import Cronometro from '../../components/Cronometro.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva, normalizarCodigo } from '../../reservas.js'
 import useEquipo from '../../hooks/useEquipo.js'
@@ -30,15 +31,21 @@ const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 // "Reservada" (reserva inmediata, el turno ya quedó apartado).
 const ESTADO_BADGE = {
   pendiente: { label: 'Reservada', bg: 'oklch(78% 0.15 65)', text: '#fff' },
+  'en-proceso': { label: 'En proceso', bg: 'oklch(60% 0.13 250)', text: '#fff' },
   cancelada: { label: 'Cancelada', bg: 'oklch(60% 0.19 25)', text: '#fff' },
   completada: { label: 'Realizada', bg: 'oklch(62% 0.14 152)', text: '#fff' },
 }
 
 const OPCIONES_ESTADO = [
   { value: 'pendiente', label: 'Reservada' },
+  { value: 'en-proceso', label: 'En proceso' },
   { value: 'cancelada', label: 'Cancelada' },
   { value: 'completada', label: 'Realizada' },
 ]
+
+// "En proceso" se puede marcar desde una hora antes de la cita (el cliente
+// llegó temprano) o ya pasada su hora; firestore.rules aplica el mismo límite.
+const ANTICIPO_EN_PROCESO_MS = 60 * 60 * 1000
 
 function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -72,10 +79,50 @@ export default function OwnerAgenda() {
   useEffect(() => {
     if (!uid) return
     const unsub = onSnapshot(query(collection(db, 'citas'), where('negocioId', '==', uid)), (snap) => {
-      setCitas(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      // "estimate": la hora de inicio (iniciadaEn) se ve al instante, sin
+      // esperar a que el servidor la confirme, y el cronómetro arranca ya.
+      setCitas(snap.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) })))
     })
     return unsub
   }, [uid])
+
+  // Aviso "tu próxima cita es en 15 minutos" (lo crea OwnerLayout.jsx): al
+  // tocarlo se abre aquí con ?siguiente={citaId}, para que el negocio diga
+  // si va a tiempo o avise al cliente de un contratiempo.
+  const [params, setParams] = useSearchParams()
+  const idSiguiente = params.get('siguiente')
+  const citaSiguiente = useMemo(() => {
+    const c = idSiguiente && citas.find((x) => x.id === idSiguiente)
+    return c ? { ...c, fecha: c.fechaHora?.toDate?.() || null } : null
+  }, [citas, idSiguiente])
+  const citaEnCurso = useMemo(() => {
+    if (!citaSiguiente) return null
+    const persona = citaSiguiente.profesionalId || ''
+    return citas
+      .filter((c) => c.estado === 'en-proceso' && (c.profesionalId || '') === persona)
+      .sort((a, b) => (b.iniciadaEn?.toMillis?.() || 0) - (a.iniciadaEn?.toMillis?.() || 0))[0] || null
+  }, [citas, citaSiguiente])
+
+  function cerrarSiguiente() {
+    setParams({}, { replace: true })
+  }
+
+  // Contratiempo: se marca en la cita (para no avisar dos veces) y al
+  // cliente le llega una notificación con sus opciones (ClientCitas.jsx).
+  async function avisarContratiempo(cita) {
+    const servicio = serviciosPorId[cita.servicioId]
+    const conWhatsapp = !!negocio.canalesContacto?.whatsapp
+    const batch = writeBatch(db)
+    batch.update(doc(db, 'citas', cita.id), { contratiempoAvisado: true })
+    agregarAvisos(batch, [{
+      destinatarioId: cita.clienteId,
+      tipo: 'contratiempo',
+      titulo: `${negocio.nombre} tiene un contratiempo`,
+      texto: `Tu cita de ${servicio?.nombre || 'hoy'} a las ${HORA.format(cita.fecha)} podría empezar un poco más tarde. Si lo prefieres, puedes reprogramarla${conWhatsapp ? ' o escribirle al negocio por WhatsApp' : ''}. Toca aquí para ver tus opciones.`,
+      enlace: `/perfil/citas?contratiempo=${cita.id}`,
+    }], cita.id)
+    await batch.commit()
+  }
 
   // Una sola vez al abrir la agenda: publica los turnos de citas reservadas
   // antes de existir "ocupados" y libera los de citas ya canceladas, para que
@@ -205,10 +252,15 @@ export default function OwnerAgenda() {
       // cambiarEstadoCita además libera u ocupa el turno según el estado
       // (ver turnosOcupados.js).
       const servicio = servicios.find((s) => s.id === citaAbierta.servicioId)
+      // Al pasar a "En proceso" se guarda cuándo empezó: de ahí corre el
+      // cronómetro y se calcula el aviso de la siguiente cita.
+      let extra = {}
+      if (estadoSeleccionado === 'cancelada') extra = { canceladaPor: 'negocio' }
+      if (estadoSeleccionado === 'en-proceso' && citaAbierta.estado !== 'en-proceso') extra = { iniciadaEn: serverTimestamp() }
       await cambiarEstadoCita(
         citaAbierta,
         estadoSeleccionado,
-        estadoSeleccionado === 'cancelada' ? { canceladaPor: 'negocio' } : {},
+        extra,
         servicio?.duracionMinutos,
         avisosParaElCliente(citaAbierta, estadoSeleccionado, servicio),
       )
@@ -404,6 +456,18 @@ export default function OwnerAgenda() {
           guardando={guardando}
         />
       )}
+
+      {idSiguiente && (
+        <ModalSiguiente
+          cita={citaSiguiente}
+          cliente={citaSiguiente && clientes[citaSiguiente.clienteId]}
+          servicio={citaSiguiente && serviciosPorId[citaSiguiente.servicioId]}
+          enCurso={citaEnCurso}
+          clienteEnCurso={citaEnCurso && clientes[citaEnCurso.clienteId]}
+          onContratiempo={avisarContratiempo}
+          onCerrar={cerrarSiguiente}
+        />
+      )}
     </div>
   )
 }
@@ -441,6 +505,7 @@ function FilaCita({ cita, cliente, servicio, profesional, conFecha = false, onAb
         }}
       >
         {estilo.label}
+        {cita.estado === 'en-proceso' && <> · <Cronometro desde={cita.iniciadaEn} /></>}
       </span>
     </button>
   )
@@ -451,7 +516,11 @@ function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstad
   // no, habilitaría una reseña "verificada" de un servicio que aún no se hizo
   // (firestore.rules también lo rechaza).
   const citaFutura = cita.fecha ? cita.fecha.getTime() > Date.now() : false
+  const muyPronto = cita.fecha ? cita.fecha.getTime() - Date.now() > ANTICIPO_EN_PROCESO_MS : false
   const estilo = ESTADO_BADGE[cita.estado] || ESTADO_BADGE.pendiente
+  const bloqueada = (valor) => valor !== cita.estado
+    && ((valor === 'completada' && citaFutura) || (valor === 'en-proceso' && muyPronto))
+  const notaBloqueo = (valor) => (valor === 'completada' ? ' (después de la cita)' : ' (desde 1 hora antes)')
   return (
     <div
       role="presentation"
@@ -469,6 +538,13 @@ function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstad
             {estilo.label}
           </span>
         </div>
+
+        {cita.estado === 'en-proceso' && (
+          <div className="en-proceso-aviso">
+            <span className="en-proceso-punto" aria-hidden="true" />
+            Atendiendo desde hace <strong><Cronometro desde={cita.iniciadaEn} /></strong>
+          </div>
+        )}
 
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5 }}>
           <Campo label="Contacto" valor={[cliente?.telefono, cliente?.correo].filter(Boolean).join(' · ') || '—'} />
@@ -489,8 +565,8 @@ function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstad
               style={{ flex: 1 }}
             >
               {OPCIONES_ESTADO.map((op) => (
-                <option key={op.value} value={op.value} disabled={op.value === 'completada' && citaFutura && cita.estado !== 'completada'}>
-                  {op.label}{op.value === 'completada' && citaFutura && cita.estado !== 'completada' ? ' (después de la cita)' : ''}
+                <option key={op.value} value={op.value} disabled={bloqueada(op.value)}>
+                  {op.label}{bloqueada(op.value) ? notaBloqueo(op.value) : ''}
                 </option>
               ))}
             </select>
@@ -510,6 +586,144 @@ function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstad
         >
           Cancelar
         </button>
+      </div>
+    </div>
+  )
+}
+
+// Se abre al tocar el aviso "En 15 min tienes cita con…" (OwnerLayout.jsx):
+// el negocio confirma que va a tiempo, o avisa al cliente de un contratiempo
+// para que pueda reprogramar o escribir por WhatsApp (ClientCitas.jsx).
+function ModalSiguiente({ cita, cliente, servicio, enCurso, clienteEnCurso, onContratiempo, onCerrar }) {
+  const [paso, setPaso] = useState('pregunta') // 'pregunta' | 'confirmar' | 'avisado'
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const alTeclear = (e) => {
+      if (e.key === 'Escape' && !enviando) onCerrar()
+    }
+    document.addEventListener('keydown', alTeclear)
+    return () => document.removeEventListener('keydown', alTeclear)
+  }, [enviando, onCerrar])
+
+  const nombre = cliente?.nombre || 'tu cliente'
+  const hora = cita?.fecha ? HORA.format(cita.fecha) : ''
+  const faltan = cita?.fecha ? Math.round((cita.fecha.getTime() - Date.now()) / 60000) : null
+
+  async function avisar() {
+    setEnviando(true)
+    setError('')
+    try {
+      await onContratiempo(cita)
+      setPaso('avisado')
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(err)
+      setError('No pudimos enviar el aviso. Revisa tu conexión e inténtalo de nuevo.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  let contenido
+  if (!cita) {
+    contenido = (
+      <>
+        <div className="siguiente-titulo">Buscando la cita…</div>
+        <button type="button" className="btn btn-outline siguiente-boton" onClick={onCerrar}>Cerrar</button>
+      </>
+    )
+  } else if (cita.estado !== 'pendiente') {
+    const estado = (ESTADO_BADGE[cita.estado] || ESTADO_BADGE.pendiente).label.toLowerCase()
+    contenido = (
+      <>
+        <div className="siguiente-titulo">Esta cita ya no está pendiente</div>
+        <p className="siguiente-texto">La cita de {nombre} ya está {estado}, así que no hace falta hacer nada más.</p>
+        <button type="button" className="btn btn-primary siguiente-boton" onClick={onCerrar}>Entendido</button>
+      </>
+    )
+  } else if (paso === 'avisado' || (paso === 'pregunta' && cita.contratiempoAvisado)) {
+    contenido = (
+      <>
+        <div className="siguiente-titulo">Listo, {nombre} ya está avisado</div>
+        <p className="siguiente-texto">
+          Le enviamos una notificación diciendo que su cita de las {hora} podría empezar un poco más tarde, con la opción de reprogramarla o escribirte por WhatsApp.
+        </p>
+        <button type="button" className="btn btn-primary siguiente-boton" onClick={onCerrar}>Entendido</button>
+      </>
+    )
+  } else if (paso === 'confirmar') {
+    contenido = (
+      <>
+        <div className="siguiente-titulo">¿Le avisamos a {nombre}?</div>
+        <p className="siguiente-texto">
+          Le enviaremos una notificación diciendo que tienes un contratiempo y que su cita de las {hora} podría empezar un poco más tarde. Podrá reprogramarla o escribirte por WhatsApp.
+        </p>
+        {error && <p className="siguiente-error">{error}</p>}
+        <div className="siguiente-botones">
+          <button type="button" className="btn btn-primary" onClick={avisar} disabled={enviando}>
+            {enviando ? 'Enviando aviso…' : 'Sí, avisarle'}
+          </button>
+          <button type="button" className="btn btn-outline" onClick={() => setPaso('pregunta')} disabled={enviando}>Volver</button>
+        </div>
+      </>
+    )
+  } else {
+    contenido = (
+      <>
+        <div className="siguiente-titulo">Tu próxima cita está por llegar</div>
+        <div className="siguiente-cita">
+          <div style={{ fontWeight: 800, fontSize: 15 }}>{nombre}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
+            {servicio?.nombre || 'Servicio'} · a las {hora}
+            {faltan != null && faltan > 0 && ` (en ${faltan} min)`}
+          </div>
+          {cita.profesionalNombre && (
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3 }}>Lo atiende {cita.profesionalNombre}</div>
+          )}
+        </div>
+        {enCurso && (
+          <div className="en-proceso-aviso" style={{ marginTop: 10 }}>
+            <span className="en-proceso-punto" aria-hidden="true" />
+            <span>
+              Ahora atiendes a {clienteEnCurso?.nombre || 'un cliente'} · lleva <strong><Cronometro desde={enCurso.iniciadaEn} /></strong>
+            </span>
+          </div>
+        )}
+        <p className="siguiente-texto" style={{ fontWeight: 700, color: 'var(--text)' }}>¿Vas bien de tiempo para atenderlo?</p>
+        <div className="siguiente-botones">
+          <button type="button" className="btn btn-primary" onClick={onCerrar}>
+            <Icon name="check" size={16} /> Sí, voy a tiempo
+          </button>
+          <button type="button" className="btn btn-outline siguiente-contratiempo" onClick={() => setPaso('confirmar')}>
+            <Icon name="clock" size={16} /> Tengo un contratiempo
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <div
+      role="presentation"
+      className="ventana-velo"
+      onClick={enviando ? undefined : onCerrar}
+      style={{
+        position: 'fixed', inset: 0, background: 'oklch(20% 0.01 0 / 0.45)', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', zIndex: 1300, padding: 20,
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Tu próxima cita"
+        className="card ventana-vidrio"
+        style={{ width: 400, maxWidth: '100%', padding: 24, textAlign: 'center' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="confirmar-icono siguiente-icono" aria-hidden="true"><Icon name="clock" size={22} /></span>
+        {contenido}
       </div>
     </div>
   )

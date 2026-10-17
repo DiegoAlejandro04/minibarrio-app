@@ -211,7 +211,7 @@ service cloud.firestore {
     function notificacionValida() {
       let datos = request.resource.data;
       return datos.keys().hasOnly(['tipo', 'titulo', 'texto', 'enlace', 'citaId', 'leida', 'creadoEn'])
-        && datos.tipo in ['nueva-reserva', 'reserva-confirmada', 'cita-cancelada', 'recordatorio', 'calificar', 'nueva-resena', 'citas-hoy', 'citas-por-cerrar', 'perfil']
+        && datos.tipo in ['nueva-reserva', 'reserva-confirmada', 'cita-cancelada', 'recordatorio', 'calificar', 'nueva-resena', 'citas-hoy', 'citas-por-cerrar', 'perfil', 'siguiente-cita', 'contratiempo']
         && datos.titulo is string && datos.titulo.size() <= 80
         && datos.texto is string && datos.texto.size() <= 300
         && (!('enlace' in datos) || datos.enlace == null || (datos.enlace is string && datos.enlace.size() <= 120))
@@ -229,7 +229,7 @@ service cloud.firestore {
       let datos = request.resource.data;
       let cita = getAfter(/databases/$(database)/documents/citas/$(datos.citaId)).data;
       return (cita.clienteId == request.auth.uid && cita.negocioId == uid && datos.tipo in ['nueva-reserva', 'cita-cancelada'])
-        || (cita.negocioId == request.auth.uid && cita.clienteId == uid && datos.tipo in ['cita-cancelada', 'calificar']);
+        || (cita.negocioId == request.auth.uid && cita.clienteId == uid && datos.tipo in ['cita-cancelada', 'calificar', 'contratiempo']);
     }
 
     // Ubicación del negocio: null o { lat, lng } con coordenadas válidas.
@@ -434,11 +434,20 @@ service cloud.firestore {
                         && request.resource.data.estado == 'cancelada'
                         && request.resource.data.canceladaPor == 'cliente')
                     || (esDueno(resource.data.negocioId)
-                        && cambiosCita().hasOnly(['estado', 'canceladaPor'])
-                        && request.resource.data.estado in ['pendiente', 'cancelada', 'completada']
+                        && cambiosCita().hasOnly(['estado', 'canceladaPor', 'iniciadaEn', 'contratiempoAvisado'])
+                        && request.resource.data.estado in ['pendiente', 'en-proceso', 'cancelada', 'completada']
                         && (request.resource.data.estado != 'completada'
                             || resource.data.estado == 'completada'
                             || resource.data.fechaHora <= request.time)
+                        && (request.resource.data.estado != 'en-proceso'
+                            || resource.data.estado == 'en-proceso'
+                            || (cambiosCita().hasAny(['iniciadaEn'])
+                                && resource.data.fechaHora <= request.time + duration.value(1, 'h')))
+                        && (!cambiosCita().hasAny(['iniciadaEn'])
+                            || (request.resource.data.estado == 'en-proceso'
+                                && request.resource.data.iniciadaEn == request.time))
+                        && (!cambiosCita().hasAny(['contratiempoAvisado'])
+                            || request.resource.data.contratiempoAvisado == true)
                         && (!cambiosCita().hasAny(['canceladaPor'])
                             || request.resource.data.canceladaPor == 'negocio'));
       allow create: if estaAutenticado()

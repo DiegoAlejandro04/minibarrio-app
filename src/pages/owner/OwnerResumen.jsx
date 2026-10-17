@@ -12,6 +12,7 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 const ESTADO_STYLES = {
   confirmada: { bg: 'var(--sage-soft)', text: 'var(--sage-text)', label: 'Confirmada' },
   pendiente: { bg: 'var(--sage-soft)', text: 'var(--sage-text)', label: 'Reservada' },
+  'en-proceso': { bg: 'oklch(60% 0.13 250 / 0.16)', text: 'oklch(55% 0.14 250)', label: 'En proceso' },
   cancelada: { bg: 'oklch(93% 0.035 25)', text: 'var(--danger)', label: 'Cancelada' },
   completada: { bg: 'var(--surface-2)', text: 'var(--text-muted)', label: 'Completada' },
 }
@@ -133,8 +134,8 @@ export default function OwnerResumen() {
 
   const serviciosPorId = useMemo(() => Object.fromEntries(servicios.map((s) => [s.id, s])), [servicios])
 
-  // Ingresos: suma citas "pendiente" o "completada" (las canceladas no cuentan).
-  const cuentaParaIngresos = (c) => c.estado === 'pendiente' || c.estado === 'completada'
+  // Ingresos: suma citas reservadas, en proceso o realizadas (las canceladas no cuentan).
+  const cuentaParaIngresos = (c) => c.estado === 'pendiente' || c.estado === 'en-proceso' || c.estado === 'completada'
 
   const ingresosSemana = useMemo(
     () => citasConFecha

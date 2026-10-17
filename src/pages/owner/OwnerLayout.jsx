@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -9,6 +9,7 @@ import Splash from '../../components/Splash.jsx'
 import Icon from '../../components/Icon.jsx'
 import { pasosPerfil } from '../../perfilNegocio.js'
 import { crearAvisoPropio } from '../../notificaciones.js'
+import { leerPerfilCliente } from '../../perfilesClientes.js'
 import useNotificaciones from '../../hooks/useNotificaciones.js'
 
 // Shell del panel del comerciante: menú lateral de cristal (PanelConMenu.jsx,
@@ -37,6 +38,9 @@ const GRUPOS_NAV = [
 ]
 
 const HORA = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', hour12: true })
+// Con una cita "En proceso", cuánto antes de la siguiente de la misma
+// persona se avisa para confirmar si se va a tiempo.
+const AVISO_SIGUIENTE_MS = 15 * 60 * 1000
 
 // "2026-10-14": id de los avisos que se crean una vez al día.
 function claveDia(d) {
@@ -130,6 +134,50 @@ export default function OwnerLayout() {
       }, existentes)
     }
   }, [uid, cargadas, idsExistentes, negocio, citas, siguientePaso, perfilCompletado])
+
+  // Aviso "tu próxima cita es en 15 minutos": mientras haya una cita En
+  // proceso, revisa cada 30 s si la siguiente de esa misma persona (o del
+  // negocio, sin equipo) empieza dentro de 15 minutos. Al tocarlo, la Agenda
+  // pregunta si va a tiempo o si hay un contratiempo (OwnerAgenda.jsx).
+  const [reloj, setReloj] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setReloj(Date.now()), 30000)
+    return () => clearInterval(id)
+  }, [])
+  const avisosEnCamino = useRef(new Set())
+  useEffect(() => {
+    if (!uid || !cargadas) return
+    const conFecha = citas
+      .map((c) => ({ ...c, fecha: c.fechaHora?.toDate?.() }))
+      .filter((c) => c.fecha)
+    const persona = (c) => c.profesionalId || ''
+    conFecha.filter((c) => c.estado === 'en-proceso').forEach((actual) => {
+      const siguiente = conFecha
+        .filter((c) => c.estado === 'pendiente'
+          && persona(c) === persona(actual)
+          && c.fecha > actual.fecha
+          && claveDia(c.fecha) === claveDia(actual.fecha))
+        .sort((a, b) => a.fecha - b.fecha)[0]
+      if (!siguiente) return
+      const falta = siguiente.fecha.getTime() - reloj
+      if (falta <= 0 || falta > AVISO_SIGUIENTE_MS) return
+      const id = `siguiente-cita-${siguiente.id}`
+      if (idsExistentes.has(id) || avisosEnCamino.current.has(id)) return
+      avisosEnCamino.current.add(id)
+      leerPerfilCliente(uid, siguiente.clienteId, { citaId: siguiente.id })
+        .catch(() => null)
+        .then((perfil) => {
+          const minutos = Math.max(1, Math.round((siguiente.fecha.getTime() - Date.now()) / 60000))
+          crearAvisoPropio(uid, id, {
+            tipo: 'siguiente-cita',
+            titulo: `En ${minutos} min tienes cita con ${perfil?.nombre || 'tu cliente'}`,
+            texto: `Es a las ${HORA.format(siguiente.fecha)}${siguiente.profesionalNombre ? `, con ${siguiente.profesionalNombre}` : ''}. Toca aquí para confirmar si vas a tiempo con la cita en proceso.`,
+            enlace: `/panel/agenda?siguiente=${siguiente.id}`,
+            citaId: siguiente.id,
+          }, idsExistentes)
+        })
+    })
+  }, [uid, cargadas, idsExistentes, citas, reloj])
 
   async function handleLogout() {
     // A la vitrina (se puede ver sin cuenta), no al formulario de login, con
