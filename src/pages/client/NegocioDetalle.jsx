@@ -21,7 +21,7 @@ import useEquipo from '../../hooks/useEquipo.js'
 import AvatarProfesional from '../../components/AvatarProfesional.jsx'
 import {
   disponibilidadAgenda, disponibilidadCualquiera, disponibilidadProfesional, equipoDelDia, ocupadosDelDia,
-  primerNombre, resumenHorario as horarioPersona, trabajaEl, ventanaProfesional,
+  almuerzoDe, primerNombre, resumenHorario as horarioPersona, textoRango, trabajaEl, ventanaProfesional,
 } from '../../equipo.js'
 
 // Perfil público del negocio + reserva de citas (RF-05, RF-06, RF-07, RF-08,
@@ -256,6 +256,27 @@ export default function NegocioDetalle() {
     const atiende = !conEquipo || (profesionalElegido ? atiendeEse(profesionalElegido) : equipoActivo.some(atiendeEse))
     return { fecha: d, valor: toDateInputValue(d), disponible: !!bloque && atiende }
   }), [manana, negocio, conEquipo, profesionalElegido, equipoActivo])
+
+  // Fila de días: las flechas (solo con mouse) la corren casi un ancho
+  // completo, y se apagan al llegar a cada extremo.
+  const diasRef = useRef(null)
+  const [bordesDias, setBordesDias] = useState({ inicio: true, fin: false })
+  function actualizarBordesDias() {
+    const el = diasRef.current
+    if (!el) return
+    const inicio = el.scrollLeft <= 2
+    const fin = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2
+    setBordesDias((prev) => (prev.inicio === inicio && prev.fin === fin ? prev : { inicio, fin }))
+  }
+  function moverDias(direccion) {
+    const el = diasRef.current
+    if (el) el.scrollBy({ left: direccion * el.clientWidth * 0.8 })
+  }
+  useEffect(() => {
+    actualizarBordesDias()
+    window.addEventListener('resize', actualizarBordesDias)
+    return () => window.removeEventListener('resize', actualizarBordesDias)
+  }, [diasReserva])
 
   // Si el día elegido deja de servir (otra persona elegida), pasa al primero
   // que sí.
@@ -898,7 +919,31 @@ export default function NegocioDetalle() {
                 <Icon name="clock" size={13} /> {primerNombre(profesionalElegido.nombre)} atiende ese día de {horarioPersona(profesionalElegido, fechaObj)}
               </div>
             )}
-            <div className="reserva-dias" role="radiogroup" aria-label="Día de la cita">
+            {/* Su hora de almuerzo: esos turnos no se ofrecen (ver almuerzoDe en equipo.js). */}
+            {profesionalElegido && trabajaEl(profesionalElegido, fechaObj) && almuerzoDe(profesionalElegido, fechaObj) && (
+              <div className="reserva-horario-persona">
+                <Icon name="almuerzo" size={13} /> Almuerza de {textoRango(almuerzoDe(profesionalElegido, fechaObj))}: en ese tiempo no hay turnos
+              </div>
+            )}
+            <div className="reserva-dias-marco">
+            {/* Flechas solo con mouse (ver .reserva-dias-flecha en index.css):
+                en el celular los días se deslizan con el dedo. */}
+            <button
+              type="button"
+              className="reserva-dias-flecha izquierda"
+              onClick={() => moverDias(-1)}
+              disabled={bordesDias.inicio}
+              aria-label="Ver días anteriores"
+            >
+              <Icon name="chevronLeft" size={16} />
+            </button>
+            <div
+              ref={diasRef}
+              className={`reserva-dias${bordesDias.inicio ? '' : ' con-antes'}${bordesDias.fin ? '' : ' con-despues'}`}
+              role="radiogroup"
+              aria-label="Día de la cita"
+              onScroll={actualizarBordesDias}
+            >
               {diasReserva.map((d) => (
                 <button
                   key={d.valor}
@@ -915,6 +960,16 @@ export default function NegocioDetalle() {
                   <span className="reserva-dia__mes">{MES_CORTO.format(d.fecha).replace('.', '')}</span>
                 </button>
               ))}
+            </div>
+            <button
+              type="button"
+              className="reserva-dias-flecha derecha"
+              onClick={() => moverDias(1)}
+              disabled={bordesDias.fin}
+              aria-label="Ver más días"
+            >
+              <Icon name="chevronRight" size={16} />
+            </button>
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6 }}>
               Las citas se reservan con al menos un día de anticipación.
