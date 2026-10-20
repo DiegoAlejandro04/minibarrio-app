@@ -7,10 +7,11 @@ import ToggleIOS from '../../components/ToggleIOS.jsx'
 import ConfirmarModal from '../../components/ConfirmarModal.jsx'
 import RecorteImagen from '../../components/RecorteImagen.jsx'
 import AvatarProfesional from '../../components/AvatarProfesional.jsx'
+import SelectorHora from '../../components/SelectorHora.jsx'
 import useEquipo from '../../hooks/useEquipo.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { cargarImagen, pesoKb } from '../../imagenes.js'
-import { bloqueDeDia, diasAbiertos, formatoHora12 } from '../../horarios.js'
+import { bloqueDeDia, diasAbiertos, formatoHora12, horasEntre } from '../../horarios.js'
 import {
   CARGOS_SUGERIDOS, DIAS_SEMANA, MAX_CARGO, MAX_EQUIPO, MAX_NOMBRE_PROFESIONAL,
   almuerzoDe, horarioDe, resumenAlmuerzo, resumenDias, resumenHorario, tieneAlmuerzoPorDia, tieneHorarioPorDia, textoRango,
@@ -190,11 +191,42 @@ function TarjetaProfesional({ profesional, uid, onEditar, onEliminar }) {
   )
 }
 
+// Rango de horas que se pueden elegir: el del negocio ese día o, para el
+// horario general, desde la apertura más temprana hasta el cierre más tarde
+// de la semana (6:00 a. m. a 10:00 p. m. si no tiene horario publicado).
+function rangoNegocio(horariosNegocio, dias) {
+  const bloques = dias.map((d) => bloqueDeDia(horariosNegocio, d)).filter(Boolean)
+  if (bloques.length === 0) return { desde: '06:00', hasta: '22:00' }
+  return {
+    desde: bloques.reduce((m, b) => (b.apertura < m ? b.apertura : m), bloques[0].apertura),
+    hasta: bloques.reduce((m, b) => (b.cierre > m ? b.cierre : m), bloques[0].cierre),
+  }
+}
+
+// Opciones de entrada y salida dentro de un rango: la entrada antes de la
+// salida elegida, y la salida después de la entrada.
+function opcionesHorario(rango, horario) {
+  const todas = horasEntre(rango.desde, rango.hasta)
+  return {
+    entrada: todas.filter((h) => h < rango.hasta && (!horario.fin || h < horario.fin)),
+    salida: todas.filter((h) => h > rango.desde && (!horario.inicio || h > horario.inicio)),
+  }
+}
+
 // Horario que se propone al activar "Horario propio": el del primer día que
 // abre el negocio, o 9:00 a 6:00 si no tiene horario publicado.
 function horarioSugerido(horariosNegocio, abiertos) {
   const bloque = abiertos.length ? bloqueDeDia(horariosNegocio, abiertos[0]) : null
   return { inicio: bloque?.apertura || '09:00', fin: bloque?.cierre || '18:00' }
+}
+
+// "4 h", "4 h 20 min": cuánto tiempo atiende en un horario.
+function duracionTexto({ inicio, fin }) {
+  const aMin = (h) => { const [x, y] = h.split(':').map(Number); return x * 60 + y }
+  const total = aMin(fin) - aMin(inicio)
+  const horas = Math.floor(total / 60)
+  const minutos = total % 60
+  return [horas ? `${horas} h` : '', minutos ? `${minutos} min` : ''].filter(Boolean).join(' ')
 }
 
 function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefecto, diasAbiertos: abiertos, isMobile, onListo }) {
@@ -289,6 +321,21 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
     setCargoPropio(true)
     setCargo((actual) => (CARGOS_SUGERIDOS.includes(actual) ? '' : actual))
   }
+
+  function restablecerDia(dia) {
+    setHorariosDia((prev) => {
+      const nuevo = { ...prev }
+      delete nuevo[dia]
+      return nuevo
+    })
+  }
+
+  const opcionesGenerales = opcionesHorario(rangoNegocio(horariosNegocio, abiertos.length ? abiertos : [...dias]), horario)
+  // El almuerzo cae dentro de su jornada: su horario propio o el del negocio.
+  const opcionesAlmuerzo = opcionesHorario(
+    horarioPropio ? { desde: horario.inicio, hasta: horario.fin } : rangoNegocio(horariosNegocio, abiertos.length ? abiertos : [...dias]),
+    almuerzo,
+  )
 
   async function guardar(e) {
     e.preventDefault()
@@ -483,15 +530,28 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
               {horarioPropio && (
                 <div className="equipo-horario-editor">
                   <div className="equipo-horas">
-                    <label>
+                    <div className="equipo-horas__campo">
                       <span>Entra</span>
-                      <input type="time" step={1200} value={horario.inicio} onChange={(e) => setHorario((h) => ({ ...h, inicio: e.target.value }))} />
-                    </label>
-                    <span className="equipo-horas__guion" aria-hidden="true">–</span>
-                    <label>
+                      <SelectorHora
+                        etiqueta="Hora de entrada"
+                        valor={horario.inicio}
+                        opciones={opcionesGenerales.entrada}
+                        onCambiar={(v) => setHorario((h) => ({ ...h, inicio: v }))}
+                      />
+                    </div>
+                    <span className="equipo-horas__flecha" aria-hidden="true"><Icon name="chevronRight" size={16} /></span>
+                    <div className="equipo-horas__campo">
                       <span>Sale</span>
-                      <input type="time" step={1200} value={horario.fin} onChange={(e) => setHorario((h) => ({ ...h, fin: e.target.value }))} />
-                    </label>
+                      <SelectorHora
+                        etiqueta="Hora de salida"
+                        valor={horario.fin}
+                        opciones={opcionesGenerales.salida}
+                        onCambiar={(v) => setHorario((h) => ({ ...h, fin: v }))}
+                      />
+                    </div>
+                    {horario.inicio && horario.fin && horario.inicio < horario.fin && (
+                      <span className="equipo-horas__total">{duracionTexto(horario)}</span>
+                    )}
                   </div>
 
                   <label className="equipo-check">
@@ -505,15 +565,27 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
                         const h = horarioDelDia(d.dia)
                         const bloque = bloqueDeDia(horariosNegocio, d.dia)
                         const distinto = h.inicio !== horario.inicio || h.fin !== horario.fin
+                        const opciones = opcionesHorario(bloque ? { desde: bloque.apertura, hasta: bloque.cierre } : rangoNegocio(horariosNegocio, abiertos), h)
                         return (
                           <div key={d.dia} className={`equipo-dia-fila${distinto ? ' distinto' : ''}`}>
-                            <span className="equipo-dia-fila__nombre">{d.nombre}</span>
-                            <input type="time" step={1200} value={h.inicio} onChange={(e) => cambiarHorarioDia(d.dia, 'inicio', e.target.value)} aria-label={`${d.nombre}: entra`} />
-                            <span aria-hidden="true">–</span>
-                            <input type="time" step={1200} value={h.fin} onChange={(e) => cambiarHorarioDia(d.dia, 'fin', e.target.value)} aria-label={`${d.nombre}: sale`} />
-                            <span className="equipo-dia-fila__negocio">
-                              {bloque ? `Negocio: ${formatoHora12(bloque.apertura)} – ${formatoHora12(bloque.cierre)}` : 'El negocio no abre'}
-                            </span>
+                            <div className="equipo-dia-fila__dia">
+                              <span className="equipo-dia-fila__nombre">{d.nombre}</span>
+                              <span className="equipo-dia-fila__negocio">
+                                {bloque ? `Negocio ${formatoHora12(bloque.apertura)} – ${formatoHora12(bloque.cierre)}` : 'El negocio no abre'}
+                              </span>
+                            </div>
+                            <div className="equipo-dia-fila__horas">
+                              <SelectorHora compacto etiqueta={`${d.nombre}: entra`} valor={h.inicio} opciones={opciones.entrada} onCambiar={(v) => cambiarHorarioDia(d.dia, 'inicio', v)} />
+                              <span className="equipo-horas__flecha" aria-hidden="true"><Icon name="chevronRight" size={14} /></span>
+                              <SelectorHora compacto etiqueta={`${d.nombre}: sale`} valor={h.fin} opciones={opciones.salida} onCambiar={(v) => cambiarHorarioDia(d.dia, 'fin', v)} />
+                            </div>
+                            {distinto ? (
+                              <button type="button" className="equipo-dia-fila__restablecer" onClick={() => restablecerDia(d.dia)} title="Volver al horario general">
+                                Restablecer
+                              </button>
+                            ) : (
+                              <span className="equipo-dia-fila__igual">Igual</span>
+                            )}
                           </div>
                         )
                       })}
@@ -545,15 +617,28 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
 
                   {!almuerzoPorDia ? (
                     <div className="equipo-horas" style={{ marginTop: 14 }}>
-                      <label>
+                      <div className="equipo-horas__campo">
                         <span>Sale a almorzar</span>
-                        <input type="time" step={1200} value={almuerzo.inicio} onChange={(e) => setAlmuerzo((a) => ({ ...a, inicio: e.target.value }))} />
-                      </label>
-                      <span className="equipo-horas__guion" aria-hidden="true">–</span>
-                      <label>
+                        <SelectorHora
+                          etiqueta="Sale a almorzar"
+                          valor={almuerzo.inicio}
+                          opciones={opcionesAlmuerzo.entrada}
+                          onCambiar={(v) => setAlmuerzo((a) => ({ ...a, inicio: v }))}
+                        />
+                      </div>
+                      <span className="equipo-horas__flecha" aria-hidden="true"><Icon name="chevronRight" size={16} /></span>
+                      <div className="equipo-horas__campo">
                         <span>Regresa</span>
-                        <input type="time" step={1200} value={almuerzo.fin} onChange={(e) => setAlmuerzo((a) => ({ ...a, fin: e.target.value }))} />
-                      </label>
+                        <SelectorHora
+                          etiqueta="Regresa del almuerzo"
+                          valor={almuerzo.fin}
+                          opciones={opcionesAlmuerzo.salida}
+                          onCambiar={(v) => setAlmuerzo((a) => ({ ...a, fin: v }))}
+                        />
+                      </div>
+                      {almuerzo.inicio && almuerzo.fin && almuerzo.inicio < almuerzo.fin && (
+                        <span className="equipo-horas__total">{duracionTexto(almuerzo)}</span>
+                      )}
                     </div>
                   ) : dias.size === 0 ? (
                     <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 12 }}>Primero marca los días que trabaja.</div>
@@ -563,15 +648,21 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
                         const a = almuerzoDelDia(d.dia)
                         const jornada = jornadaDelDia(d.dia)
                         const distinto = a.inicio !== almuerzo.inicio || a.fin !== almuerzo.fin
+                        const opciones = opcionesHorario(jornada ? { desde: jornada.inicio, hasta: jornada.fin } : rangoNegocio(horariosNegocio, abiertos), a)
                         return (
                           <div key={d.dia} className={`equipo-dia-fila${distinto ? ' distinto' : ''}`}>
-                            <span className="equipo-dia-fila__nombre">{d.nombre}</span>
-                            <input type="time" step={1200} value={a.inicio} onChange={(e) => cambiarAlmuerzoDia(d.dia, 'inicio', e.target.value)} aria-label={`${d.nombre}: sale a almorzar`} />
-                            <span aria-hidden="true">–</span>
-                            <input type="time" step={1200} value={a.fin} onChange={(e) => cambiarAlmuerzoDia(d.dia, 'fin', e.target.value)} aria-label={`${d.nombre}: regresa`} />
-                            <span className="equipo-dia-fila__negocio">
-                              {jornada ? `Trabaja: ${formatoHora12(jornada.inicio)} – ${formatoHora12(jornada.fin)}` : 'El negocio no abre'}
-                            </span>
+                            <div className="equipo-dia-fila__dia">
+                              <span className="equipo-dia-fila__nombre">{d.nombre}</span>
+                              <span className="equipo-dia-fila__negocio">
+                                {jornada ? `Trabaja ${formatoHora12(jornada.inicio)} – ${formatoHora12(jornada.fin)}` : 'El negocio no abre'}
+                              </span>
+                            </div>
+                            <div className="equipo-dia-fila__horas">
+                              <SelectorHora compacto etiqueta={`${d.nombre}: sale a almorzar`} valor={a.inicio} opciones={opciones.entrada} onCambiar={(v) => cambiarAlmuerzoDia(d.dia, 'inicio', v)} />
+                              <span className="equipo-horas__flecha" aria-hidden="true"><Icon name="chevronRight" size={14} /></span>
+                              <SelectorHora compacto etiqueta={`${d.nombre}: regresa`} valor={a.fin} opciones={opciones.salida} onCambiar={(v) => cambiarAlmuerzoDia(d.dia, 'fin', v)} />
+                            </div>
+                            <span className="equipo-dia-fila__igual">{distinto ? 'Distinto' : 'Igual'}</span>
                           </div>
                         )
                       })}

@@ -81,6 +81,16 @@ export function estadoApertura(horarios, ahora = new Date()) {
 }
 
 /** "9:00 a. m." a partir de "09:00". */
+/** Horas cada `paso` minutos entre `desde` y `hasta` (ambas incluidas). */
+export function horasEntre(desde, hasta, paso = 20) {
+  const aMin = (h) => { const [a, b] = h.split(':').map(Number); return a * 60 + b }
+  const lista = []
+  for (let m = aMin(desde); m <= aMin(hasta); m += paso) {
+    lista.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`)
+  }
+  return lista
+}
+
 export function formatoHora12(hhmm) {
   const [h, m] = hhmm.split(':').map(Number)
   const ampm = h < 12 ? 'a. m.' : 'p. m.'
