@@ -452,15 +452,15 @@ function Campo({ label, value }) {
 function StatTile({ icon, label, value, sub, extra }) {
   return (
     <div className="card" style={{ padding: '16px 18px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 700 }}>{label}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {extra}
-          <div style={{ color: 'var(--text-faint)' }}>
-            <Icon name={icon} size={16} />
-          </div>
+      {/* Título e ícono en la primera fila; el selector (extra) debajo, para
+          que en las tarjetas angostas del celular nada se salga. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 700, minWidth: 0 }}>{label}</div>
+        <div style={{ color: 'var(--text-faint)', flexShrink: 0 }}>
+          <Icon name={icon} size={16} />
         </div>
       </div>
+      {extra && <div style={{ marginTop: 10 }}>{extra}</div>}
       <div style={{ fontSize: 24, fontWeight: 800, marginTop: 8 }}>{value}</div>
       <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 4 }}>{sub}</div>
     </div>
