@@ -8,7 +8,7 @@ import { db } from '../../firebase/config'
 // hace falta para ver el contenido principal.
 import { geocodeDireccion, acortarDireccion, CENTRO_BRITALIA } from '../../maps/direcciones.js'
 import useIsMobile from '../../hooks/useIsMobile.js'
-import { recomendar, distanciaKm } from '../../recomendador.js'
+import { recomendar, distanciaKm, UMBRAL_RECOMENDADO, CANTIDAD_RECOMENDADOS } from '../../recomendador.js'
 import { ESPECIALIDADES } from '../../especialidades.js'
 import Footer from '../../components/Footer.jsx'
 import ComoFunciona from '../../components/ComoFunciona.jsx'
@@ -80,6 +80,15 @@ const RADIO_BARRIO_KM = 2
 const PRECISION_MAXIMA_M = 1000
 // Por debajo de esto el halo de precisión no aporta (cabe dentro del punto).
 const PRECISION_SIN_HALO_M = 40
+// Negocios por tanda en "Todos los negocios" (ver "Ver más negocios").
+const NEGOCIOS_POR_TANDA = 9
+const ORDENES_TODOS = [
+  { id: 'recomendados', texto: 'Recomendados' },
+  { id: 'cerca', texto: 'Más cerca' },
+  { id: 'calificacion', texto: 'Mejor calificados' },
+  { id: 'precio', texto: 'Más económicos' },
+  { id: 'abiertos', texto: 'Abiertos ahora' },
+]
 
 export default function ClientHome() {
   const { currentUser, role, logout } = useAuth()
@@ -568,6 +577,45 @@ export default function ClientHome() {
     destacadoIdRef.current = destacado?.id ?? null
     aplicarDestacado(destacadoIdRef.current)
   }, [destacado?.id])
+
+  // Vitrina en dos niveles cuando hay más de CANTIDAD_RECOMENDADOS negocios:
+  // arriba los mejores del ranking (solo los que pasan UMBRAL_RECOMENDADO:
+  // mejor no recomendar que recomendar mal), y debajo todos, con un orden a
+  // elección del cliente y de a NEGOCIOS_POR_TANDA ("Ver más"). Con pocos
+  // negocios se muestra una sola lista, como siempre.
+  const vitrinaEnDosNiveles = recomendaciones.length > CANTIDAD_RECOMENDADOS
+  const recomendadosTop = useMemo(
+    () => (vitrinaEnDosNiveles
+      ? recomendaciones.filter((n) => n.puntaje >= UMBRAL_RECOMENDADO).slice(0, CANTIDAD_RECOMENDADOS)
+      : []),
+    [vitrinaEnDosNiveles, recomendaciones]
+  )
+  const [ordenTodos, setOrdenTodos] = useState('recomendados')
+  const [cantidadTodos, setCantidadTodos] = useState(NEGOCIOS_POR_TANDA)
+  // Al cambiar la búsqueda o el orden, la lista vuelve a empezar.
+  useEffect(() => { setCantidadTodos(NEGOCIOS_POR_TANDA) }, [consulta, ordenTodos])
+  // "Más cerca" solo tiene sentido con una ubicación que sirve.
+  useEffect(() => { if (ordenTodos === 'cerca' && !consulta.ubicacion) setOrdenTodos('recomendados') }, [ordenTodos, consulta.ubicacion])
+
+  const todosOrdenados = useMemo(() => {
+    const lista = [...recomendaciones]
+    if (ordenTodos === 'recomendados') {
+      // Sin repetir los que ya van arriba.
+      const arriba = new Set(recomendadosTop.map((n) => n.id))
+      return lista.filter((n) => !arriba.has(n.id))
+    }
+    const alFinal = (v) => (v == null ? Infinity : v)
+    if (ordenTodos === 'cerca') {
+      return lista.sort((a, b) => alFinal(a.ubicacion && distanciaKm(consulta.ubicacion, a.ubicacion)) - alFinal(b.ubicacion && distanciaKm(consulta.ubicacion, b.ubicacion)))
+    }
+    if (ordenTodos === 'calificacion') {
+      return lista.sort((a, b) => (b.ratingProm ?? -1) - (a.ratingProm ?? -1) || (b.ratingCount || 0) - (a.ratingCount || 0))
+    }
+    if (ordenTodos === 'precio') return lista.sort((a, b) => alFinal(a.precioDesde) - alFinal(b.precioDesde))
+    if (ordenTodos === 'abiertos') return lista.filter((n) => n.estado === 'abierto' || n.estado === 'cierra-pronto')
+    return lista
+  }, [recomendaciones, recomendadosTop, ordenTodos, consulta.ubicacion])
+  const puestoDe = useMemo(() => new Map(recomendadosTop.map((n, i) => [n.id, i + 1])), [recomendadosTop])
 
   function handleBuscar(e) {
     e.preventDefault()
@@ -1082,12 +1130,16 @@ export default function ClientHome() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 800 }}>
-              {hayFiltrosActivos ? 'Resultados de tu búsqueda' : 'Recomendado para ti'}
+              {hayFiltrosActivos
+                ? 'Resultados de tu búsqueda'
+                : vitrinaEnDosNiveles && recomendadosTop.length === 0 ? 'Barberías y estéticas del barrio' : 'Recomendado para ti'}
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
               {hayFiltrosActivos
-                ? `${recomendaciones.length} negocio${recomendaciones.length === 1 ? '' : 's'} encontrado${recomendaciones.length === 1 ? '' : 's'}`
-                : 'Barberías y estéticas de Britalia, Kennedy.'}
+                ? `${recomendaciones.length} negocio${recomendaciones.length === 1 ? '' : 's'} encontrado${recomendaciones.length === 1 ? '' : 's'}${recomendadosTop.length ? ' · arriba, los que mejor encajan' : ''}`
+                : recomendadosTop.length
+                  ? `Los ${recomendadosTop.length} que mejor encajan contigo en Britalia, Kennedy.`
+                  : 'Barberías y estéticas de Britalia, Kennedy.'}
             </div>
           </div>
           {hayFiltrosActivos && (
@@ -1126,7 +1178,7 @@ export default function ClientHome() {
           <p style={{ color: 'var(--text-muted)', marginTop: 24 }}>
             {hayFiltrosActivos ? 'No encontramos negocios que coincidan con tu búsqueda.' : 'Aún no hay negocios registrados en MiniBarrio.'}
           </p>
-        ) : (
+        ) : !vitrinaEnDosNiveles ? (
           // auto-fit (no auto-fill): las tarjetas llenan la fila en vez de
           // dejar media fila vacía. Con 1 o 2 negocios en PC, cada tarjeta
           // ocupa más de 600px: en vertical la foto quedaba como una franja
@@ -1139,60 +1191,73 @@ export default function ClientHome() {
             }}
           >
             {recomendaciones.map((n) => (
-              <Link
-                key={n.id}
-                to={`/negocio/${n.id}`}
-                className={`card tarjeta-negocio${tarjetasHorizontales ? ' tarjeta-negocio--horizontal' : ''}`}
-                style={{ overflow: 'hidden', color: 'inherit' }}
-              >
-                <FotoNegocio negocio={n} estado={n.estado} alto={tarjetasHorizontales ? '100%' : 130} minAlto={tarjetasHorizontales ? 190 : undefined} />
-                <div className="tarjeta-negocio__cuerpo" style={{ padding: tarjetasHorizontales ? '18px 20px' : 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14.5 }}>{n.nombre}</div>
-                    {n.ratingProm && (
-                      <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>★ {n.ratingProm.toFixed(1)}</span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{n.descripcion || n.categoria}</div>
-                  <div
-                    style={{
-                      fontSize: 11.5, color: 'var(--text-faint)', marginTop: 6,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}
-                    title={n.direccion}
-                  >
-                    {distanciaDe(n) && <><strong style={{ color: 'var(--text)' }}>{distanciaDe(n)}</strong> · </>}
-                    {n.direccion ? acortarDireccion(n.direccion) : ''}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-                    <span style={{ fontSize: 12.5, fontWeight: 700 }}>
-                      {n.precioDesde != null ? `Desde ${COP.format(n.precioDesde)}` : 'Consulta precios'}
-                    </span>
-                    {n.especialidades?.[0] && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
-                        {n.especialidades[0]}
-                      </span>
-                    )}
-                  </div>
-                  {n.razones.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 9 }}>
-                      {n.razones.slice(0, 2).map((razon) => (
-                        <span
-                          key={razon}
-                          style={{
-                            fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999,
-                            background: 'var(--accent-soft)', color: 'var(--accent-hover)',
-                          }}
-                        >
-                          {razon}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Link>
+              <TarjetaNegocio key={n.id} negocio={n} horizontal={tarjetasHorizontales} distancia={distanciaDe(n)} />
             ))}
           </div>
+        ) : (
+          <>
+            {recomendadosTop.length > 0 && (
+              isMobile ? (
+                <CarruselRecomendados negocios={recomendadosTop} distanciaDe={distanciaDe} />
+              ) : (
+                <div style={{ display: 'grid', gap: 16, marginTop: 20, gridTemplateColumns: `repeat(${CANTIDAD_RECOMENDADOS}, minmax(0, 1fr))` }}>
+                  {recomendadosTop.map((n, i) => (
+                    <TarjetaNegocio key={n.id} negocio={n} puesto={i + 1} distancia={distanciaDe(n)} />
+                  ))}
+                </div>
+              )
+            )}
+
+            <div className="vitrina-todos">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+                <div style={{ fontSize: isMobile ? 17 : 18, fontWeight: 800 }}>
+                  {hayFiltrosActivos ? 'Todos los resultados' : 'Todos los negocios del barrio'}
+                </div>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  {recomendaciones.length} negocios
+                </span>
+              </div>
+              <div className="vitrina-ordenes" role="radiogroup" aria-label="Ordenar negocios">
+                {ORDENES_TODOS.filter((o) => o.id !== 'cerca' || consulta.ubicacion).map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={ordenTodos === o.id}
+                    className={ordenTodos === o.id ? 'on' : ''}
+                    onClick={() => setOrdenTodos(o.id)}
+                  >
+                    {o.texto}
+                  </button>
+                ))}
+              </div>
+
+              {todosOrdenados.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13.5, marginTop: 14 }}>
+                  {ordenTodos === 'abiertos' ? 'Ahora mismo no hay negocios abiertos.' : 'No hay más negocios.'}
+                </p>
+              ) : isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+                  {todosOrdenados.slice(0, cantidadTodos).map((n) => (
+                    <FilaNegocio key={n.id} negocio={n} puesto={puestoDe.get(n.id)} distancia={distanciaDe(n)} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: 16, marginTop: 16, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                  {todosOrdenados.slice(0, cantidadTodos).map((n) => (
+                    <TarjetaNegocio key={n.id} negocio={n} puesto={puestoDe.get(n.id)} distancia={distanciaDe(n)} />
+                  ))}
+                </div>
+              )}
+
+              {todosOrdenados.length > cantidadTodos && (
+                <button type="button" className="vitrina-ver-mas" onClick={() => setCantidadTodos((c) => c + NEGOCIOS_POR_TANDA)}>
+                  Ver más negocios ({todosOrdenados.length - cantidadTodos})
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+              )}
+            </div>
+          </>
         )}
       </section>
 
@@ -1245,5 +1310,120 @@ function Icon({ name, size = 18 }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <path d={ICON_PATHS[name]} />
     </svg>
+  )
+}
+
+// Tarjeta de un negocio en la vitrina: foto (con su puesto si es de los
+// recomendados), nombre, calificación, descripción, distancia y dirección,
+// precio desde, especialidad y razones de la recomendación.
+function TarjetaNegocio({ negocio: n, horizontal = false, puesto, distancia }) {
+  return (
+    <Link
+      to={`/negocio/${n.id}`}
+      className={`card tarjeta-negocio${horizontal ? ' tarjeta-negocio--horizontal' : ''}`}
+      style={{ overflow: 'hidden', color: 'inherit', position: 'relative' }}
+    >
+      <FotoNegocio negocio={n} estado={n.estado} alto={horizontal ? '100%' : 130} minAlto={horizontal ? 190 : undefined} />
+      {puesto && <span className="vitrina-puesto" title={`Recomendado n.º ${puesto}`}>{puesto}</span>}
+      <div className="tarjeta-negocio__cuerpo" style={{ padding: horizontal ? '18px 20px' : 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+          <div style={{ fontWeight: 800, fontSize: 14.5 }}>{n.nombre}</div>
+          {n.ratingProm && (
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>★ {n.ratingProm.toFixed(1)}</span>
+          )}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{n.descripcion || n.categoria}</div>
+        <div
+          style={{
+            fontSize: 11.5, color: 'var(--text-faint)', marginTop: 6,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}
+          title={n.direccion}
+        >
+          {distancia && <><strong style={{ color: 'var(--text)' }}>{distancia}</strong> · </>}
+          {n.direccion ? acortarDireccion(n.direccion) : ''}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+            {n.precioDesde != null ? `Desde ${COP.format(n.precioDesde)}` : 'Consulta precios'}
+          </span>
+          {n.especialidades?.[0] && (
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
+              {n.especialidades[0]}
+            </span>
+          )}
+        </div>
+        {n.razones.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 9 }}>
+            {n.razones.slice(0, 2).map((razon) => (
+              <span
+                key={razon}
+                style={{
+                  fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999,
+                  background: 'var(--accent-soft)', color: 'var(--accent-hover)',
+                }}
+              >
+                {razon}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </Link>
+  )
+}
+
+// Fila compacta para "Todos los negocios" en el celular: foto pequeña y los
+// datos clave al lado, para que quepan 3 o 4 por pantalla.
+function FilaNegocio({ negocio: n, puesto, distancia }) {
+  const estado = ESTADO_APERTURA[n.estado]
+  const foto = n.miniatura || n.fotos?.[0] || n.logo
+  return (
+    <Link to={`/negocio/${n.id}`} className="card vitrina-fila" style={{ color: 'inherit' }}>
+      <span className="vitrina-fila__foto">
+        {foto ? <img src={foto} alt="" loading="lazy" /> : <span>{inicialesDe(n.nombre)}</span>}
+        {puesto && <span className="vitrina-puesto pequeno">{puesto}</span>}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+          <span className="vitrina-fila__nombre">{n.nombre}</span>
+          {n.ratingProm && <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>★ {n.ratingProm.toFixed(1)}</span>}
+        </span>
+        <span className="vitrina-fila__datos">
+          {n.precioDesde != null ? `Desde ${COP.format(n.precioDesde)}` : 'Consulta precios'}
+          {distancia ? ` · ${distancia}` : ''}
+        </span>
+        {estado && <span className="vitrina-fila__estado" style={{ color: estado.text }}>● {estado.label}</span>}
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: 'var(--text-faint)', flexShrink: 0 }}><path d="M9 18l6-6-6-6" /></svg>
+    </Link>
+  )
+}
+
+// Recomendados en el celular: carrusel que se desliza de lado (se ve un
+// pedazo del siguiente para invitar a deslizar) con puntos que marcan en
+// cuál va.
+function CarruselRecomendados({ negocios, distanciaDe }) {
+  const pista = useRef(null)
+  const [actual, setActual] = useState(0)
+  function alDeslizar() {
+    const el = pista.current
+    const tarjeta = el?.firstElementChild
+    if (!tarjeta) return
+    setActual(Math.min(negocios.length - 1, Math.round(el.scrollLeft / (tarjeta.offsetWidth + 12))))
+  }
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="vitrina-carrusel" ref={pista} onScroll={alDeslizar}>
+        {negocios.map((n, i) => (
+          <TarjetaNegocio key={n.id} negocio={n} puesto={i + 1} distancia={distanciaDe(n)} />
+        ))}
+      </div>
+      {negocios.length > 1 && (
+        <div className="vitrina-puntos" aria-hidden="true">
+          {negocios.map((n, i) => <span key={n.id} className={i === actual ? 'on' : ''} />)}
+        </div>
+      )}
+    </div>
   )
 }

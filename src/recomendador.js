@@ -18,6 +18,15 @@ export const PESOS = {
 
 const DISTANCIA_MAXIMA_KM = 2 // más lejos que esto puntúa 0 en cercanía
 const RESENAS_DE_CONFIANZA = 5 // "votos previos" del promedio bayesiano
+// Nota neutra de partida (3,5 de 5) para el promedio bayesiano: ver
+// notaDePartida.
+const NOTA_NEUTRA = 3.5
+// Puntaje mínimo (0–100) para presentar un negocio como "Recomendado para
+// ti" en la vitrina (ClientHome.jsx): por debajo encaja poco con lo que se
+// pidió, y es mejor no recomendar que recomendar mal.
+export const UMBRAL_RECOMENDADO = 55
+// Cuántos negocios se destacan como recomendados.
+export const CANTIDAD_RECOMENDADOS = 3
 const NOTA_MINIMA_GUSTO = 4 // desde cuántas estrellas se considera que le gustó
 const PALABRA_MINIMA = 3 // palabras de 1-2 letras ("de", "y") no cuentan como especialidad
 
@@ -214,12 +223,24 @@ function puntajeCercania(negocio, consulta) {
   return limitar(1 - km / DISTANCIA_MAXIMA_KM)
 }
 
-// Promedio bayesiano: un negocio con pocas reseñas se acerca al promedio del
-// barrio, así no queda castigado (ni inflado) frente a los más activos.
-function puntajeCalificacion(negocio, promedioBarrio) {
+// Nota de partida del promedio bayesiano: la nota neutra (NOTA_NEUTRA)
+// mezclada con el promedio del barrio según cuántas reseñas hay en total.
+// Antes se partía del promedio del barrio a secas, y con pocas reseñas eso
+// premiaba a los negocios SIN reseñas: si las dos únicas del barrio eran de
+// 5 estrellas, un negocio nuevo "heredaba" un 5 y salía primero (hallazgo
+// H-01 del plan de pruebas). Ahora, con pocas reseñas en el barrio, se parte
+// cerca de 3,5; con muchas, del promedio real del barrio.
+function notaDePartida(promedioBarrio, resenasBarrio) {
+  return (RESENAS_DE_CONFIANZA * NOTA_NEUTRA + resenasBarrio * promedioBarrio) / (RESENAS_DE_CONFIANZA + resenasBarrio)
+}
+
+// Promedio bayesiano: un negocio con pocas reseñas se acerca a la nota de
+// partida, así no queda castigado (ni inflado) frente a los más activos, y
+// uno sin reseñas nunca supera a uno bien calificado.
+function puntajeCalificacion(negocio, partida) {
   const n = negocio.ratingCount ?? 0
-  const promedio = n > 0 ? negocio.ratingProm : promedioBarrio
-  const ajustado = (RESENAS_DE_CONFIANZA * promedioBarrio + n * promedio) / (RESENAS_DE_CONFIANZA + n)
+  const promedio = n > 0 ? negocio.ratingProm : partida
+  const ajustado = (RESENAS_DE_CONFIANZA * partida + n * promedio) / (RESENAS_DE_CONFIANZA + n)
   return ajustado / 5
 }
 
@@ -320,9 +341,11 @@ function ordenEquitativo(lista, semilla) {
 export function recomendar(negocios, consulta = {}, contextoCliente = {}, opciones = {}) {
   const conResenas = negocios.filter((n) => n.ratingCount > 0)
   const rangoBarrio = rangoDePrecios(negocios, consulta)
-  const promedioBarrio = conResenas.length
-    ? conResenas.reduce((s, n) => s + n.ratingProm, 0) / conResenas.length
-    : 3.5
+  const resenasBarrio = conResenas.reduce((s, n) => s + n.ratingCount, 0)
+  const promedioBarrio = resenasBarrio
+    ? conResenas.reduce((s, n) => s + n.ratingProm * n.ratingCount, 0) / resenasBarrio
+    : NOTA_NEUTRA
+  const partida = notaDePartida(promedioBarrio, resenasBarrio)
 
   const favoritoIds = new Set((contextoCliente.favoritos || []).map((f) => f.negocioId))
   const notasPropias = new Map(
@@ -356,7 +379,7 @@ export function recomendar(negocios, consulta = {}, contextoCliente = {}, opcion
         historial: directa != null ? Math.max(directa, parecido ?? 0) : parecido,
         cercania: puntajeCercania(negocio, consulta),
         servicio: puntajeServicio(negocio, consulta),
-        calificacion: puntajeCalificacion(negocio, promedioBarrio),
+        calificacion: puntajeCalificacion(negocio, partida),
       }
 
       // Suma ponderada. Los componentes en null (sin ubicación, sin

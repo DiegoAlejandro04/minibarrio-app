@@ -146,3 +146,14 @@ test('el rango de precios solo compara negocios que ofrecen lo buscado', () => {
   assert.deepEqual(ids(resultado), ['color'])
   assert.equal(resultado[0].componentes.precio, null)
 })
+
+test('H-01: un negocio sin reseñas no hereda las 5 estrellas del barrio', () => {
+  const base = { ubicacion: null, horarios: null, servicios: [{ nombre: 'Corte', precio: 15000 }] }
+  const calificado = { ...base, id: 'calificado', nombre: 'Calificado', ratingProm: 5, ratingCount: 2 }
+  const nuevo = { ...base, id: 'nuevo', nombre: 'Nuevo', ratingProm: null, ratingCount: 0 }
+  const [primero] = recomendar([nuevo, calificado], {}, {}, { fecha: new Date('2026-10-20T12:00:00') })
+  assert.equal(primero.id, 'calificado')
+  const porId = Object.fromEntries(recomendar([nuevo, calificado]).map((n) => [n.id, n.componentes.calificacion]))
+  assert.ok(porId.calificado > porId.nuevo)
+  assert.ok(porId.nuevo < 0.8) // ya no parte de 5/5 = 1
+})

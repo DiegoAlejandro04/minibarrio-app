@@ -4559,3 +4559,121 @@ option:disabled { color: var(--text-faint); }
 /* Splash al recargar (Splash.jsx con `rapido`): el mismo salto, más corto. */
 .splash-rapido { animation-duration: .08s; }
 .splash-rapido .splash-pieza { animation-duration: .3s; }
+
+/* ── Vitrina con muchos negocios (ClientHome.jsx): recomendados arriba y
+   "Todos los negocios" debajo, con orden y "Ver más". ── */
+.vitrina-puesto {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 30%, transparent), 0 4px 10px oklch(0% 0 0 / 0.3);
+}
+.vitrina-puesto.pequeno { top: -6px; left: -6px; width: 20px; height: 20px; font-size: 10.5px; }
+.vitrina-todos {
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+.vitrina-ordenes {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.vitrina-ordenes::-webkit-scrollbar { display: none; }
+.vitrina-ordenes button {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--vidrio-borde, var(--border));
+  background: var(--vidrio-campo, var(--surface));
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color .3s cubic-bezier(.4, 0, .2, 1), border-color .3s cubic-bezier(.4, 0, .2, 1), background .3s cubic-bezier(.4, 0, .2, 1), transform .3s cubic-bezier(.4, 0, .2, 1);
+}
+.vitrina-ordenes button:hover { color: var(--text); transform: translateY(-2px); }
+.vitrina-ordenes button.on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 12%, var(--vidrio-campo, var(--surface)));
+}
+.vitrina-ver-mas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 22px auto 0;
+  padding: 11px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .3s cubic-bezier(.4, 0, .2, 1), transform .3s cubic-bezier(.4, 0, .2, 1);
+}
+.vitrina-ver-mas:hover { background: color-mix(in oklch, var(--accent) 12%, transparent); transform: translateY(-2px); }
+.vitrina-carrusel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  /* Que cada tarjeta se detenga con el mismo margen que el resto de la página. */
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+  margin: 0 -16px;
+  padding: 4px 16px 6px;
+}
+.vitrina-carrusel::-webkit-scrollbar { display: none; }
+.vitrina-carrusel > .tarjeta-negocio { flex: 0 0 82%; scroll-snap-align: start; }
+.vitrina-puntos { display: flex; justify-content: center; gap: 5px; margin-top: 10px; }
+.vitrina-puntos span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: width .3s cubic-bezier(.4, 0, .2, 1), background .3s;
+}
+.vitrina-puntos span.on { width: 18px; background: var(--accent); }
+.vitrina-fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  text-decoration: none;
+}
+.vitrina-fila__foto {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--accent) 70%, var(--surface));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+}
+.vitrina-fila__foto img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; display: block; }
+.vitrina-fila__nombre { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vitrina-fila__datos { display: block; margin-top: 3px; font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vitrina-fila__estado { display: block; margin-top: 3px; font-size: 11.5px; font-weight: 700; }
