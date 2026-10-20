@@ -3125,9 +3125,16 @@ option:disabled { color: var(--text-faint); }
   align-items: center;
   gap: 10px;
 }
+/* En el celular los botones de arriba (ver como cliente, campana) no flotan
+   encima del contenido: van a la derecha y el título de cada página se
+   acomoda a su lado (antes un nombre largo como "Hola, Uñas Juancha" quedaba
+   tapado por ellos). */
 .panel-negocio.es-movil .panel-acciones {
-  top: calc(16px + env(safe-area-inset-top));
-  right: calc(14px + env(safe-area-inset-right));
+  position: relative;
+  top: auto;
+  right: auto;
+  float: right;
+  margin: 0 0 8px 10px;
 }
 
 /* Velo de las ventanas emergentes (PQRS, Contáctanos, calificar, etc.):

@@ -581,7 +581,9 @@ function ToggleSegmentado({ opciones, valor, onChange, width = 124, fontSize = 1
   return (
     <div
       style={{
-        position: 'relative', display: 'flex', width, height: 22, borderRadius: 999,
+        // Hasta `width`, pero nunca más ancho que su tarjeta (en el celular
+        // las tarjetas son angostas y el selector se salía por la derecha).
+        position: 'relative', display: 'flex', width: '100%', maxWidth: width, height: 22, borderRadius: 999,
         background: 'var(--surface-2)', padding: 2, flexShrink: 0,
       }}
     >
