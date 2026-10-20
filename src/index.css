@@ -4555,3 +4555,7 @@ option:disabled { color: var(--text-faint); }
 @media (prefers-reduced-motion: reduce) {
   .caja-bloque, .caja-listo { animation: none; }
 }
+
+/* Splash al recargar (Splash.jsx con `rapido`): el mismo salto, más corto. */
+.splash-rapido { animation-duration: .08s; }
+.splash-rapido .splash-pieza { animation-duration: .3s; }

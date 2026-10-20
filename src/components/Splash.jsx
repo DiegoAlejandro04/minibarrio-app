@@ -13,10 +13,16 @@
 //   por el overlay de arriba y nunca llega a verse. Ahí `animar` va en
 //   false: si llega a aparecer, aparece ya asentado, sin saltar de nuevo
 //   encima de la animación que ya se vio un instante antes.
-export default function Splash({ animar = true }) {
+//
+// `rapido`: la misma animación, más corta (al recargar la página, ver
+// App.jsx), para que se sienta viva sin hacer esperar.
+const RETRASOS = { normal: [0, 110, 220], rapido: [0, 55, 110] }
+
+export default function Splash({ animar = true, rapido = false }) {
+  const [rMB, rMini, rBarrio] = RETRASOS[rapido ? 'rapido' : 'normal']
   return (
     <div
-      className={animar ? 'splash-arranque' : undefined}
+      className={animar ? `splash-arranque${rapido ? ' splash-rapido' : ''}` : undefined}
       style={{
         minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
         background: 'var(--bg)', fontSize: 17, fontWeight: 800,
@@ -27,7 +33,7 @@ export default function Splash({ animar = true }) {
         style={{
           width: 30, height: 30, borderRadius: 9, background: 'var(--accent)', color: '#fff',
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0,
-          animationDelay: '0ms',
+          animationDelay: `${rMB}ms`,
         }}
       >
         MB
@@ -35,13 +41,13 @@ export default function Splash({ animar = true }) {
       <span>
         <span
           className={animar ? 'splash-pieza' : undefined}
-          style={{ display: 'inline-block', color: 'var(--text)', animationDelay: '110ms' }}
+          style={{ display: 'inline-block', color: 'var(--text)', animationDelay: `${rMini}ms` }}
         >
           Mini
         </span>
         <span
           className={animar ? 'splash-pieza' : undefined}
-          style={{ display: 'inline-block', color: 'var(--accent)', animationDelay: '220ms' }}
+          style={{ display: 'inline-block', color: 'var(--accent)', animationDelay: `${rBarrio}ms` }}
         >
           Barrio
         </span>

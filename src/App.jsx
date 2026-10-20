@@ -41,6 +41,9 @@ const NotFound = lazy(() => import('./pages/NotFound.jsx'))
 // animación de entrada del logo (la última pieza arranca a los 220 ms y dura
 // 500 ms, ver Splash.jsx) más una breve pausa — nunca se corta a la mitad.
 const DURACION_SPLASH_MS = 900
+// Al recargar: la misma animación en versión corta (la última pieza arranca
+// a los 110 ms y dura 300 ms, ver .splash-rapido en index.css).
+const DURACION_SPLASH_RAPIDO_MS = 450
 
 // Navegaciones que muestran el splash: llegar a la vitrina ("/") desde otra
 // página, entrar al panel del cliente desde fuera de él, o entrar al
@@ -112,19 +115,21 @@ export default function App() {
   // termine, en vez de cortarse apenas los datos ya estén listos.
   //
   // Rendimiento en el celular: la animación corre MIENTRAS Firebase confirma
-  // la sesión (no después, como antes, que sumaba los dos tiempos), y solo la
-  // primera vez por sesión del navegador. Al recargar, el splash queda solo
-  // hasta saber si hay sesión, sin animar.
+  // la sesión (no después, como antes, que sumaba los dos tiempos). La
+  // completa, solo la primera vez por sesión del navegador; al recargar, una
+  // versión corta (DURACION_SPLASH_RAPIDO_MS), que casi siempre termina antes
+  // de que llegue la sesión, así que no hace esperar más.
   const [primeraVez] = useState(() => !splashYaVisto())
-  const [animacionLista, setAnimacionLista] = useState(!primeraVez)
+  const [animacionLista, setAnimacionLista] = useState(false)
   useEffect(() => {
-    if (!primeraVez) return undefined
-    try {
-      sessionStorage.setItem(CLAVE_SPLASH_VISTO, '1')
-    } catch {
-      // Sin almacenamiento: se anima cada vez, como antes.
+    if (primeraVez) {
+      try {
+        sessionStorage.setItem(CLAVE_SPLASH_VISTO, '1')
+      } catch {
+        // Sin almacenamiento: se anima cada vez, como antes.
+      }
     }
-    const t = setTimeout(() => setAnimacionLista(true), DURACION_SPLASH_MS)
+    const t = setTimeout(() => setAnimacionLista(true), primeraVez ? DURACION_SPLASH_MS : DURACION_SPLASH_RAPIDO_MS)
     return () => clearTimeout(t)
   }, [primeraVez])
   const splashInicial = !authReady || !animacionLista
@@ -197,8 +202,8 @@ export default function App() {
         // zIndex por encima de todo lo de la página: controles de Leaflet
         // (hasta 1001) y el encabezado de la vitrina con su menú móvil (1100).
         <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'var(--bg)' }}>
-          {/* Animado la primera vez y al navegar; al recargar, quieto. */}
-          <Splash animar={primeraVez || splashNavegacion} />
+          {/* Animado la primera vez y al navegar; al recargar, en versión rápida. */}
+          <Splash animar rapido={!primeraVez && !splashNavegacion} />
         </div>
       )}
     </>
