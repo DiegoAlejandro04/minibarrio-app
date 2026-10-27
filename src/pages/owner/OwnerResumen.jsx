@@ -56,6 +56,7 @@ export default function OwnerResumen() {
   const [modoIngresos, setModoIngresos] = useState('semanal') // 'semanal' | 'mensual' | 'semestre'
   const [semestre, setSemestre] = useState('primero') // 'primero' | 'segundo'
   const [modoVisitas, setModoVisitas] = useState('semanal') // 'semanal' | 'mensual'
+  const [graficaDe, setGraficaDe] = useState('visitas') // 'visitas' | 'citas'
 
   useEffect(() => {
     if (!uid) return
@@ -195,23 +196,26 @@ export default function OwnerResumen() {
     return conteo
   }, [citasConFecha, ahora, atencionesMes])
 
-  const serieVisitasSemana = useMemo(() => {
-    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-    return dias.map((label, i) => {
-      const dia = new Date(inicioSemana)
-      dia.setDate(dia.getDate() + i)
-      return { label, value: visitas.filter((v) => isSameDay(v, dia)).length }
-    })
-  }, [visitas, inicioSemana])
+  // Series de la gráfica: por día de esta semana o por mes de este año.
+  const porDiaDeLaSemana = (fechas) => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((label, i) => {
+    const dia = new Date(inicioSemana)
+    dia.setDate(dia.getDate() + i)
+    return { label, value: fechas.filter((f) => isSameDay(f, dia)).length }
+  })
+  const porMesDelAnio = (fechas) => ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'].map((label, i) => ({
+    label,
+    value: fechas.filter((f) => f.getFullYear() === ahora.getFullYear() && f.getMonth() === i).length,
+  }))
 
-  const serieVisitasAnio = useMemo(() => {
-    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-    const anio = ahora.getFullYear()
-    return meses.map((label, i) => ({
-      label,
-      value: visitas.filter((v) => v.getFullYear() === anio && v.getMonth() === i).length,
-    }))
-  }, [visitas, ahora])
+  // Citas agendadas para la gráfica: las mismas que cuenta la tarjeta de
+  // arriba (citas de la app más las registradas en Caja), por su fecha.
+  const fechasCitas = useMemo(
+    () => [...citasConFecha.filter((c) => c.fecha).map((c) => c.fecha), ...atenciones.map((a) => a.fecha)],
+    [citasConFecha, atenciones]
+  )
+
+  const fechasGrafica = graficaDe === 'visitas' ? visitas : fechasCitas
+  const serieGrafica = modoVisitas === 'semanal' ? porDiaDeLaSemana(fechasGrafica) : porMesDelAnio(fechasGrafica)
 
   const fechaLarga = capitalize(FECHA_LARGA.format(ahora))
 
@@ -258,27 +262,29 @@ export default function OwnerResumen() {
         />
 
         <div className="card" style={{ padding: '16px 18px', gridColumn: isMobile ? '1 / -1' : undefined }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+          {/* Título e ícono arriba; el selector en su propia línea (al lado
+              del título no cabía y empujaba el ícono fuera de la tarjeta). */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 700 }}>Ingresos estimados</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ToggleSegmentado
-                opciones={[
-                  { value: 'semanal', label: 'Semanal' },
-                  { value: 'mensual', label: 'Mensual' },
-                  { value: 'semestre', label: 'Semestre' },
-                ]}
-                valor={modoIngresos}
-                onChange={setModoIngresos}
-                width={172}
-              />
-              <div style={{ color: 'var(--text-faint)' }}>
-                <Icon name="trending" size={16} />
-              </div>
+            <div style={{ color: 'var(--text-faint)', flexShrink: 0 }}>
+              <Icon name="trending" size={16} />
             </div>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <ToggleSegmentado
+              opciones={[
+                { value: 'semanal', label: 'Semanal' },
+                { value: 'mensual', label: 'Mensual' },
+                { value: 'semestre', label: 'Semestre' },
+              ]}
+              valor={modoIngresos}
+              onChange={setModoIngresos}
+              width={172}
+            />
           </div>
 
           {modoIngresos === 'semestre' && (
-            <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ marginTop: 6 }}>
               <ToggleSegmentado
                 opciones={[
                   { value: 'primero', label: '1er Semestre' },
@@ -301,35 +307,51 @@ export default function OwnerResumen() {
         <div className="card" style={{ padding: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 15 }}>Visitas al portafolio</div>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>
+                {graficaDe === 'visitas' ? 'Visitas al portafolio' : 'Citas agendadas'}
+              </div>
               <div style={{ color: 'var(--text-faint)', fontSize: 12.5, marginTop: 2 }}>
-                {visitas.length === 0
-                  ? 'Aún no hay datos de tráfico para mostrar.'
+                {fechasGrafica.length === 0
+                  ? (graficaDe === 'visitas' ? 'Aún no hay datos de tráfico para mostrar.' : 'Aún no hay citas para mostrar.')
                   : modoVisitas === 'semanal'
                     ? 'Esta semana, por día'
                     : `Este año (${ahora.getFullYear()}), por mes`}
               </div>
             </div>
-            <ToggleSegmentado
-              opciones={[{ value: 'semanal', label: 'Semanal' }, { value: 'mensual', label: 'Mensual' }]}
-              valor={modoVisitas}
-              onChange={setModoVisitas}
-              width={124}
-            />
+            {/* Qué se grafica (visitas o citas) y en qué periodo. */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, width: 190, maxWidth: '100%' }}>
+              <ToggleSegmentado
+                opciones={[{ value: 'visitas', label: 'Visitas' }, { value: 'citas', label: 'Citas agendadas' }]}
+                valor={graficaDe}
+                onChange={setGraficaDe}
+                width={190}
+              />
+              <ToggleSegmentado
+                opciones={[{ value: 'semanal', label: 'Semanal' }, { value: 'mensual', label: 'Mensual' }]}
+                valor={modoVisitas}
+                onChange={setModoVisitas}
+                width={124}
+              />
+            </div>
           </div>
 
-          {visitas.length === 0 ? (
+          {fechasGrafica.length === 0 ? (
             <div
               style={{
                 marginTop: 20, height: 140, borderRadius: 'var(--radius-md)', background: 'var(--surface-2)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '0 20px',
               }}
             >
-              Comparte tu perfil para empezar a recibir visitas
+              {graficaDe === 'visitas'
+                ? 'Comparte tu perfil para empezar a recibir visitas'
+                : 'Cuando tus clientes reserven, o registres servicios en Caja, verás aquí tus citas'}
             </div>
           ) : (
             <div style={{ marginTop: 12 }}>
-              <GraficaLineas datos={modoVisitas === 'semanal' ? serieVisitasSemana : serieVisitasAnio} />
+              <GraficaLineas
+                datos={serieGrafica}
+                unidad={graficaDe === 'visitas' ? ['visita', 'visitas'] : ['cita', 'citas']}
+              />
             </div>
           )}
         </div>
@@ -479,7 +501,7 @@ function niceMax(valor) {
 // Gráfica de líneas de una sola serie (sin leyenda: el título de la tarjeta
 // ya dice qué se grafica) con crosshair + tooltip al pasar el mouse, ejes
 // con valores redondos y la etiqueta del último punto.
-function GraficaLineas({ datos }) {
+function GraficaLineas({ datos, unidad = ['visita', 'visitas'] }) {
   const [hoverIndex, setHoverIndex] = useState(null)
   const width = 600
   const height = 180
@@ -564,7 +586,7 @@ function GraficaLineas({ datos }) {
             borderRadius: 8, pointerEvents: 'none', whiteSpace: 'nowrap', boxShadow: 'var(--shadow-md)',
           }}
         >
-          <div style={{ fontWeight: 800 }}>{activo.value} visita{activo.value === 1 ? '' : 's'}</div>
+          <div style={{ fontWeight: 800 }}>{activo.value} {activo.value === 1 ? unidad[0] : unidad[1]}</div>
           <div style={{ opacity: 0.75, fontSize: 10.5 }}>{activo.label}</div>
         </div>
       )}
@@ -573,7 +595,8 @@ function GraficaLineas({ datos }) {
 }
 
 // Interruptor estilo iOS (segmented control de N opciones) — usado para
-// alternar Semanal/Mensual (Citas y Visitas al portafolio) y
+// alternar Semanal/Mensual (Citas y la gráfica), Visitas/Citas agendadas (qué
+// muestra la gráfica) y
 // Semanal/Mensual/Semestre + 1er/2do semestre (Ingresos estimados).
 function ToggleSegmentado({ opciones, valor, onChange, width = 124, fontSize = 10 }) {
   const indice = Math.max(0, opciones.findIndex((o) => o.value === valor))
