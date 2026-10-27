@@ -16,6 +16,7 @@ import ResenasRecientes from '../../components/ResenasRecientes.jsx'
 import AvisoFlotante from '../../components/AvisoFlotante.jsx'
 import CampanaNotificaciones from '../../components/CampanaNotificaciones.jsx'
 import MenuCuenta from '../../components/MenuCuenta.jsx'
+import ContenidoAvatar from '../../components/ContenidoAvatar.jsx'
 import useNotificaciones from '../../hooks/useNotificaciones.js'
 import * as datosDemo from '../../demo.js'
 import { estadoApertura } from '../../horarios.js'
@@ -91,7 +92,7 @@ const ORDENES_TODOS = [
 ]
 
 export default function ClientHome() {
-  const { currentUser, role, logout } = useAuth()
+  const { currentUser, role, logout, fotoPerfil } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   // Campanita del encabezado (con sesión iniciada).
@@ -758,6 +759,17 @@ export default function ClientHome() {
               {!currentUser && (
                 <Link to="/login" className="nav-cta">Iniciar sesión</Link>
               )}
+              {/* Con sesión: la foto (o iniciales) lleva directo al panel. */}
+              {currentUser && (
+                <Link
+                  to={role === 'propietario' ? '/panel' : '/perfil'}
+                  className="nav-avatar"
+                  aria-label={role === 'propietario' ? 'Ir a mi panel' : 'Ir a mi perfil'}
+                  title={role === 'propietario' ? 'Mi panel' : 'Mi perfil'}
+                >
+                  <ContenidoAvatar nombre={currentUser.displayName} foto={fotoPerfil} />
+                </Link>
+              )}
               {campana}
               <button
                 type="button"
@@ -779,7 +791,7 @@ export default function ClientHome() {
                 <>
                   {campana}
                   {/* "Cerrar sesión" vive dentro del menú de la foto. */}
-                  <MenuCuenta usuario={currentUser} role={role} extras={extrasMenuCuenta} onSalir={handleLogout} />
+                  <MenuCuenta usuario={currentUser} role={role} foto={fotoPerfil} extras={extrasMenuCuenta} onSalir={handleLogout} />
                 </>
               ) : (
                 <>
@@ -800,7 +812,7 @@ export default function ClientHome() {
             <nav id="menu-movil" className="menu-movil" aria-label="Menú principal">
               {currentUser && (
                 <div className="menu-movil__usuario">
-                  <span className="menu-movil__avatar">{inicialesDe(currentUser.displayName)}</span>
+                  <span className="menu-movil__avatar"><ContenidoAvatar nombre={currentUser.displayName} foto={fotoPerfil} /></span>
                   <div style={{ minWidth: 0 }}>
                     <div className="menu-movil__nombre">{currentUser.displayName || 'Mi cuenta'}</div>
                     <div className="menu-movil__correo">{currentUser.email}</div>

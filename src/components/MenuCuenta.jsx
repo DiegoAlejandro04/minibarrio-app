@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from './Icon.jsx'
-import { inicialesDe } from './FotoNegocio.jsx'
+import ContenidoAvatar from './ContenidoAvatar.jsx'
 
 // Menú de la cuenta en el encabezado de la vitrina (ClientHome.jsx): la foto
 // con una flechita; al tocarla se despliega debajo con el nombre y el tipo
@@ -28,7 +28,7 @@ const OPCIONES = {
   ],
 }
 
-export default function MenuCuenta({ usuario, role, extras = {}, onSalir }) {
+export default function MenuCuenta({ usuario, role, foto, extras = {}, onSalir }) {
   const [abierto, setAbierto] = useState(false)
   const raizRef = useRef(null)
 
@@ -57,7 +57,7 @@ export default function MenuCuenta({ usuario, role, extras = {}, onSalir }) {
         aria-expanded={abierto}
         aria-label="Menú de tu cuenta"
       >
-        <span className="menu-cuenta__avatar">{inicialesDe(usuario.displayName)}</span>
+        <span className="menu-cuenta__avatar"><ContenidoAvatar nombre={usuario.displayName} foto={foto} /></span>
         <svg className="menu-cuenta__flecha" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="m6 9 6 6 6-6" />
         </svg>
@@ -66,7 +66,7 @@ export default function MenuCuenta({ usuario, role, extras = {}, onSalir }) {
       {abierto && (
         <div className="menu-cuenta__panel" role="menu">
           <div className="menu-cuenta__usuario">
-            <span className="menu-cuenta__avatar grande">{inicialesDe(usuario.displayName)}</span>
+            <span className="menu-cuenta__avatar grande"><ContenidoAvatar nombre={usuario.displayName} foto={foto} /></span>
             <div style={{ minWidth: 0 }}>
               <div className="menu-cuenta__nombre">{usuario.displayName || 'Mi cuenta'}</div>
               <div className="menu-cuenta__correo">{usuario.email}</div>

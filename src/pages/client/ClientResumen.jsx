@@ -87,10 +87,12 @@ export default function ClientResumen() {
         Aquí puedes revisar tus citas, favoritos y reseñas.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap: 16, marginTop: 22 }}>
-        <StatTile icon="calendar" value={citasCompletadas} label="Citas completadas" />
-        <StatTile icon="heart" value={favoritos.length} label="Negocios favoritos" />
-        <StatTile icon="star" value={resenas.length} label="Reseñas escritas" />
+      {/* En el celular las tres van en una fila, cada una en columna (ícono,
+          número y texto centrados), para que el texto no se apriete. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: isMobile ? 10 : 16, marginTop: 22 }}>
+        <StatTile icon="calendar" value={citasCompletadas} label="Citas completadas" compacto={isMobile} />
+        <StatTile icon="heart" value={favoritos.length} label="Negocios favoritos" compacto={isMobile} />
+        <StatTile icon="star" value={resenas.length} label="Reseñas escritas" compacto={isMobile} />
       </div>
 
       {proximasCitas.map((proximaCita) => (
@@ -307,20 +309,25 @@ export default function ClientResumen() {
   )
 }
 
-function StatTile({ icon, value, label }) {
+function StatTile({ icon, value, label, compacto = false }) {
   return (
-    <div className="card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+    <div
+      className="card"
+      style={compacto
+        ? { padding: '14px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 8, minWidth: 0 }
+        : { padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}
+    >
       <div
         style={{
-          width: 40, height: 40, borderRadius: 10, background: 'var(--accent-soft)', color: 'var(--accent-hover)',
+          width: compacto ? 34 : 40, height: compacto ? 34 : 40, borderRadius: 10, background: 'var(--accent-soft)', color: 'var(--accent-hover)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}
       >
-        <Icon name={icon} size={18} />
+        <Icon name={icon} size={compacto ? 16 : 18} />
       </div>
-      <div>
-        <div style={{ fontSize: 22, fontWeight: 800 }}>{value}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{label}</div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: compacto ? 20 : 22, fontWeight: 800, lineHeight: 1.1 }}>{value}</div>
+        <div style={{ fontSize: compacto ? 11 : 12, color: 'var(--text-faint)', lineHeight: 1.3, marginTop: compacto ? 3 : 0 }}>{label}</div>
       </div>
     </div>
   )

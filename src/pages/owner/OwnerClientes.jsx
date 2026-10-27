@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { leerPerfilCliente } from '../../perfilesClientes.js'
+import ContenidoAvatar from '../../components/ContenidoAvatar.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 
 // Clientes que han agendado una cita o dejado una reseña (RF-07, RF-10).
@@ -92,7 +93,12 @@ export default function OwnerClientes() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {lista.map((c) => (
               <div key={c.clienteId} className="card" style={{ padding: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{c.nombre || 'Cargando…'}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: 14 }}>
+                  <span className="avatar-cliente" style={{ width: 34, height: 34, fontSize: 12 }}>
+                    <ContenidoAvatar nombre={c.nombre} foto={c.foto} />
+                  </span>
+                  {c.nombre || 'Cargando…'}
+                </div>
                 <div style={{ marginTop: 8, fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <Campo label="Contacto" value={c.telefono || c.correo || '—'} />
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
@@ -119,7 +125,14 @@ export default function OwnerClientes() {
               <tbody>
                 {lista.map((c) => (
                   <tr key={c.clienteId} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ padding: '10px 0', fontWeight: 700 }}>{c.nombre || 'Cargando…'}</td>
+                    <td style={{ padding: '10px 0', fontWeight: 700 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                        <span className="avatar-cliente" style={{ width: 30, height: 30, fontSize: 11 }}>
+                          <ContenidoAvatar nombre={c.nombre} foto={c.foto} />
+                        </span>
+                        {c.nombre || 'Cargando…'}
+                      </span>
+                    </td>
                     <td style={{ color: 'var(--text-muted)' }}>{c.telefono || c.correo || '—'}</td>
                     <td style={{ color: 'var(--text-muted)' }}>{c.citas}</td>
                     <td style={{ color: 'var(--text-muted)' }}>{c.ultimaCita ? FECHA.format(c.ultimaCita) : '—'}</td>

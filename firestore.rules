@@ -145,7 +145,8 @@ service cloud.firestore {
       let datos = request.resource.data;
       return textoMax(datos, 'nombre', 80)
         && textoMax(datos, 'correo', 120)
-        && textoMax(datos, 'telefono', 20);
+        && textoMax(datos, 'telefono', 20)
+        && imagenValida(datos, 'foto', 143360);
     }
 
     function correoDeRegistroPermitido() {
@@ -258,7 +259,7 @@ service cloud.firestore {
                     && correoDeRegistroPermitido();
       allow update: if esDueno(uid)
                     && request.resource.data.rol == resource.data.rol
-                    && camposCambiados().hasOnly(['nombre', 'correo', 'telefono', 'modoOscuro', 'modoOscuroPanel'])
+                    && camposCambiados().hasOnly(['nombre', 'correo', 'telefono', 'modoOscuro', 'modoOscuroPanel', 'foto'])
                     && perfilValido();
       allow delete: if false;
 

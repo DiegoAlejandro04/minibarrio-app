@@ -10,6 +10,7 @@ import { crearAvisoPropio, eliminarNotificacion, marcarLeida, marcarTodasLeidas,
 import useNotificaciones from '../../hooks/useNotificaciones.js'
 import PanelConMenu from '../../components/PanelConMenu.jsx'
 import Splash from '../../components/Splash.jsx'
+import ContenidoAvatar from '../../components/ContenidoAvatar.jsx'
 
 // Shell del panel del cliente: menú lateral de cristal (PanelConMenu.jsx,
 // compartido con el panel del negocio) + los datos del perfil,
@@ -41,12 +42,6 @@ const GRUPOS_NAV = [
 
 const HORA = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', hour12: true })
 const UNA_HORA = 60 * 60 * 1000
-
-function inicialesDe(nombre) {
-  if (!nombre) return '?'
-  const partes = nombre.trim().split(/\s+/)
-  return partes.slice(0, 2).map((p) => p[0]?.toUpperCase()).join('')
-}
 
 export default function ClientLayout() {
   const { currentUser, logout } = useAuth()
@@ -264,11 +259,11 @@ export default function ClientLayout() {
             title="Editar perfil"
             aria-label="Editar perfil"
           >
-            {inicialesDe(nombre)}
+            <ContenidoAvatar nombre={nombre} foto={perfil?.foto} />
           </Link>
         ) : (
           <div className="panel-progreso" style={{ textAlign: 'center' }}>
-            <span className="panel-perfil-avatar">{inicialesDe(nombre)}</span>
+            <span className="panel-perfil-avatar grande"><ContenidoAvatar nombre={nombre} foto={perfil?.foto} /></span>
             <div style={{ fontWeight: 800, fontSize: 14, marginTop: 8 }}>{nombre}</div>
             <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 3, marginBottom: 12, lineHeight: 1.4 }}>
               Cliente{desde ? ` · desde ${desde}` : ''}

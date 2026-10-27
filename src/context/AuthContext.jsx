@@ -15,7 +15,7 @@ import {
   signOut,
   updateProfile,
 } from 'firebase/auth'
-import { doc, serverTimestamp, setDoc, getDoc, updateDoc } from 'firebase/firestore'
+import { deleteField, doc, serverTimestamp, setDoc, getDoc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase/config'
 import { HORARIO_INICIAL } from '../horarios.js'
 
@@ -77,6 +77,9 @@ const consultaOscuroSistema = () =>
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null)
   const [role, setRole] = useState(null) // 'cliente' | 'propietario' | null
+  // Foto de perfil del cliente (data URL, ver ClientDatosPersonales.jsx), para
+  // el círculo del encabezado de la vitrina. null = se ven las iniciales.
+  const [fotoPerfil, setFotoPerfil] = useState(null)
   // Dos señales de carga separadas, no una sola: `authReady` se resuelve
   // casi al instante (local, sin red) en cuanto Firebase confirma si hay
   // sesión o no — es lo único que hace falta para saber si mostrar la app o
@@ -124,12 +127,14 @@ export function AuthProvider({ children }) {
         const oscuro = preferenciaDe(snap)
         const oscuroPanel = snap.exists() ? !!snap.data().modoOscuroPanel : false
         setRole(snap.exists() ? snap.data().rol : null)
+        setFotoPerfil(snap.exists() ? snap.data().foto || null : null)
         setPreferenciaOscuro(oscuro)
         setModoOscuroPanel(oscuroPanel)
         guardarCache(CLAVE_MODO_OSCURO, oscuro)
         guardarCache(CLAVE_MODO_OSCURO_PANEL, oscuroPanel)
       } else {
         setRole(null)
+        setFotoPerfil(null)
         setPreferenciaOscuro(null) // sin sesión: sigue al dispositivo
         setModoOscuroPanel(false)
         guardarCache(CLAVE_MODO_OSCURO, null)
@@ -258,6 +263,7 @@ export function AuthProvider({ children }) {
 
     if (snap.exists()) {
       const rol = snap.data().rol
+      setFotoPerfil(snap.data().foto || null)
       const oscuro = preferenciaDe(snap)
       const oscuroPanel = !!snap.data().modoOscuroPanel
       setRole(rol)
@@ -285,12 +291,19 @@ export function AuthProvider({ children }) {
     return 'cliente'
   }
 
+  /** Guarda (data URL) o quita (null) la foto de perfil de la cuenta. */
+  async function actualizarFotoPerfil(foto) {
+    await updateDoc(doc(db, 'usuarios', currentUser.uid), { foto: foto || deleteField() })
+    setFotoPerfil(foto || null)
+  }
+
   function logout() {
     return signOut(auth)
   }
 
   const value = {
     currentUser, role, authReady, loading, modoOscuro, actualizarModoOscuro, modoOscuroPanel, actualizarModoOscuroPanel,
+    fotoPerfil, actualizarFotoPerfil,
     registerClient, registerBusinessOwner, login, loginWithGoogle, logout,
   }
 

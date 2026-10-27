@@ -11,6 +11,7 @@ import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva, normalizarCodigo } from '../../reservas.js'
 import useEquipo from '../../hooks/useEquipo.js'
 import AvatarProfesional from '../../components/AvatarProfesional.jsx'
+import ContenidoAvatar from '../../components/ContenidoAvatar.jsx'
 
 // Agenda del negocio (RF-07/RF-08): calendario del mes con las citas
 // agendadas por los clientes, y cambio de estado de cada cita (pendiente /
@@ -483,6 +484,10 @@ function FilaCita({ cita, cliente, servicio, profesional, conFecha = false, onAb
       className="card"
       style={{ textAlign: 'left', padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', gap: 10 }}
     >
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0 }}>
+      <span className="avatar-cliente" style={{ width: 32, height: 32, fontSize: 11.5 }}>
+        <ContenidoAvatar nombre={cliente?.nombre || 'Cliente'} foto={cliente?.foto} />
+      </span>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 13.5 }}>{cliente?.nombre || 'Cliente'}</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
@@ -497,6 +502,7 @@ function FilaCita({ cita, cliente, servicio, profesional, conFecha = false, onAb
         <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4, fontFamily: 'ui-monospace, Consolas, monospace' }}>
           #{codigoReserva(cita.id)}
         </div>
+      </div>
       </div>
       <span
         style={{
@@ -533,7 +539,12 @@ function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstad
     >
       <div className="card ventana-vidrio" style={{ width: 380, maxWidth: '100%', padding: 22 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-          <div style={{ fontWeight: 800, fontSize: 17 }}>{cliente?.nombre || 'Cliente'}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <span className="avatar-cliente" style={{ width: 40, height: 40, fontSize: 13 }}>
+              <ContenidoAvatar nombre={cliente?.nombre || 'Cliente'} foto={cliente?.foto} />
+            </span>
+            <div style={{ fontWeight: 800, fontSize: 17 }}>{cliente?.nombre || 'Cliente'}</div>
+          </div>
           <span style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 10, background: estilo.bg, color: estilo.text, whiteSpace: 'nowrap' }}>
             {estilo.label}
           </span>
