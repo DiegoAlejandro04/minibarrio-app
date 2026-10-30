@@ -4845,3 +4845,16 @@ option:disabled { color: var(--text-faint); }
   cursor: pointer;
 }
 .reserva-ver-otros:hover { text-decoration: underline; }
+
+/* Comparación de ingresos con el periodo anterior (OwnerResumen.jsx). */
+.variacion-ingresos {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.variacion-ingresos.sube { background: color-mix(in oklch, var(--sage) 20%, transparent); color: color-mix(in oklch, var(--sage) 80%, var(--text)); }
+.variacion-ingresos.baja { background: color-mix(in oklch, var(--danger) 16%, transparent); color: color-mix(in oklch, var(--danger) 85%, var(--text)); }
+.variacion-ingresos.igual { background: var(--surface-2); color: var(--text-muted); }

@@ -42,6 +42,15 @@ function isSameMonth(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
 }
 
+const TITULOS_GRAFICA = { visitas: 'Visitas al portafolio', citas: 'Citas agendadas', ingresos: 'Ingresos generados' }
+
+// Marcas del eje de la gráfica de ingresos: "$50 mil", "$1,2 M".
+function pesosCortos(v) {
+  if (v >= 1000000) return `$${(v / 1000000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} M`
+  if (v >= 1000) return `$${Math.round(v / 1000)} mil`
+  return `$${v}`
+}
+
 export default function OwnerResumen() {
   const { negocio, servicios, uid } = useOutletContext()
   const isMobile = useIsMobile()
@@ -57,7 +66,7 @@ export default function OwnerResumen() {
   const [modoIngresos, setModoIngresos] = useState('semanal') // 'semanal' | 'mensual' | 'semestre'
   const [semestre, setSemestre] = useState('primero') // 'primero' | 'segundo'
   const [modoVisitas, setModoVisitas] = useState('semanal') // 'semanal' | 'mensual'
-  const [graficaDe, setGraficaDe] = useState('visitas') // 'visitas' | 'citas'
+  const [graficaDe, setGraficaDe] = useState('visitas') // 'visitas' | 'citas' | 'ingresos'
 
   useEffect(() => {
     if (!uid) return
@@ -119,7 +128,6 @@ export default function OwnerResumen() {
     [atenciones, inicioSemana, finSemana]
   )
   const atencionesMes = useMemo(() => atenciones.filter((a) => isSameMonth(a.fecha, ahora)), [atenciones, ahora])
-  const sumaCobrado = (lista) => lista.reduce((sum, a) => sum + a.cobrado, 0)
 
   const citasEstaSemana = useMemo(
     () => citasConFecha.filter((c) => c.fecha && c.fecha >= inicioSemana && c.fecha < finSemana).length + atencionesSemana.length,
@@ -139,32 +147,56 @@ export default function OwnerResumen() {
   // Ingresos: suma citas reservadas, en proceso o realizadas (las canceladas no cuentan).
   const cuentaParaIngresos = (c) => c.estado === 'pendiente' || c.estado === 'en-proceso' || c.estado === 'completada'
 
-  const ingresosSemana = useMemo(
-    () => citasConFecha
-      .filter((c) => c.fecha && c.fecha >= inicioSemana && c.fecha < finSemana && cuentaParaIngresos(c))
-      .reduce((sum, c) => sum + precioDeCita(c, serviciosPorId[c.servicioId]), 0) + sumaCobrado(atencionesSemana),
-    [citasConFecha, inicioSemana, finSemana, serviciosPorId, atencionesSemana]
+  // Cada ingreso con su fecha: las citas que cuentan (con los servicios
+  // sumados, ver adicionales.js) y lo cobrado en Caja. De aquí salen la
+  // tarjeta, la comparación con el periodo anterior y la gráfica de
+  // ingresos, así que las tres siempre cuadran.
+  const ingresosConFecha = useMemo(
+    () => [
+      ...citasConFecha
+        .filter((c) => c.fecha && cuentaParaIngresos(c))
+        .map((c) => ({ fecha: c.fecha, valor: precioDeCita(c, serviciosPorId[c.servicioId]) })),
+      ...atenciones.map((a) => ({ fecha: a.fecha, valor: a.cobrado })),
+    ],
+    [citasConFecha, serviciosPorId, atenciones]
   )
+  const ingresosEntre = (desde, hasta) => ingresosConFecha
+    .filter((i) => i.fecha >= desde && i.fecha < hasta)
+    .reduce((sum, i) => sum + i.valor, 0)
 
-  const ingresosMes = useMemo(
-    () => citasConFecha
-      .filter((c) => c.fecha && isSameMonth(c.fecha, ahora) && cuentaParaIngresos(c))
-      .reduce((sum, c) => sum + precioDeCita(c, serviciosPorId[c.servicioId]), 0) + sumaCobrado(atencionesMes),
-    [citasConFecha, ahora, serviciosPorId, atencionesMes]
-  )
-
-  const ingresosSemestre = useMemo(() => {
+  // Periodo que muestra la tarjeta y el anterior, para comparar: la semana
+  // pasada, el mes pasado o el semestre anterior.
+  const { actual: periodoActual, anterior: periodoAnterior, nombreAnterior } = useMemo(() => {
+    if (modoIngresos === 'semanal') {
+      const antes = new Date(inicioSemana)
+      antes.setDate(antes.getDate() - 7)
+      return { actual: [inicioSemana, finSemana], anterior: [antes, inicioSemana], nombreAnterior: 'la semana pasada' }
+    }
+    if (modoIngresos === 'mensual') {
+      const inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1)
+      return {
+        actual: [inicio, new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1)],
+        anterior: [new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1), inicio],
+        nombreAnterior: 'el mes pasado',
+      }
+    }
     const anio = ahora.getFullYear()
     const mesInicio = semestre === 'primero' ? 0 : 6
-    const mesFin = semestre === 'primero' ? 5 : 11
-    const enSemestre = (fecha) => fecha.getFullYear() === anio && fecha.getMonth() >= mesInicio && fecha.getMonth() <= mesFin
-    return citasConFecha
-      .filter((c) => c.fecha && enSemestre(c.fecha) && cuentaParaIngresos(c))
-      .reduce((sum, c) => sum + precioDeCita(c, serviciosPorId[c.servicioId]), 0)
-      + sumaCobrado(atenciones.filter((a) => enSemestre(a.fecha)))
-  }, [citasConFecha, ahora, semestre, serviciosPorId, atenciones])
+    const inicio = new Date(anio, mesInicio, 1)
+    return {
+      actual: [inicio, new Date(anio, mesInicio + 6, 1)],
+      anterior: [new Date(anio, mesInicio - 6, 1), inicio],
+      nombreAnterior: 'el semestre anterior',
+    }
+  }, [modoIngresos, semestre, ahora, inicioSemana, finSemana])
 
-  const ingresosMostrados = modoIngresos === 'semanal' ? ingresosSemana : modoIngresos === 'mensual' ? ingresosMes : ingresosSemestre
+  const ingresosMostrados = ingresosEntre(...periodoActual)
+  const ingresosAnteriores = ingresosEntre(...periodoAnterior)
+  // Variación en %, solo si el periodo anterior tuvo ingresos (contra cero no
+  // hay porcentaje que valga).
+  const variacionIngresos = ingresosAnteriores > 0
+    ? Math.round(((ingresosMostrados - ingresosAnteriores) / ingresosAnteriores) * 100)
+    : null
 
   const subIngresos = modoIngresos === 'semanal'
     ? 'Semana en curso'
@@ -197,15 +229,19 @@ export default function OwnerResumen() {
     return conteo
   }, [citasConFecha, ahora, atencionesMes])
 
-  // Series de la gráfica: por día de esta semana o por mes de este año.
-  const porDiaDeLaSemana = (fechas) => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((label, i) => {
+  // Series de la gráfica: por día de esta semana o por mes de este año. Cada
+  // elemento es { fecha, valor }: 1 por visita o cita, o el dinero de cada
+  // ingreso.
+  const porDiaDeLaSemana = (items) => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((label, i) => {
     const dia = new Date(inicioSemana)
     dia.setDate(dia.getDate() + i)
-    return { label, value: fechas.filter((f) => isSameDay(f, dia)).length }
+    return { label, value: items.filter((it) => isSameDay(it.fecha, dia)).reduce((s, it) => s + it.valor, 0) }
   })
-  const porMesDelAnio = (fechas) => ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'].map((label, i) => ({
+  const porMesDelAnio = (items) => ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'].map((label, i) => ({
     label,
-    value: fechas.filter((f) => f.getFullYear() === ahora.getFullYear() && f.getMonth() === i).length,
+    value: items
+      .filter((it) => it.fecha.getFullYear() === ahora.getFullYear() && it.fecha.getMonth() === i)
+      .reduce((s, it) => s + it.valor, 0),
   }))
 
   // Citas agendadas para la gráfica: las mismas que cuenta la tarjeta de
@@ -215,8 +251,11 @@ export default function OwnerResumen() {
     [citasConFecha, atenciones]
   )
 
-  const fechasGrafica = graficaDe === 'visitas' ? visitas : fechasCitas
-  const serieGrafica = modoVisitas === 'semanal' ? porDiaDeLaSemana(fechasGrafica) : porMesDelAnio(fechasGrafica)
+  const itemsGrafica = graficaDe === 'ingresos'
+    ? ingresosConFecha
+    : (graficaDe === 'visitas' ? visitas : fechasCitas).map((fecha) => ({ fecha, valor: 1 }))
+  const fechasGrafica = itemsGrafica
+  const serieGrafica = modoVisitas === 'semanal' ? porDiaDeLaSemana(itemsGrafica) : porMesDelAnio(itemsGrafica)
 
   const fechaLarga = capitalize(FECHA_LARGA.format(ahora))
 
@@ -301,6 +340,14 @@ export default function OwnerResumen() {
 
           <div style={{ fontSize: 24, fontWeight: 800, marginTop: 10 }}>{COP.format(ingresosMostrados)}</div>
           <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 4 }}>{subIngresos}</div>
+          {variacionIngresos !== null && (
+            <div
+              className={`variacion-ingresos ${variacionIngresos > 0 ? 'sube' : variacionIngresos < 0 ? 'baja' : 'igual'}`}
+              title={`${nombreAnterior}: ${COP.format(ingresosAnteriores)}`}
+            >
+              {variacionIngresos > 0 ? '↑' : variacionIngresos < 0 ? '↓' : '='} {Math.abs(variacionIngresos)} % vs. {nombreAnterior}
+            </div>
+          )}
         </div>
       </div>
 
@@ -309,23 +356,23 @@ export default function OwnerResumen() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontWeight: 800, fontSize: 15 }}>
-                {graficaDe === 'visitas' ? 'Visitas al portafolio' : 'Citas agendadas'}
+                {TITULOS_GRAFICA[graficaDe]}
               </div>
               <div style={{ color: 'var(--text-faint)', fontSize: 12.5, marginTop: 2 }}>
                 {fechasGrafica.length === 0
-                  ? (graficaDe === 'visitas' ? 'Aún no hay datos de tráfico para mostrar.' : 'Aún no hay citas para mostrar.')
+                  ? (graficaDe === 'visitas' ? 'Aún no hay datos de tráfico para mostrar.' : graficaDe === 'citas' ? 'Aún no hay citas para mostrar.' : 'Aún no hay ingresos para mostrar.')
                   : modoVisitas === 'semanal'
                     ? 'Esta semana, por día'
                     : `Este año (${ahora.getFullYear()}), por mes`}
               </div>
             </div>
             {/* Qué se grafica (visitas o citas) y en qué periodo. */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, width: 190, maxWidth: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, width: 210, maxWidth: '100%' }}>
               <ToggleSegmentado
-                opciones={[{ value: 'visitas', label: 'Visitas' }, { value: 'citas', label: 'Citas agendadas' }]}
+                opciones={[{ value: 'visitas', label: 'Visitas' }, { value: 'citas', label: 'Citas' }, { value: 'ingresos', label: 'Ingresos' }]}
                 valor={graficaDe}
                 onChange={setGraficaDe}
-                width={190}
+                width={210}
               />
               <ToggleSegmentado
                 opciones={[{ value: 'semanal', label: 'Semanal' }, { value: 'mensual', label: 'Mensual' }]}
@@ -345,13 +392,18 @@ export default function OwnerResumen() {
             >
               {graficaDe === 'visitas'
                 ? 'Comparte tu perfil para empezar a recibir visitas'
-                : 'Cuando tus clientes reserven, o registres servicios en Caja, verás aquí tus citas'}
+                : graficaDe === 'citas'
+                  ? 'Cuando tus clientes reserven, o registres servicios en Caja, verás aquí tus citas'
+                  : 'Cuando tengas citas o cobros en Caja, verás aquí cuánto generas'}
             </div>
           ) : (
             <div style={{ marginTop: 12 }}>
               <GraficaLineas
                 datos={serieGrafica}
                 unidad={graficaDe === 'visitas' ? ['visita', 'visitas'] : ['cita', 'citas']}
+                // Ingresos: el valor en pesos y el eje abreviado ($50 mil).
+                formato={graficaDe === 'ingresos' ? (v) => COP.format(v) : undefined}
+                formatoEje={graficaDe === 'ingresos' ? pesosCortos : undefined}
               />
             </div>
           )}
@@ -502,7 +554,9 @@ function niceMax(valor) {
 // Gráfica de líneas de una sola serie (sin leyenda: el título de la tarjeta
 // ya dice qué se grafica) con crosshair + tooltip al pasar el mouse, ejes
 // con valores redondos y la etiqueta del último punto.
-function GraficaLineas({ datos, unidad = ['visita', 'visitas'] }) {
+// `formato` cambia cómo se muestra un valor (tooltip y último punto) y
+// `formatoEje`, las marcas del eje Y; por defecto, números y "N visitas".
+function GraficaLineas({ datos, unidad = ['visita', 'visitas'], formato, formatoEje }) {
   const [hoverIndex, setHoverIndex] = useState(null)
   const width = 600
   const height = 180
@@ -549,7 +603,7 @@ function GraficaLineas({ datos, unidad = ['visita', 'visitas'] }) {
           <g key={t}>
             <line x1={padL} x2={width - padR} y1={y(t)} y2={y(t)} stroke="var(--border)" strokeWidth={1} />
             <text x={padL - 6} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={9.5} fill="var(--text-faint)">
-              {t}
+              {formatoEje ? formatoEje(t) : t}
             </text>
           </g>
         ))}
@@ -573,7 +627,7 @@ function GraficaLineas({ datos, unidad = ['visita', 'visitas'] }) {
         ))}
 
         <text x={x(datos.length - 1)} y={y(ultimo.value) - 10} textAnchor="end" fontSize={11} fontWeight={800} fill="var(--text)">
-          {ultimo.value}
+          {formato ? formato(ultimo.value) : ultimo.value}
         </text>
       </svg>
 
@@ -587,7 +641,7 @@ function GraficaLineas({ datos, unidad = ['visita', 'visitas'] }) {
             borderRadius: 8, pointerEvents: 'none', whiteSpace: 'nowrap', boxShadow: 'var(--shadow-md)',
           }}
         >
-          <div style={{ fontWeight: 800 }}>{activo.value} {activo.value === 1 ? unidad[0] : unidad[1]}</div>
+          <div style={{ fontWeight: 800 }}>{formato ? formato(activo.value) : `${activo.value} ${activo.value === 1 ? unidad[0] : unidad[1]}`}</div>
           <div style={{ opacity: 0.75, fontSize: 10.5 }}>{activo.label}</div>
         </div>
       )}
