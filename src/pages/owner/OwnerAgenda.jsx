@@ -12,6 +12,7 @@ import { codigoReserva, normalizarCodigo } from '../../reservas.js'
 import useEquipo from '../../hooks/useEquipo.js'
 import AvatarProfesional from '../../components/AvatarProfesional.jsx'
 import ContenidoAvatar from '../../components/ContenidoAvatar.jsx'
+import { duracionDeCita, nombreConAdicionales, precioDeCita } from '../../adicionales.js'
 
 // Agenda del negocio (RF-07/RF-08): calendario del mes con las citas
 // agendadas por los clientes, y cambio de estado de cada cita (pendiente /
@@ -262,7 +263,7 @@ export default function OwnerAgenda() {
         citaAbierta,
         estadoSeleccionado,
         extra,
-        servicio?.duracionMinutos,
+        duracionDeCita(citaAbierta, servicio),
         avisosParaElCliente(citaAbierta, estadoSeleccionado, servicio),
       )
       setCitaAbierta(null)
@@ -491,7 +492,7 @@ function FilaCita({ cita, cliente, servicio, profesional, conFecha = false, onAb
       <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 13.5 }}>{cliente?.nombre || 'Cliente'}</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-          {servicio?.nombre || 'Servicio'} · {conFecha && `${capitalize(DIA_LARGO.format(cita.fecha))}, `}{HORA.format(cita.fecha)}
+          {nombreConAdicionales(servicio?.nombre || 'Servicio', cita.adicionales)} · {conFecha && `${capitalize(DIA_LARGO.format(cita.fecha))}, `}{HORA.format(cita.fecha)}
         </div>
         {cita.profesionalNombre && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', marginTop: 5 }}>
@@ -559,9 +560,9 @@ function ModalCita({ cita, cliente, servicio, estadoSeleccionado, onCambiarEstad
 
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5 }}>
           <Campo label="Contacto" valor={[cliente?.telefono, cliente?.correo].filter(Boolean).join(' · ') || '—'} />
-          <Campo label="Servicio" valor={servicio?.nombre || '—'} />
+          <Campo label="Servicio" valor={servicio ? nombreConAdicionales(servicio.nombre, cita.adicionales) : '—'} />
           {cita.profesionalNombre && <Campo label="Lo atiende" valor={cita.profesionalNombre} />}
-          <Campo label="Pago" valor={servicio ? COP.format(servicio.precio || 0) : '—'} />
+          <Campo label="Pago" valor={servicio ? COP.format(precioDeCita(cita, servicio)) : '—'} />
           <Campo label="Fecha" valor={cita.fecha ? capitalize(DIA_LARGO.format(cita.fecha)) : '—'} />
           <Campo label="Hora" valor={cita.fecha ? HORA.format(cita.fecha) : '—'} />
           <Campo label="Reserva" valor={`#${codigoReserva(cita.id)}`} />

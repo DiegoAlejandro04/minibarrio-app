@@ -5,6 +5,7 @@ import { db } from '../../firebase/config'
 import { leerPerfilCliente } from '../../perfilesClientes.js'
 import Icon from '../../components/Icon.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
+import { precioDeCita } from '../../adicionales.js'
 
 // Panel del comerciante — vista "Resumen" (RF-02, RF-07). Conectado a datos
 // reales del negocio vía onSnapshot (tiempo real).
@@ -141,14 +142,14 @@ export default function OwnerResumen() {
   const ingresosSemana = useMemo(
     () => citasConFecha
       .filter((c) => c.fecha && c.fecha >= inicioSemana && c.fecha < finSemana && cuentaParaIngresos(c))
-      .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0) + sumaCobrado(atencionesSemana),
+      .reduce((sum, c) => sum + precioDeCita(c, serviciosPorId[c.servicioId]), 0) + sumaCobrado(atencionesSemana),
     [citasConFecha, inicioSemana, finSemana, serviciosPorId, atencionesSemana]
   )
 
   const ingresosMes = useMemo(
     () => citasConFecha
       .filter((c) => c.fecha && isSameMonth(c.fecha, ahora) && cuentaParaIngresos(c))
-      .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0) + sumaCobrado(atencionesMes),
+      .reduce((sum, c) => sum + precioDeCita(c, serviciosPorId[c.servicioId]), 0) + sumaCobrado(atencionesMes),
     [citasConFecha, ahora, serviciosPorId, atencionesMes]
   )
 
@@ -159,7 +160,7 @@ export default function OwnerResumen() {
     const enSemestre = (fecha) => fecha.getFullYear() === anio && fecha.getMonth() >= mesInicio && fecha.getMonth() <= mesFin
     return citasConFecha
       .filter((c) => c.fecha && enSemestre(c.fecha) && cuentaParaIngresos(c))
-      .reduce((sum, c) => sum + (serviciosPorId[c.servicioId]?.precio || 0), 0)
+      .reduce((sum, c) => sum + precioDeCita(c, serviciosPorId[c.servicioId]), 0)
       + sumaCobrado(atenciones.filter((a) => enSemestre(a.fecha)))
   }, [citasConFecha, ahora, semestre, serviciosPorId, atenciones])
 

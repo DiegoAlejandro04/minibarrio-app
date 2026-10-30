@@ -56,9 +56,21 @@ service cloud.firestore {
         && cita.negocioId == negocioId
         && (cita.fechaHora == datos.fechaHora
             || (datos.fechaHora > cita.fechaHora
-                && datos.fechaHora < cita.fechaHora + duration.value(int(servicio.get('duracionMinutos', 20)), 'm')))
+                && datos.fechaHora < cita.fechaHora + duration.value(int(cita.get('duracionMinutos', servicio.get('duracionMinutos', 20))), 'm')))
         && cita.estado != 'cancelada'
         && (cita.clienteId == request.auth.uid || esDueno(negocioId));
+    }
+
+    // Adicionales de una cita (ver src/adicionales.js): a lo sumo 6, y la
+    // duración total entre la del servicio y 4 horas más (lo que más pueden
+    // sumar los adicionales). Sin adicionales, la cita no trae duración propia.
+    function adicionalesDeCitaValidos(datos) {
+      let servicio = get(/databases/$(database)/documents/negocios/$(datos.negocioId)/servicios/$(datos.servicioId)).data;
+      return listaMax(datos, 'adicionales', 6)
+        && (!('duracionMinutos' in datos)
+            || (datos.duracionMinutos is int
+                && datos.duracionMinutos >= servicio.get('duracionMinutos', 1)
+                && datos.duracionMinutos <= servicio.get('duracionMinutos', 1) + 240));
     }
 
     // La persona elegida en una cita existe en el equipo de ese negocio, está
@@ -181,7 +193,8 @@ service cloud.firestore {
         && textoMax(datos, 'descripcion', 300)
         && textoMax(datos, 'fotoUrl', 500)
         && numeroEntre(datos, 'precio', 0, 2000000)
-        && numeroEntre(datos, 'duracionMinutos', 1, 480);
+        && numeroEntre(datos, 'duracionMinutos', 1, 480)
+        && listaMax(datos, 'adicionales', 6);
     }
 
     // Reseña verificada: el cliente indica una cita SUYA en este negocio, ya
@@ -335,10 +348,10 @@ service cloud.firestore {
       match /servicios/{servicioId} {
         allow read: if true;
         allow create: if esDueno(negocioId)
-                      && request.resource.data.keys().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl'])
+                      && request.resource.data.keys().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl', 'adicionales'])
                       && servicioValido();
         allow update: if esDueno(negocioId)
-                      && camposCambiados().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl'])
+                      && camposCambiados().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl', 'adicionales'])
                       && servicioValido();
         allow delete: if esDueno(negocioId);
       }
@@ -457,7 +470,7 @@ service cloud.firestore {
                             || request.resource.data.canceladaPor == 'negocio'));
       allow create: if estaAutenticado()
                     && rolDe(request.auth.uid) == 'cliente'
-                    && request.resource.data.keys().hasOnly(['negocioId', 'clienteId', 'servicioId', 'fechaHora', 'estado', 'creadoEn', 'profesionalId', 'profesionalNombre'])
+                    && request.resource.data.keys().hasOnly(['negocioId', 'clienteId', 'servicioId', 'fechaHora', 'estado', 'creadoEn', 'profesionalId', 'profesionalNombre', 'adicionales', 'duracionMinutos'])
                     && request.resource.data.clienteId == request.auth.uid
                     && request.resource.data.estado == 'pendiente'
                     && request.resource.data.fechaHora is timestamp
@@ -465,6 +478,7 @@ service cloud.firestore {
                     && request.resource.data.creadoEn == request.time
                     && exists(/databases/$(database)/documents/negocios/$(request.resource.data.negocioId)/servicios/$(request.resource.data.servicioId))
                     && profesionalDeCitaValido(request.resource.data)
+                    && adicionalesDeCitaValidos(request.resource.data)
                     && getAfter(/databases/$(database)/documents/negocios/$(request.resource.data.negocioId)/ocupados/$(idTurnoDe(request.resource.data, request.resource.data.fechaHora))).data.citaId == citaId;
       allow delete: if false;
     }

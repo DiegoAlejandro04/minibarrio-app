@@ -68,7 +68,9 @@ function IconoEstado({ listo }) {
 }
 
 /**
- * `cita`: { id, negocio, direccion, servicio, duracionMinutos, precio,
+ * `cita`: { id, negocio, direccion, servicio, precioServicio, adicionales
+ * (los extras elegidos, ver adicionales.js), duracionMinutos y precio (los
+ * totales),
  * profesional (nombre, si el negocio tiene equipo), fechaHora (Date),
  * reservadaEn (Date) }. `onCerrar` se llama con el botón
  * "Aceptar", que aparece al terminar de imprimir.
@@ -135,7 +137,10 @@ export default function ReciboCita({ cita, onCerrar }) {
             <hr className="recibo-separador" />
 
             <dl style={{ display: 'grid', gap: 6, margin: 0 }}>
-              <Fila etiqueta={cita.servicio} valor={COP.format(cita.precio || 0)} />
+              <Fila etiqueta={cita.servicio} valor={COP.format((cita.adicionales?.length ? cita.precioServicio : cita.precio) || 0)} />
+              {(cita.adicionales || []).map((a) => (
+                <Fila key={a.id || a.nombre} etiqueta={`+ ${a.nombre}`} valor={COP.format(a.precio || 0)} tenue />
+              ))}
               <Fila etiqueta="Duración" valor={`${cita.duracionMinutos} min`} tenue />
               {cita.profesional && <Fila etiqueta="Te atiende" valor={cita.profesional} tenue />}
               <Fila etiqueta="Fecha" valor={FECHA_CITA.format(cita.fechaHora)} tenue />

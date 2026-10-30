@@ -19,6 +19,7 @@ import ReciboCita from '../../components/ReciboCita.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import useEquipo from '../../hooks/useEquipo.js'
 import AvatarProfesional from '../../components/AvatarProfesional.jsx'
+import { detalleAdicional, nombreConAdicionales, totalesConAdicionales } from '../../adicionales.js'
 import {
   disponibilidadAgenda, disponibilidadCualquiera, disponibilidadProfesional, equipoDelDia, ocupadosDelDia,
   almuerzoDe, primerNombre, resumenHorario as horarioPersona, textoRango, trabajaEl, ventanaProfesional,
@@ -97,6 +98,8 @@ export default function NegocioDetalle() {
   const minFecha = useMemo(() => toDateInputValue(manana), [manana])
 
   const [servicioId, setServicioId] = useState(null)
+  // Adicionales elegidos del servicio (ids, ver adicionales.js).
+  const [adicionalesIds, setAdicionalesIds] = useState(() => new Set())
   // Con muchos servicios se muestran los primeros SERVICIOS_VISIBLES y un
   // botón para ver el resto: 10 filas empujaban los "Trabajos" muy abajo.
   const [verTodosServicios, setVerTodosServicios] = useState(false)
@@ -229,6 +232,27 @@ export default function NegocioDetalle() {
     () => servicios.find((s) => s.id === servicioId) || null,
     [servicios, servicioId]
   )
+  const claveAdicional = (a) => a.id || a.nombre
+  const adicionalesElegidos = useMemo(
+    () => (servicioSeleccionado?.adicionales || []).filter((a) => adicionalesIds.has(claveAdicional(a))),
+    [servicioSeleccionado, adicionalesIds]
+  )
+  // Precio y duración con los adicionales: la duración total es la que se
+  // busca libre en la agenda.
+  const totales = useMemo(
+    () => totalesConAdicionales(servicioSeleccionado, adicionalesElegidos),
+    [servicioSeleccionado, adicionalesElegidos]
+  )
+  function alternarAdicional(a) {
+    setAdicionalesIds((prev) => {
+      const nuevo = new Set(prev)
+      const clave = claveAdicional(a)
+      if (nuevo.has(clave)) nuevo.delete(clave)
+      else nuevo.add(clave)
+      return nuevo
+    })
+    setCitaConfirmada(null)
+  }
 
   // Equipo del negocio (ver equipo.js): solo las personas activas se pueden
   // elegir. Sin equipo, el negocio tiene una sola agenda, como antes.
@@ -302,7 +326,7 @@ export default function NegocioDetalle() {
   // (solo dentro de su horario), la de alguien del equipo ("Cualquiera",
   // sumando los horarios de todos) o la única del negocio. Ver equipo.js.
   const { slotsDelDia, disponibilidad, asignarProfesional } = useMemo(() => {
-    const duracion = servicioSeleccionado?.duracionMinutos || MINUTOS_TURNO
+    const duracion = totales.duracionMinutos || MINUTOS_TURNO
     const cierre = bloqueHorario?.cierre
     if (!conEquipo) {
       // Sin equipo cuenta cualquier turno tomado (también los de personas
@@ -317,7 +341,7 @@ export default function NegocioDetalle() {
     }
     const { slots, mapa, asignar } = disponibilidadCualquiera(slotsNegocio, ocupados, equipoHoy, duracion, cierre, fechaObj)
     return { slotsDelDia: slots, disponibilidad: mapa, asignarProfesional: asignar }
-  }, [slotsNegocio, ocupados, servicioSeleccionado, bloqueHorario, conEquipo, profesionalElegido, equipoHoy, fechaObj])
+  }, [slotsNegocio, ocupados, totales, bloqueHorario, conEquipo, profesionalElegido, equipoHoy, fechaObj])
 
   // Si al cambiar de servicio la hora elegida deja de caber, se deselecciona.
   useEffect(() => {
@@ -364,6 +388,7 @@ export default function NegocioDetalle() {
       return
     }
     const conQuien = profesional ? ` con ${primerNombre(profesional.nombre)}` : ''
+    const queReservo = nombreConAdicionales(servicioSeleccionado.nombre, adicionalesElegidos)
 
     setError('')
     setReservando(true)
@@ -375,7 +400,8 @@ export default function NegocioDetalle() {
         clienteId: currentUser.uid,
         servicioId: servicioSeleccionado.id,
         fechaHora,
-        duracionMinutos: servicioSeleccionado.duracionMinutos,
+        duracionMinutos: totales.duracionMinutos,
+        adicionales: adicionalesElegidos,
         profesional: profesional ? { id: profesional.id, nombre: profesional.nombre } : null,
         // Notificaciones: al negocio, la reserva nueva; al cliente, su
         // confirmación (ver notificaciones.js).
@@ -384,14 +410,14 @@ export default function NegocioDetalle() {
             destinatarioId: id,
             tipo: 'nueva-reserva',
             titulo: 'Nueva reserva',
-            texto: `${currentUser.displayName || 'Un cliente'} reservó ${servicioSeleccionado.nombre}${conQuien} para el ${cuando}.`,
+            texto: `${currentUser.displayName || 'Un cliente'} reservó ${queReservo}${conQuien} para el ${cuando}.`,
             enlace: '/panel/agenda',
           },
           {
             destinatarioId: currentUser.uid,
             tipo: 'reserva-confirmada',
             titulo: 'Reserva confirmada',
-            texto: `Reservaste ${servicioSeleccionado.nombre}${conQuien} en ${negocio.nombre} para el ${cuando}.`,
+            texto: `Reservaste ${queReservo}${conQuien} en ${negocio.nombre} para el ${cuando}.`,
             enlace: '/perfil/citas',
           },
         ],
@@ -401,8 +427,10 @@ export default function NegocioDetalle() {
         negocio: negocio.nombre,
         direccion: negocio.direccion,
         servicio: servicioSeleccionado.nombre,
-        duracionMinutos: servicioSeleccionado.duracionMinutos,
-        precio: servicioSeleccionado.precio,
+        precioServicio: servicioSeleccionado.precio,
+        adicionales: adicionalesElegidos,
+        duracionMinutos: totales.duracionMinutos,
+        precio: totales.precio,
         profesional: profesional?.nombre || null,
         fechaHora,
         reservadaEn: new Date(),
@@ -722,7 +750,10 @@ export default function NegocioDetalle() {
                       <button
                         key={s.id}
                         type="button"
-                        onClick={() => { setServicioId(s.id); setHora(null); setCitaConfirmada(null) }}
+                        onClick={() => {
+                          if (s.id !== servicioId) setAdicionalesIds(new Set())
+                          setServicioId(s.id); setHora(null); setCitaConfirmada(null)
+                        }}
                         className={`card servicio-fila${seleccionado ? ' servicio-fila--activo' : ''}`}
                         aria-pressed={seleccionado}
                       >
@@ -736,6 +767,11 @@ export default function NegocioDetalle() {
                           <span style={{ display: 'block', fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
                             {s.descripcion || `${s.duracionMinutos} min`}
                           </span>
+                          {s.adicionales?.length > 0 && (
+                            <span className="servicio-fila__adicionales">
+                              + {s.adicionales.length} adicional{s.adicionales.length === 1 ? '' : 'es'}: {s.adicionales.map((a) => a.nombre).join(', ')}
+                            </span>
+                          )}
                         </span>
                         <span style={{ textAlign: 'right', flexShrink: 0 }}>
                           <span style={{ display: 'block', fontWeight: 800, fontSize: 15 }}>{COP.format(s.precio || 0)}</span>
@@ -876,6 +912,35 @@ export default function NegocioDetalle() {
               <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
                 {servicioSeleccionado.duracionMinutos} min · {COP.format(servicioSeleccionado.precio || 0)}
               </div>
+
+              {servicioSeleccionado.adicionales?.length > 0 && (
+                <div className="reserva-adicionales">
+                  <div className="reserva-etiqueta" style={{ marginBottom: 6 }}>Agrega a tu cita</div>
+                  {servicioSeleccionado.adicionales.map((a) => {
+                    const elegido = adicionalesIds.has(claveAdicional(a))
+                    return (
+                      <button
+                        key={claveAdicional(a)}
+                        type="button"
+                        role="checkbox"
+                        aria-checked={elegido}
+                        className={`reserva-adicional${elegido ? ' on' : ''}`}
+                        onClick={() => alternarAdicional(a)}
+                      >
+                        <span className="reserva-adicional__caja" aria-hidden="true">{elegido && <Icon name="check" size={12} />}</span>
+                        <span className="reserva-adicional__nombre">{a.nombre}</span>
+                        <span className="reserva-adicional__detalle">{detalleAdicional(a, (n) => COP.format(n))}</span>
+                      </button>
+                    )
+                  })}
+                  {adicionalesElegidos.length > 0 && (
+                    <div className="reserva-total">
+                      <span>Total</span>
+                      <strong>{COP.format(totales.precio)} · {totales.duracionMinutos} min</strong>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>Elige un servicio de la lista.</p>

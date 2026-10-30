@@ -5,6 +5,7 @@ import ConfirmarModal from '../../components/ConfirmarModal.jsx'
 import PaginadorPeine from '../../components/PaginadorPeine.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import { codigoReserva } from '../../reservas.js'
+import { nombreConAdicionales } from '../../adicionales.js'
 import ContratiempoModal from '../../components/ContratiempoModal.jsx'
 
 const FECHA_LARGA = new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -146,7 +147,7 @@ export default function ClientCitas() {
       <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14 }}>{negociosPorId[c.negocioId]?.nombre || 'Negocio'}</div>
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
-          {serviciosPorId[`${c.negocioId}:${c.servicioId}`]?.nombre || 'Servicio'}
+          {nombreConAdicionales(serviciosPorId[`${c.negocioId}:${c.servicioId}`]?.nombre || 'Servicio', c.adicionales)}
           {c.profesionalNombre && <> con <strong style={{ color: 'var(--text)', fontWeight: 700 }}>{c.profesionalNombre.split(' ')[0]}</strong></>}
           {' · '}{capitalize(FECHA_LARGA.format(c.fecha))}, {HORA.format(c.fecha)}
         </div>

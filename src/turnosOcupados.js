@@ -52,12 +52,14 @@ function refOcupado(negocioId, fechaHora, profesionalId) {
 
 /**
  * Crea la cita y ocupa sus turnos. Devuelve la referencia de la cita.
+ * `adicionales`: los extras elegidos del servicio (ver adicionales.js); con
+ * ellos, `duracionMinutos` es la duración total.
  * `profesional`: { id, nombre } de quien atiende, si el negocio tiene equipo
  * (el nombre se guarda en la cita para mostrarlo aunque luego esa persona
  * salga del equipo). `avisos`: notificaciones del evento (al negocio y al
  * propio cliente), en el mismo batch (ver notificaciones.js).
  */
-export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora, duracionMinutos, profesional, avisos = [] }) {
+export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora, duracionMinutos, profesional, adicionales = [], avisos = [] }) {
   const citaRef = doc(collection(db, 'citas'))
   const batch = writeBatch(db)
   batch.set(citaRef, {
@@ -66,6 +68,11 @@ export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora
     servicioId,
     fechaHora,
     ...(profesional ? { profesionalId: profesional.id, profesionalNombre: profesional.nombre } : {}),
+    // Con adicionales (ver adicionales.js) la cita guarda cuáles eligió y su
+    // duración total, que ocupa más turnos que el servicio solo.
+    ...(adicionales.length
+      ? { adicionales: adicionales.map((a) => ({ nombre: a.nombre, precio: Number(a.precio) || 0, minutos: Number(a.minutos) || 0 })), duracionMinutos }
+      : {}),
     estado: 'pendiente',
     creadoEn: serverTimestamp(),
   })
@@ -137,7 +144,8 @@ export async function sincronizarOcupados(negocioId, citas, duraciones = {}) {
         cambios += 1
       })
     } else if (c.fechaHora.toDate() >= ahora) {
-      turnosCubiertos(c.fechaHora, duraciones[c.servicioId]).forEach((turno) => {
+      // Con adicionales, la cita trae su duración total (ver adicionales.js).
+      turnosCubiertos(c.fechaHora, c.duracionMinutos || duraciones[c.servicioId]).forEach((turno) => {
         const id = idTurno(turno, c.profesionalId)
         if (citaPorTurno.has(id)) return
         batch.set(refOcupado(negocioId, turno, c.profesionalId), { fechaHora: turno, citaId: c.id })
