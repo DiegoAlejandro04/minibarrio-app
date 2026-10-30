@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  detalleAdicional, duracionDeCita, limpiarAdicionales, nombreConAdicionales, precioDeCita, totalesConAdicionales,
+  detalleAdicional, duracionDeCita, nombreConAdicionales, precioDeCita, totalesConAdicionales,
 } from './adicionales.js'
 
 const corte = { nombre: 'Corte fade', precio: 15000, duracionMinutos: 30 }
@@ -27,16 +27,4 @@ test('textos: nombre combinado y detalle de cada adicional', () => {
   assert.equal(detalleAdicional(barba, pesos), '+$8000 · +20 min')
   assert.equal(detalleAdicional(cejas, pesos), '+$5000')
   assert.equal(detalleAdicional({ nombre: 'Lavado', precio: 0, minutos: 0 }, pesos), 'Sin costo')
-})
-
-test('al guardar se quitan las filas vacías y se limpian los números', () => {
-  const filas = [
-    { id: 'a', nombre: '  Barba  ', precio: '8000', minutos: '20' },
-    { id: 'b', nombre: '', precio: '5000', minutos: '10' },
-    { id: 'c', nombre: 'Cejas', precio: '', minutos: '' },
-  ]
-  assert.deepEqual(limpiarAdicionales(filas), [
-    { id: 'a', nombre: 'Barba', precio: 8000, minutos: 20 },
-    { id: 'c', nombre: 'Cejas', precio: 0, minutos: 0 },
-  ])
 })

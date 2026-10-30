@@ -4771,106 +4771,7 @@ option:disabled { color: var(--text-faint); }
 .vitrina-fila__datos { display: block; margin-top: 3px; font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vitrina-fila__estado { display: block; margin-top: 3px; font-size: 11.5px; font-weight: 700; }
 
-/* ── Adicionales de un servicio (OwnerServicios.jsx) ── */
-.adicionales-editor {
-  margin-top: 16px;
-  padding: 14px;
-  border-radius: 14px;
-  border: 1px dashed var(--border-strong, var(--border));
-  background: color-mix(in oklch, var(--text) 2.5%, transparent);
-}
-.adicionales-editor__cabecera { display: flex; align-items: flex-start; gap: 10px; }
-.adicionales-editor__icono {
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in oklch, var(--accent) 16%, transparent);
-  color: var(--accent);
-}
-.adicionales-editor__lista { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-.adicionales-editor__fila {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) 38px;
-  gap: 8px;
-  align-items: center;
-  animation: equipo-entrada .25s ease-out;
-}
-.adicionales-editor__precio { position: relative; }
-.adicionales-editor__precio span {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text-muted);
-  pointer-events: none;
-}
-.adicionales-editor__precio input { padding-left: 32px; }
-.adicionales-editor__quitar {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: color .3s, border-color .3s, background .3s;
-}
-.adicionales-editor__quitar:hover {
-  color: var(--danger);
-  border-color: color-mix(in oklch, var(--danger) 60%, transparent);
-  background: color-mix(in oklch, var(--danger) 10%, transparent);
-}
-.adicionales-editor__agregar {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--accent);
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background .3s cubic-bezier(.4, 0, .2, 1), transform .3s cubic-bezier(.4, 0, .2, 1);
-}
-.adicionales-editor__agregar:hover { background: color-mix(in oklch, var(--accent) 12%, transparent); transform: translateY(-1px); }
-@media (max-width: 767px) {
-  .adicionales-editor__fila { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 38px; }
-  .adicionales-editor__nombre { grid-column: 1 / -1; }
-}
-.adicionales-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-.adicionales-chips span {
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--accent) 12%, transparent);
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 700;
-}
-
 /* ── Adicionales al reservar (NegocioDetalle.jsx) ── */
-.servicio-fila__adicionales {
-  display: block;
-  margin-top: 4px;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--accent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .reserva-adicionales {
   margin-top: 14px;
   padding-top: 12px;
@@ -4927,3 +4828,20 @@ option:disabled { color: var(--text-faint); }
   animation: equipo-entrada .25s ease-out;
 }
 .reserva-total strong { color: var(--accent); font-size: 14px; }
+
+/* Sumar otro servicio a la cita (NegocioDetalle.jsx). */
+.reserva-adicional.sin-cupo { opacity: .45; cursor: not-allowed; }
+.reserva-adicional.sin-cupo:hover { transform: none; border-color: var(--vidrio-borde, var(--border)); }
+.reserva-ver-otros {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.reserva-ver-otros:hover { text-decoration: underline; }

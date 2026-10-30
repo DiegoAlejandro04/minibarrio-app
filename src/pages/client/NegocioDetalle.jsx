@@ -19,7 +19,9 @@ import ReciboCita from '../../components/ReciboCita.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import useEquipo from '../../hooks/useEquipo.js'
 import AvatarProfesional from '../../components/AvatarProfesional.jsx'
-import { detalleAdicional, nombreConAdicionales, totalesConAdicionales } from '../../adicionales.js'
+import {
+  MAX_ADICIONALES, MAX_MINUTOS_EXTRA, detalleAdicional, nombreConAdicionales, totalesConAdicionales,
+} from '../../adicionales.js'
 import {
   disponibilidadAgenda, disponibilidadCualquiera, disponibilidadProfesional, equipoDelDia, ocupadosDelDia,
   almuerzoDe, primerNombre, resumenHorario as horarioPersona, textoRango, trabajaEl, ventanaProfesional,
@@ -40,6 +42,8 @@ const DIA_SEMANA_CORTO = new Intl.DateTimeFormat('es-CO', { weekday: 'short' })
 const MES_CORTO = new Intl.DateTimeFormat('es-CO', { month: 'short' })
 // Días que se ofrecen para reservar, desde mañana.
 const DIAS_RESERVABLES = 14
+// Otros servicios que se ven al sumar a la cita antes de "Ver los N".
+const OTROS_SERVICIOS_VISIBLES = 3
 
 function toDateInputValue(date) {
   const y = date.getFullYear()
@@ -100,6 +104,7 @@ export default function NegocioDetalle() {
   const [servicioId, setServicioId] = useState(null)
   // Adicionales elegidos del servicio (ids, ver adicionales.js).
   const [adicionalesIds, setAdicionalesIds] = useState(() => new Set())
+  const [verOtrosServicios, setVerOtrosServicios] = useState(false)
   // Con muchos servicios se muestran los primeros SERVICIOS_VISIBLES y un
   // botón para ver el resto: 10 filas empujaban los "Trabajos" muy abajo.
   const [verTodosServicios, setVerTodosServicios] = useState(false)
@@ -233,17 +238,33 @@ export default function NegocioDetalle() {
     [servicios, servicioId]
   )
   const claveAdicional = (a) => a.id || a.nombre
-  const adicionalesElegidos = useMemo(
-    () => (servicioSeleccionado?.adicionales || []).filter((a) => adicionalesIds.has(claveAdicional(a))),
-    [servicioSeleccionado, adicionalesIds]
+  // "Suma otro servicio": el cliente puede agregar otros servicios del
+  // negocio a la misma cita (un corte y una barba). Se guardan en la cita
+  // (cita.adicionales, ver adicionales.js), así que el total, la duración, el
+  // recibo y la agenda los cuentan sin más.
+  const otrosServicios = useMemo(
+    () => servicios
+      .filter((s) => s.id !== servicioId)
+      .map((s) => ({ id: `servicio:${s.id}`, servicioId: s.id, nombre: s.nombre, precio: s.precio || 0, minutos: s.duracionMinutos || 0 })),
+    [servicios, servicioId]
   )
-  // Precio y duración con los adicionales: la duración total es la que se
+  const adicionalesElegidos = useMemo(
+    () => otrosServicios.filter((a) => adicionalesIds.has(claveAdicional(a))),
+    [otrosServicios, adicionalesIds]
+  )
+  // Precio y duración con los servicios sumados: la duración total es la que se
   // busca libre en la agenda.
   const totales = useMemo(
     () => totalesConAdicionales(servicioSeleccionado, adicionalesElegidos),
     [servicioSeleccionado, adicionalesElegidos]
   )
+  // Topes de las reglas (firestore.rules): a lo sumo MAX_ADICIONALES extras y
+  // MAX_MINUTOS_EXTRA minutos más que el servicio.
+  const minutosExtra = adicionalesElegidos.reduce((s, a) => s + (Number(a.minutos) || 0), 0)
+  const puedeSumar = (a) => adicionalesIds.has(claveAdicional(a))
+    || (adicionalesElegidos.length < MAX_ADICIONALES && minutosExtra + (Number(a.minutos) || 0) <= MAX_MINUTOS_EXTRA)
   function alternarAdicional(a) {
+    if (!puedeSumar(a)) return
     setAdicionalesIds((prev) => {
       const nuevo = new Set(prev)
       const clave = claveAdicional(a)
@@ -751,7 +772,7 @@ export default function NegocioDetalle() {
                         key={s.id}
                         type="button"
                         onClick={() => {
-                          if (s.id !== servicioId) setAdicionalesIds(new Set())
+                          if (s.id !== servicioId) { setAdicionalesIds(new Set()); setVerOtrosServicios(false) }
                           setServicioId(s.id); setHora(null); setCitaConfirmada(null)
                         }}
                         className={`card servicio-fila${seleccionado ? ' servicio-fila--activo' : ''}`}
@@ -767,11 +788,6 @@ export default function NegocioDetalle() {
                           <span style={{ display: 'block', fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
                             {s.descripcion || `${s.duracionMinutos} min`}
                           </span>
-                          {s.adicionales?.length > 0 && (
-                            <span className="servicio-fila__adicionales">
-                              + {s.adicionales.length} adicional{s.adicionales.length === 1 ? '' : 'es'}: {s.adicionales.map((a) => a.nombre).join(', ')}
-                            </span>
-                          )}
                         </span>
                         <span style={{ textAlign: 'right', flexShrink: 0 }}>
                           <span style={{ display: 'block', fontWeight: 800, fontSize: 15 }}>{COP.format(s.precio || 0)}</span>
@@ -913,26 +929,33 @@ export default function NegocioDetalle() {
                 {servicioSeleccionado.duracionMinutos} min · {COP.format(servicioSeleccionado.precio || 0)}
               </div>
 
-              {servicioSeleccionado.adicionales?.length > 0 && (
+              {otrosServicios.length > 0 && (
                 <div className="reserva-adicionales">
-                  <div className="reserva-etiqueta" style={{ marginBottom: 6 }}>Agrega a tu cita</div>
-                  {servicioSeleccionado.adicionales.map((a) => {
-                    const elegido = adicionalesIds.has(claveAdicional(a))
-                    return (
-                      <button
-                        key={claveAdicional(a)}
-                        type="button"
-                        role="checkbox"
-                        aria-checked={elegido}
-                        className={`reserva-adicional${elegido ? ' on' : ''}`}
-                        onClick={() => alternarAdicional(a)}
-                      >
-                        <span className="reserva-adicional__caja" aria-hidden="true">{elegido && <Icon name="check" size={12} />}</span>
-                        <span className="reserva-adicional__nombre">{a.nombre}</span>
-                        <span className="reserva-adicional__detalle">{detalleAdicional(a, (n) => COP.format(n))}</span>
-                      </button>
-                    )
-                  })}
+                  {otrosServicios.length > 0 && (
+                    <>
+                      <div className="reserva-etiqueta" style={{ marginBottom: 6 }}>
+                        Suma otro servicio
+                      </div>
+                      {otrosServicios
+                        // Plegada muestra los primeros, pero nunca esconde uno ya elegido.
+                        .filter((a, i) => verOtrosServicios || i < OTROS_SERVICIOS_VISIBLES || adicionalesIds.has(claveAdicional(a)))
+                        .map((a) => (
+                          <OpcionAdicional
+                            key={claveAdicional(a)}
+                            adicional={a}
+                            elegido={adicionalesIds.has(claveAdicional(a))}
+                            disponible={puedeSumar(a)}
+                            onAlternar={() => alternarAdicional(a)}
+                          />
+                        ))}
+                      {otrosServicios.length > OTROS_SERVICIOS_VISIBLES && (
+                        <button type="button" className="reserva-ver-otros" onClick={() => setVerOtrosServicios((v) => !v)} aria-expanded={verOtrosServicios}>
+                          {verOtrosServicios ? 'Ver menos ▴' : `Ver los ${otrosServicios.length} servicios ▾`}
+                        </button>
+                      )}
+                    </>
+                  )}
+
                   {adicionalesElegidos.length > 0 && (
                     <div className="reserva-total">
                       <span>Total</span>
@@ -1192,5 +1215,25 @@ export default function NegocioDetalle() {
         />
       )}
     </div>
+  )
+}
+
+// Una opción para sumar a la cita (adicional del servicio u otro servicio):
+// casilla, nombre y cuánto suma. Atenuada si ya no cabe (topes de las reglas).
+function OpcionAdicional({ adicional, elegido, disponible, onAlternar }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={elegido}
+      aria-disabled={!disponible || undefined}
+      className={`reserva-adicional${elegido ? ' on' : ''}${disponible ? '' : ' sin-cupo'}`}
+      onClick={onAlternar}
+      title={disponible ? undefined : 'Ya no caben más servicios en esta cita'}
+    >
+      <span className="reserva-adicional__caja" aria-hidden="true">{elegido && <Icon name="check" size={12} />}</span>
+      <span className="reserva-adicional__nombre">{adicional.nombre}</span>
+      <span className="reserva-adicional__detalle">{detalleAdicional(adicional, (n) => COP.format(n))}</span>
+    </button>
   )
 }

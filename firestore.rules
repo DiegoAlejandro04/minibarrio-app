@@ -61,9 +61,9 @@ service cloud.firestore {
         && (cita.clienteId == request.auth.uid || esDueno(negocioId));
     }
 
-    // Adicionales de una cita (ver src/adicionales.js): a lo sumo 6, y la
-    // duración total entre la del servicio y 4 horas más (lo que más pueden
-    // sumar los adicionales). Sin adicionales, la cita no trae duración propia.
+    // Servicios sumados a una cita (ver src/adicionales.js): a lo sumo 6, y
+    // la duración total entre la del servicio y 4 horas más. Sin servicios
+    // sumados, la cita no trae duración propia.
     function adicionalesDeCitaValidos(datos) {
       let servicio = get(/databases/$(database)/documents/negocios/$(datos.negocioId)/servicios/$(datos.servicioId)).data;
       return listaMax(datos, 'adicionales', 6)
@@ -193,8 +193,7 @@ service cloud.firestore {
         && textoMax(datos, 'descripcion', 300)
         && textoMax(datos, 'fotoUrl', 500)
         && numeroEntre(datos, 'precio', 0, 2000000)
-        && numeroEntre(datos, 'duracionMinutos', 1, 480)
-        && listaMax(datos, 'adicionales', 6);
+        && numeroEntre(datos, 'duracionMinutos', 1, 480);
     }
 
     // Reseña verificada: el cliente indica una cita SUYA en este negocio, ya
@@ -348,10 +347,10 @@ service cloud.firestore {
       match /servicios/{servicioId} {
         allow read: if true;
         allow create: if esDueno(negocioId)
-                      && request.resource.data.keys().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl', 'adicionales'])
+                      && request.resource.data.keys().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl'])
                       && servicioValido();
         allow update: if esDueno(negocioId)
-                      && camposCambiados().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl', 'adicionales'])
+                      && camposCambiados().hasOnly(['nombre', 'descripcion', 'precio', 'duracionMinutos', 'visible', 'fotoUrl'])
                       && servicioValido();
         allow delete: if esDueno(negocioId);
       }

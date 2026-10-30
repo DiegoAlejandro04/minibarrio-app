@@ -71,7 +71,16 @@ export async function reservarCita({ negocioId, clienteId, servicioId, fechaHora
     // Con adicionales (ver adicionales.js) la cita guarda cuáles eligió y su
     // duración total, que ocupa más turnos que el servicio solo.
     ...(adicionales.length
-      ? { adicionales: adicionales.map((a) => ({ nombre: a.nombre, precio: Number(a.precio) || 0, minutos: Number(a.minutos) || 0 })), duracionMinutos }
+      ? {
+          adicionales: adicionales.map((a) => ({
+            nombre: a.nombre,
+            precio: Number(a.precio) || 0,
+            minutos: Number(a.minutos) || 0,
+            // Si es otro servicio del negocio sumado a la cita, cuál.
+            ...(a.servicioId ? { servicioId: a.servicioId } : {}),
+          })),
+          duracionMinutos,
+        }
       : {}),
     estado: 'pendiente',
     creadoEn: serverTimestamp(),

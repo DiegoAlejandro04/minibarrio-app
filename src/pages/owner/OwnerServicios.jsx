@@ -4,18 +4,12 @@ import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestor
 import { db } from '../../firebase/config'
 import Icon from '../../components/Icon.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
-import {
-  MAX_ADICIONALES, MAX_NOMBRE_ADICIONAL, MINUTOS_ADICIONAL, detalleAdicional, limpiarAdicionales,
-} from '../../adicionales.js'
 
 // Gestión de servicios del negocio (RF-03, RF-04). CRUD directo sobre
 // negocios/{uid}/servicios — permitido por firestore.rules para el dueño.
-// Cada servicio puede tener adicionales (extras con su precio y tiempo que
-// el cliente suma al reservar, ver src/adicionales.js).
 
 const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
-const FORM_INICIAL = { nombre: '', descripcion: '', precio: '', duracionMinutos: '', adicionales: [] }
-const nuevoIdAdicional = () => Math.random().toString(36).slice(2, 9)
+const FORM_INICIAL = { nombre: '', descripcion: '', precio: '', duracionMinutos: '' }
 const PRECIO_MAXIMO = 2000000
 const PASO_PRECIO = 500 // las flechas (y ↑ ↓ del teclado) suben o bajan de a $500
 // El precio se escribe con puntos de miles ("22.000"): en el formulario se
@@ -61,25 +55,8 @@ export default function OwnerServicios() {
       descripcion: servicio.descripcion || '',
       precio: servicio.precio != null ? String(servicio.precio) : '',
       duracionMinutos: servicio.duracionMinutos ?? '',
-      adicionales: (servicio.adicionales || []).map((a) => ({
-        id: a.id || nuevoIdAdicional(),
-        nombre: a.nombre || '',
-        precio: a.precio ? String(a.precio) : '',
-        minutos: String(a.minutos || 0),
-      })),
     })
     setError('')
-  }
-
-  // Adicionales del formulario (filas editables, ver src/adicionales.js).
-  function agregarAdicional() {
-    setForm((f) => ({ ...f, adicionales: [...f.adicionales, { id: nuevoIdAdicional(), nombre: '', precio: '', minutos: '0' }] }))
-  }
-  function cambiarAdicional(id, campo, valor) {
-    setForm((f) => ({ ...f, adicionales: f.adicionales.map((a) => (a.id === id ? { ...a, [campo]: valor } : a)) }))
-  }
-  function quitarAdicional(id) {
-    setForm((f) => ({ ...f, adicionales: f.adicionales.filter((a) => a.id !== id) }))
   }
 
   function cancelar() {
@@ -102,7 +79,6 @@ export default function OwnerServicios() {
         descripcion: form.descripcion.trim(),
         precio: Number(form.precio),
         duracionMinutos: Number(form.duracionMinutos),
-        adicionales: limpiarAdicionales(form.adicionales),
       }
       if (editandoId) {
         await updateDoc(doc(db, 'negocios', uid, 'servicios', editandoId), datos)
@@ -191,70 +167,6 @@ export default function OwnerServicios() {
           <label style={{ fontSize: 12, fontWeight: 700 }}>Descripción (opcional)</label>
           <textarea maxLength={300} rows={2} value={form.descripcion} onChange={update('descripcion')} placeholder="Fade con diseño y acabado en navaja." style={{ marginTop: 4, resize: 'vertical' }} />
         </div>
-
-        <div className="adicionales-editor">
-          <div className="adicionales-editor__cabecera">
-            <span className="adicionales-editor__icono" aria-hidden="true"><Icon name="plus" size={15} /></span>
-            <div>
-              <div style={{ fontSize: 13.5, fontWeight: 800 }}>Adicionales <span style={{ fontWeight: 600, color: 'var(--text-faint)' }}>(opcional)</span></div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                Extras que el cliente puede sumar al reservar este servicio, como barba, cejas o lavado.
-              </div>
-            </div>
-          </div>
-
-          {form.adicionales.length > 0 && (
-            <div className="adicionales-editor__lista">
-              {form.adicionales.map((a) => (
-                <div key={a.id} className="adicionales-editor__fila">
-                  <input
-                    value={a.nombre}
-                    onChange={(e) => cambiarAdicional(a.id, 'nombre', e.target.value)}
-                    maxLength={MAX_NOMBRE_ADICIONAL}
-                    placeholder="Barba"
-                    aria-label="Nombre del adicional"
-                    className="adicionales-editor__nombre"
-                  />
-                  <div className="adicionales-editor__precio">
-                    <span aria-hidden="true">+$</span>
-                    <input
-                      inputMode="numeric"
-                      value={conPuntos(a.precio)}
-                      onChange={(e) => {
-                        let digitos = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '')
-                        if (Number(digitos) > PRECIO_MAXIMO) digitos = String(PRECIO_MAXIMO)
-                        cambiarAdicional(a.id, 'precio', digitos)
-                      }}
-                      placeholder="8.000"
-                      aria-label="Precio del adicional"
-                    />
-                  </div>
-                  <select
-                    value={a.minutos}
-                    onChange={(e) => cambiarAdicional(a.id, 'minutos', e.target.value)}
-                    aria-label="Tiempo que agrega"
-                    className="adicionales-editor__minutos"
-                  >
-                    {MINUTOS_ADICIONAL.map((m) => (
-                      <option key={m} value={m}>{m === 0 ? 'Sin tiempo extra' : `+${m} min`}</option>
-                    ))}
-                  </select>
-                  <button type="button" className="adicionales-editor__quitar" onClick={() => quitarAdicional(a.id)} aria-label={`Quitar ${a.nombre || 'adicional'}`} title="Quitar">
-                    <Icon name="trash" size={15} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {form.adicionales.length < MAX_ADICIONALES ? (
-            <button type="button" className="adicionales-editor__agregar" onClick={agregarAdicional}>
-              <Icon name="plus" size={14} /> Agregar adicional
-            </button>
-          ) : (
-            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 10 }}>Máximo {MAX_ADICIONALES} adicionales por servicio.</div>
-          )}
-        </div>
         {error && <div className="error-text">{error}</div>}
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
           <button type="submit" className="btn btn-primary" disabled={guardando}>
@@ -285,15 +197,6 @@ export default function OwnerServicios() {
                   <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
                     {COP.format(s.precio || 0)} · {s.duracionMinutos} min{s.descripcion ? ` · ${s.descripcion}` : ''}
                   </div>
-                  {s.adicionales?.length > 0 && (
-                    <div className="adicionales-chips">
-                      {s.adicionales.map((a) => (
-                        <span key={a.id || a.nombre} title={detalleAdicional(a, (n) => COP.format(n))}>
-                          + {a.nombre}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                   <button
