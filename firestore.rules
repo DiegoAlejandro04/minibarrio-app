@@ -267,6 +267,9 @@ service cloud.firestore {
       allow create: if esDueno(uid)
                     && request.resource.data.rol in ['cliente', 'propietario']
                     && request.resource.data.keys().hasOnly(['rol', 'nombre', 'correo', 'telefono', 'consentimientoDatos', 'creadoEn', 'modoOscuro', 'modoOscuroPanel'])
+                    // Ley 1581 de 2012: ninguna cuenta se crea sin la autorización
+                    // de tratamiento de datos (la app la envía en los tres registros).
+                    && request.resource.data.consentimientoDatos == true
                     && perfilValido()
                     && correoDeRegistroPermitido();
       allow update: if esDueno(uid)

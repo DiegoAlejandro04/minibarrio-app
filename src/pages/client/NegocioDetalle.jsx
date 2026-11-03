@@ -153,7 +153,7 @@ export default function NegocioDetalle() {
         return setDoc(visitaRef, { visitadoEn: serverTimestamp() })
       })
       .catch((err) => {
-        // eslint-disable-next-line no-console
+         
         console.error(err)
       })
   }, [currentUser, role, id])
@@ -463,7 +463,7 @@ export default function NegocioDetalle() {
       setError(err.code === 'permission-denied'
         ? 'Ese horario se cruza con otra cita que acaban de reservar. Elige otro.'
         : 'No se pudo confirmar la cita. Intenta de nuevo.')
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setReservando(false)

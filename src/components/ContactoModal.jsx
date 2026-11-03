@@ -50,7 +50,7 @@ export default function ContactoModal({ onClose }) {
       setEnviado(true)
     } catch (err) {
       setError('No se pudo enviar tu mensaje. Revisa tu conexión e intenta de nuevo.')
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setEnviando(false)

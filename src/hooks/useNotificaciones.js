@@ -21,7 +21,7 @@ export default function useNotificaciones(uid) {
         setCargadas(true)
       },
       (err) => {
-        // eslint-disable-next-line no-console
+         
         console.error(err)
         setCargadas(true)
       },

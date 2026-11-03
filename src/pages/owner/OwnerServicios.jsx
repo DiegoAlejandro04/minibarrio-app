@@ -88,7 +88,7 @@ export default function OwnerServicios() {
       cancelar()
     } catch (err) {
       setError('No se pudo guardar el servicio. Intenta de nuevo.')
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setGuardando(false)

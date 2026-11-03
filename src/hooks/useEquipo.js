@@ -19,7 +19,7 @@ export default function useEquipo(negocioId) {
         setCargado(true)
       },
       (err) => {
-        // eslint-disable-next-line no-console
+         
         console.error(err)
         setCargado(true)
       },

@@ -81,7 +81,7 @@ export default function RegisterBusiness() {
           ubicacionFinal = await geocodeDireccion(form.direccion)
         } catch (geoErr) {
           ubicacionFinal = null
-          // eslint-disable-next-line no-console
+           
           console.error(geoErr)
         }
       }
@@ -90,7 +90,7 @@ export default function RegisterBusiness() {
     } catch (err) {
       captchaRef.current?.reiniciar()
       setError(mapAuthError(err))
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setLoading(false)

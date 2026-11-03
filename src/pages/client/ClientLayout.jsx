@@ -71,7 +71,7 @@ export default function ClientLayout() {
     const correoSesion = currentUser?.email
     if (!uid || !perfil || !correoSesion || perfil.correo === correoSesion) return
     updateDoc(doc(db, 'usuarios', uid), { correo: correoSesion }).catch((err) => {
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     })
   }, [uid, perfil, currentUser])
@@ -97,7 +97,7 @@ export default function ClientLayout() {
         // Ver el mismo comentario en ClientHome.jsx: sin este callback, un
         // índice de Firestore faltante para esta consulta queda "sin
         // capturar" en vez de solo dejar vacía la sección de reseñas propias.
-        // eslint-disable-next-line no-console
+         
         (err) => console.error('No se pudieron cargar las reseñas del cliente:', err)
       ),
       onSnapshot(collectionGroup(db, 'resenas'), (snap) => {

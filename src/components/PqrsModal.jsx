@@ -55,7 +55,7 @@ export default function PqrsModal({ onClose }) {
       setEnviado(true)
     } catch (err) {
       setError('No se pudo enviar tu PQRS. Revisa tu conexión e intenta de nuevo.')
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setEnviando(false)

@@ -206,7 +206,7 @@ export default function ClientHome() {
         // queda "sin capturar" en vez de solo degradar el historial del
         // recomendador — las reseñas propias del cliente son un extra, no
         // deberían poder tumbar el resto de la página.
-        // eslint-disable-next-line no-console
+         
         (err) => console.error('No se pudieron cargar las reseñas del cliente:', err)
       ),
       // Haber completado una cita es una señal de historial más (RF-09):
@@ -307,7 +307,7 @@ export default function ClientHome() {
         })
         .catch((err) => {
           if (vivo) setMapError(true)
-          // eslint-disable-next-line no-console
+           
           console.error(err)
         })
     }
@@ -406,7 +406,7 @@ export default function ClientHome() {
       })
     } catch (err) {
       setMapError(true)
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     }
 

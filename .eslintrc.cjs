@@ -14,4 +14,11 @@ module.exports = {
     'react/prop-types': 'off',
     'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
   },
+  overrides: [
+    {
+      // Estos componentes exportan también funciones puras que se prueban con node:test.
+      files: ['src/components/FotoNegocio.jsx', 'src/components/FuerzaContrasena.jsx', 'src/components/PaginadorPeine.jsx'],
+      rules: { 'react-refresh/only-export-components': 'off' },
+    },
+  ],
 }

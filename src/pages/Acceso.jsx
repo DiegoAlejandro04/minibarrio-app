@@ -114,7 +114,7 @@ function CaraLogin({ onGirar, onOlvido }) {
     } catch (err) {
       captchaRef.current?.reiniciar()
       setError('Correo o contraseña incorrectos. Verifica tus datos e intenta de nuevo.')
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setCargando(false)
@@ -133,7 +133,7 @@ function CaraLogin({ onGirar, onOlvido }) {
       } else if (err.code !== 'auth/popup-closed-by-user') {
         setError('No se pudo iniciar sesión con Google. Intenta de nuevo.')
       }
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setCargando(false)
@@ -271,7 +271,7 @@ function CaraRegistro({ onGirar }) {
     } catch (err) {
       captchaRef.current?.reiniciar()
       setError(mapAuthError(err))
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setCargando(false)
@@ -288,7 +288,7 @@ function CaraRegistro({ onGirar }) {
       if (err.code !== 'auth/popup-closed-by-user') {
         setError('No se pudo crear la cuenta con Google. Intenta de nuevo.')
       }
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setCargando(false)

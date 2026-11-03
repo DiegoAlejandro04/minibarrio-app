@@ -60,7 +60,7 @@ export default function CalificarModal({ negocio, citaId, nombreCliente, onClose
       setError(err.code === 'permission-denied'
         ? 'No se pudo publicar: solo puedes calificar una vez, y después de una cita tuya en este negocio.'
         : 'No se pudo publicar tu reseña. Intenta de nuevo.')
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setGuardando(false)

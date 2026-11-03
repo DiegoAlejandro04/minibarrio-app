@@ -141,7 +141,7 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
           ubicacionFinal = await geocodeDireccion(form.direccion)
         } catch (geoErr) {
           ubicacionFinal = null
-          // eslint-disable-next-line no-console
+           
           console.error(geoErr)
         }
       }
@@ -163,7 +163,7 @@ export default function EditarNegocioModal({ negocio, uid, onClose }) {
       onClose()
     } catch (err) {
       setError('No se pudo guardar la información. Intenta de nuevo.')
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setGuardando(false)

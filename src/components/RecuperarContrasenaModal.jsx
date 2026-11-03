@@ -49,7 +49,7 @@ export default function RecuperarContrasenaModal({ correoInicial = '', onClose }
         setError('Escribe un correo electrónico válido.')
       } else {
         setError('No se pudo enviar el correo. Revisa tu conexión e intenta de nuevo.')
-        // eslint-disable-next-line no-console
+         
         console.error(err)
       }
     } finally {

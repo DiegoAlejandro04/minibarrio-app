@@ -137,7 +137,7 @@ export default function OwnerAgenda() {
     ocupadosSincronizados.current = true
     const duraciones = Object.fromEntries(servicios.map((s) => [s.id, s.duracionMinutos]))
     sincronizarOcupados(uid, citas, duraciones).catch((err) => {
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     })
   }, [uid, citas, servicios])
@@ -268,7 +268,7 @@ export default function OwnerAgenda() {
       )
       setCitaAbierta(null)
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setGuardando(false)
@@ -630,7 +630,7 @@ function ModalSiguiente({ cita, cliente, servicio, enCurso, clienteEnCurso, onCo
       await onContratiempo(cita)
       setPaso('avisado')
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error(err)
       setError('No pudimos enviar el aviso. Revisa tu conexión e inténtalo de nuevo.')
     } finally {

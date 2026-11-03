@@ -68,7 +68,7 @@ export default function ClientConfiguracion() {
       setContrasenaActual('')
     } catch (err) {
       setError(mensajeError(err))
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setGuardando(false)

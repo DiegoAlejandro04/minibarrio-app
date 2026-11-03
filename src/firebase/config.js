@@ -21,7 +21,7 @@ const firebaseConfig = {
 
 if (!firebaseConfig.apiKey) {
   // Aviso amigable en consola si alguien olvidó crear su .env local.
-  // eslint-disable-next-line no-console
+   
   console.warn(
     '[MiniBarrio] Faltan las variables de entorno de Firebase. ' +
     'Copia .env.example a .env y complétalo con los datos del proyecto de Firebase.'

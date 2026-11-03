@@ -410,7 +410,7 @@ function FormularioProfesional({ uid, profesional, horariosNegocio, diasPorDefec
       onListo()
     } catch (err) {
       setError('No se pudo guardar. Intenta de nuevo.')
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setGuardando(false)

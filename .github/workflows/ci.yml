@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  calidad:
+    name: Lint y pruebas unitarias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint (ESLint, 0 advertencias)
+        run: npm run lint
+      - name: Pruebas unitarias (node:test)
+        run: npm test
+      - name: Build de producción
+        run: npm run build
+
+  reglas:
+    name: Pruebas de reglas Firestore (emulador)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Reglas de seguridad (ASR-02, ASR-04, ASR-06)
+        run: npm run test:reglas

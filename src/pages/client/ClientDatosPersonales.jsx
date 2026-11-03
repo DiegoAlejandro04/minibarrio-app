@@ -49,7 +49,7 @@ export default function ClientDatosPersonales() {
       setGuardado(true)
     } catch (err) {
       setError('No se pudieron guardar los cambios. Intenta de nuevo.')
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setGuardando(false)
@@ -88,7 +88,7 @@ export default function ClientDatosPersonales() {
       descartarImagen()
     } catch (err) {
       setErrorFoto('No pudimos guardar tu foto. Revisa tu conexión e inténtalo de nuevo.')
-      // eslint-disable-next-line no-console
+       
       console.error(err)
     } finally {
       setGuardandoFoto(false)

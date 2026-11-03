@@ -37,7 +37,7 @@ export default function ContratiempoModal({ cita, negocio, servicio, onReprogram
     try {
       await onReprogramar(cita)
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error(err)
       setError('No pudimos liberar tu turno. Revisa tu conexión e inténtalo de nuevo.')
       setReprogramando(false)
