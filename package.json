@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "node --test \"src/**/*.test.js\"",
-    "test:reglas": "firebase emulators:exec --only firestore --project demo-minibarrio \"node --test tests/reglas/\""
+    "test:reglas": "firebase emulators:exec --only firestore --project demo-minibarrio \"node --test tests/reglas/reglas.test.js\""
   },
   "dependencies": {
     "firebase": "^11.0.2",
