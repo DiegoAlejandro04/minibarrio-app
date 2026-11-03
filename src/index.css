@@ -4858,3 +4858,19 @@ option:disabled { color: var(--text-faint); }
 .variacion-ingresos.sube { background: color-mix(in oklch, var(--sage) 20%, transparent); color: color-mix(in oklch, var(--sage) 80%, var(--text)); }
 .variacion-ingresos.baja { background: color-mix(in oklch, var(--danger) 16%, transparent); color: color-mix(in oklch, var(--danger) 85%, var(--text)); }
 .variacion-ingresos.igual { background: var(--surface-2); color: var(--text-muted); }
+
+/* Aviso de las citas que el cliente ya tiene ese día (NegocioDetalle.jsx). */
+.reserva-aviso-propias {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in oklch, var(--accent) 55%, transparent);
+  background: color-mix(in oklch, var(--accent) 8%, transparent);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.reserva-aviso-propias svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }

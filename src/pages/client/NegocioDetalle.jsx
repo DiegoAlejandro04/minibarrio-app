@@ -19,6 +19,7 @@ import ReciboCita from '../../components/ReciboCita.jsx'
 import useIsMobile from '../../hooks/useIsMobile.js'
 import useEquipo from '../../hooks/useEquipo.js'
 import AvatarProfesional from '../../components/AvatarProfesional.jsx'
+import { citaQueChoca, intervalosDeCitas, turnosQueChocan } from '../../citasCliente.js'
 import {
   MAX_ADICIONALES, MAX_MINUTOS_EXTRA, detalleAdicional, nombreConAdicionales, totalesConAdicionales,
 } from '../../adicionales.js'
@@ -39,6 +40,7 @@ const COP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP',
 const SERVICIOS_VISIBLES = 6
 const FECHA_CORTA = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })
 const DIA_SEMANA_CORTO = new Intl.DateTimeFormat('es-CO', { weekday: 'short' })
+const HORA_CITA = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', hour12: true })
 const MES_CORTO = new Intl.DateTimeFormat('es-CO', { month: 'short' })
 // Días que se ofrecen para reservar, desde mañana.
 const DIAS_RESERVABLES = 14
@@ -204,24 +206,43 @@ export default function NegocioDetalle() {
   // Va antes de los return tempranos (cargando / no encontrado): es un hook.
   const { fotos: fotosPortafolio } = usePortafolio(negocio)
 
-  // Citas del propio cliente en este negocio: la reseña solo se habilita con
-  // una que ya pasó y no se canceló (reseña verificada, ver firestore.rules).
-  const [misCitas, setMisCitas] = useState([])
+  // Todas las citas del propio cliente (en cualquier negocio): para no dejarle
+  // reservar otra que se le cruce (ver citasCliente.js) y, las de este
+  // negocio, para la reseña verificada (una que ya pasó y no se canceló, ver
+  // firestore.rules).
+  const [todasMisCitas, setTodasMisCitas] = useState([])
   useEffect(() => {
     if (!currentUser || role !== 'cliente') {
-      setMisCitas([])
+      setTodasMisCitas([])
       return undefined
     }
-    const consulta = query(collection(db, 'citas'), where('clienteId', '==', currentUser.uid), where('negocioId', '==', id))
-    const unsub = onSnapshot(consulta, (snap) => setMisCitas(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+    const consulta = query(collection(db, 'citas'), where('clienteId', '==', currentUser.uid))
+    const unsub = onSnapshot(consulta, (snap) => setTodasMisCitas(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
     return unsub
-  }, [currentUser, role, id])
+  }, [currentUser, role])
+  const misCitas = useMemo(() => todasMisCitas.filter((c) => c.negocioId === id), [todasMisCitas, id])
   const citaParaResenar = useMemo(() => {
     const ahora = Date.now()
     return misCitas
       .filter((c) => c.estado !== 'cancelada' && c.fechaHora?.toMillis && c.fechaHora.toMillis() < ahora)
       .sort((a, b) => b.fechaHora.toMillis() - a.fechaHora.toMillis())[0] || null
   }, [misCitas])
+
+  // Duración y nombre del servicio de las citas en OTROS negocios que no
+  // traen su duración guardada (las de antes): se lee su servicio una vez.
+  const [serviciosExternos, setServiciosExternos] = useState({}) // "negocioId:servicioId" → { nombre, duracionMinutos } | null
+  useEffect(() => {
+    const ahora = Date.now()
+    todasMisCitas
+      .filter((c) => c.negocioId !== id && c.estado !== 'cancelada' && c.fechaHora?.toMillis?.() > ahora)
+      .map((c) => `${c.negocioId}:${c.servicioId}`)
+      .filter((clave, i, lista) => lista.indexOf(clave) === i && !(clave in serviciosExternos))
+      .forEach(async (clave) => {
+        const [negocioId, servicioId] = clave.split(':')
+        const snap = await getDoc(doc(db, 'negocios', negocioId, 'servicios', servicioId)).catch(() => null)
+        setServiciosExternos((prev) => ({ ...prev, [clave]: snap?.exists() ? snap.data() : null }))
+      })
+  }, [todasMisCitas, id, serviciosExternos])
 
   const rating = useMemo(() => {
     if (resenas.length === 0) return null
@@ -364,10 +385,37 @@ export default function NegocioDetalle() {
     return { slotsDelDia: slots, disponibilidad: mapa, asignarProfesional: asignar }
   }, [slotsNegocio, ocupados, totales, bloqueHorario, conEquipo, profesionalElegido, equipoHoy, fechaObj])
 
-  // Si al cambiar de servicio la hora elegida deja de caber, se deselecciona.
+  // Citas que ya tiene el cliente (en este o en otro negocio) y los turnos
+  // de este día en los que la nueva se le cruzaría: se bloquean ("propia"),
+  // aunque la persona del equipo esté libre.
+  const servicioDeCita = (c) => (c.negocioId === id
+    ? servicios.find((x) => x.id === c.servicioId)
+    : serviciosExternos[`${c.negocioId}:${c.servicioId}`])
+  const misIntervalos = useMemo(
+    () => intervalosDeCitas(
+      todasMisCitas.filter((c) => c.fechaHora?.toMillis?.() > Date.now() - 24 * 3600000),
+      (c) => c.duracionMinutos || servicioDeCita(c)?.duracionMinutos,
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [todasMisCitas, servicios, serviciosExternos, id]
+  )
+  const turnosPropios = useMemo(
+    () => turnosQueChocan(slotsDelDia, fecha, totales.duracionMinutos || MINUTOS_TURNO, misIntervalos),
+    [slotsDelDia, fecha, totales, misIntervalos]
+  )
+  // Las citas del cliente ese día, para explicarle por qué hay turnos bloqueados.
+  const misCitasDelDia = useMemo(
+    () => misIntervalos
+      .filter((i) => toDateInputValue(new Date(i.inicio)) === fecha)
+      .sort((a, b) => a.inicio - b.inicio),
+    [misIntervalos, fecha]
+  )
+
+  // Si al cambiar de servicio (o de servicios sumados) la hora elegida deja
+  // de caber o se cruza con otra cita del cliente, se deselecciona.
   useEffect(() => {
-    if (hora && disponibilidad.get(hora) !== 'libre') setHora(null)
-  }, [hora, disponibilidad])
+    if (hora && (disponibilidad.get(hora) !== 'libre' || turnosPropios.has(hora))) setHora(null)
+  }, [hora, disponibilidad, turnosPropios])
 
   const estado = negocio ? estadoApertura(negocio.horarios) : null
 
@@ -400,6 +448,13 @@ export default function NegocioDetalle() {
       return
     }
     if (!servicioSeleccionado || !hora) return
+
+    // Un cliente no puede tener dos citas que se crucen (ver citasCliente.js).
+    const choque = citaQueChoca(misIntervalos, new Date(`${fecha}T${hora}:00`).getTime(), totales.duracionMinutos)
+    if (choque) {
+      setError(`Ya tienes una cita a esa hora (${HORA_CITA.format(new Date(choque.inicio))}). Elige otro turno o cancela esa cita primero.`)
+      return
+    }
 
     // Con equipo, la cita va a la agenda de la persona elegida o, con
     // "Cualquiera", de la primera libre a esa hora.
@@ -1083,6 +1138,18 @@ export default function NegocioDetalle() {
                 </span>
               </div>
             )}
+            {currentUser && misCitasDelDia.length > 0 && (
+              <div className="reserva-aviso-propias">
+                <Icon name="calendar" size={14} />
+                <span>
+                  Ese día ya tienes {misCitasDelDia.length === 1 ? 'una cita' : `${misCitasDelDia.length} citas`}:{' '}
+                  {misCitasDelDia.map((i) => {
+                    const servicio = servicioDeCita(i.cita)
+                    return `${HORA_CITA.format(new Date(i.inicio))}${servicio?.nombre ? ` (${servicio.nombre})` : ''}`
+                  }).join(', ')}. Los turnos que se cruzan no se pueden elegir.
+                </span>
+              </div>
+            )}
             {!currentUser ? (
               <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 8 }}>
                 Inicia sesión para ver los turnos disponibles y reservar.
@@ -1097,19 +1164,23 @@ export default function NegocioDetalle() {
                   {(turnosExpandidos ? slotsDelDia : slotsDelDia.slice(0, 6)).map((s) => {
                     // Ocupado (tachado) o sin espacio para la duración del
                     // servicio (atenuado): en ambos casos no se puede elegir.
-                    const libre = disponibilidad.get(s) === 'libre'
+                    // Que se cruza con otra cita del propio cliente: marcado
+                    // aparte (borde punteado) para que se entienda por qué.
+                    const propio = turnosPropios.has(s)
+                    const libre = disponibilidad.get(s) === 'libre' && !propio
                     const ocupado = !libre
-                    const tachado = disponibilidad.get(s) === 'ocupado'
+                    const tachado = disponibilidad.get(s) === 'ocupado' && !propio
                     const seleccionado = hora === s
                     return (
                       <button
                         key={s}
                         type="button"
                         disabled={ocupado}
+                        title={propio ? 'Ya tienes otra cita a esta hora' : undefined}
                         onClick={() => { setHora(s); setCitaConfirmada(null) }}
                         style={{
                           fontSize: 12.5, fontWeight: 700, padding: '9px 0', borderRadius: 8,
-                          border: `1px solid ${seleccionado ? 'var(--accent)' : 'var(--vidrio-borde)'}`,
+                          border: `1px ${propio ? 'dashed' : 'solid'} ${seleccionado ? 'var(--accent)' : propio ? 'color-mix(in oklch, var(--accent) 55%, transparent)' : 'var(--vidrio-borde)'}`,
                           background: ocupado ? 'var(--surface-2)' : seleccionado ? 'var(--accent)' : 'var(--vidrio-campo)',
                           color: ocupado ? 'var(--text-faint)' : seleccionado ? '#fff' : 'var(--text)',
                           cursor: ocupado ? 'not-allowed' : 'pointer',
